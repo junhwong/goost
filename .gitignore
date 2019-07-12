@@ -1,0 +1,28 @@
+# Temporary
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.o
+*.swp
+*.out
+*.test
+*.log
+[Dd]esktop.ini
+Thumbs.db
+$RECYCLE.BIN/
+.DS_Store
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+/bin
+
+# Local or Security
+.local
+*.local
+.keystore
+*.keystore
+
+
