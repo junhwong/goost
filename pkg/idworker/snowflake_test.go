@@ -3,7 +3,6 @@ package idworker
 import (
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestGenSnowflakeID(t *testing.T) {
@@ -24,12 +23,6 @@ func TestGenSnowflakeID(t *testing.T) {
 	if sn != 27 {
 		t.Fatalf("sn:%v=>%v", 27, sn)
 	}
-}
-
-func TestUnixTime(t *testing.T) {
-	x, err := time.Parse(time.RFC3339Nano, "2019-01-01T00:00:00.0+08:00")
-	t.Log(x, err)
-	t.Log(timeGen(), twepoch, timeGen()-twepoch)
 }
 
 func benchmarkSnowflake(b *testing.B) int64 {
@@ -66,7 +59,7 @@ LOOP:
 				continue LOOP
 			}
 			if id == it {
-				b.Fatalf("重复ID:%v", id)
+				b.Fatalf("Duplicate ID:%v", id)
 			}
 			id = it
 		default:
