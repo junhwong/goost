@@ -2,7 +2,10 @@
   * log(go)
   * [zap](https://github.com/uber-go/zap)
   * [logrus](https://github.com/sirupsen/logrus)
-
+https://opentracing.io/
+https://www.w3.org/TR/trace-context/
+http://www.chinaw3c.org/
+https://opentelemetry.io/
 
 ```go
 // 标准接口

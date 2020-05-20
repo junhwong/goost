@@ -16,6 +16,8 @@ const (
 	StringKind
 	// SliceKind 表示一个数组
 	SliceKind
+	// MapKind 表示一个嵌套对象
+	MapKind
 	// IntKind 表示一个整数(int,int8,int16,int32,int64)=int64
 	IntKind
 	// UintKind 表示一个无符号整数(uint,uint8,uint16,uint32,uint64,byte)=uint64

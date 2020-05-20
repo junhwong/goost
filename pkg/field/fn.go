@@ -17,7 +17,7 @@ func String(name string) func(v string) *Field {
 	k := makeOrGetKey(name, StringKind)
 	return func(v string) *Field {
 		v = strings.TrimSpace(v)
-		return makeField(k, v, v != "")
+		return makeField(k, v, true)
 	}
 }
 func Stringf(name string) func(s string, a ...interface{}) *Field {
@@ -25,12 +25,38 @@ func Stringf(name string) func(s string, a ...interface{}) *Field {
 	return func(s string, a ...interface{}) *Field {
 		v := fmt.Sprintf(s, a...)
 		v = strings.TrimSpace(v)
-		return makeField(k, v, v != "")
+		return makeField(k, v, true)
 	}
 }
 
+// Slice 返回一个数组对象，值得键名将被忽略
+//	like json:
+//	```json
+//	{
+//		key: [1, "string", true]
+//	}
+//	```
+// 注意：嵌套对象的子健必须包含父级键名前缀，如：foo.bar。否则 panic
 func Slice(name string) func(v ...*Field) *Field {
 	k := makeOrGetKey(name, SliceKind)
+	return func(v ...*Field) *Field {
+		return makeField(k, v)
+	}
+}
+
+// Map 返回一个数组对象，值得键名将被忽略
+//	like json:
+//	```json
+//	{
+//  	key: {
+//			subkey: 1,
+//			subkey: "string"
+//		}
+//	}
+//	```
+// 注意：嵌套对象的子健必须包含父级键名前缀，如：foo.bar。否则 panic
+func Map(name string) func(v ...*Field) *Field {
+	k := makeOrGetKey(name, MapKind)
 	return func(v ...*Field) *Field {
 		return makeField(k, v)
 	}

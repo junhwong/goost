@@ -39,4 +39,15 @@ func TestLog(t *testing.T) {
 		Formatter: new(JsonFormatter),
 	}
 	std.Debug("here %s", "world", common.Message("bbq"))
+	span := std.SpanWithContext(nil)
+	// https://opentracing.io/docs/getting-started/
+	// .StartSpan("hello")
+	// .Finish()
+	span.Debug()
+}
+
+func TestX(t *testing.T) {
+	var v interface{} = 12
+	z, _ := v.(string)
+	t.Log(z)
 }

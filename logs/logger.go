@@ -2,19 +2,22 @@ package logs
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"sync"
+
+	"github.com/junhwong/goost/pkg/field/common"
 )
 
-// // Logger 纯日志接口
-// type Logger interface {
-// 	Debug(...interface{})
-// 	Info(...interface{})
-// 	Warn(...interface{})
-// 	Error(...interface{})
-// 	Fatal(...interface{})
-// 	Trace(...interface{})
-// }
+// ILogger 纯日志接口
+type ILogger interface {
+	Debug(...interface{})
+	Info(...interface{})
+	Warn(...interface{})
+	Error(...interface{})
+	Fatal(...interface{})
+	Trace(...interface{})
+}
 
 // type EntryHandler interface {
 // 	Handle(*Entry) error
@@ -133,19 +136,57 @@ func (logger *Logger) Error(a ...interface{}) { logger.newEntry().Error(a...) }
 func (logger *Logger) Fatal(a ...interface{}) { logger.newEntry().Fatal(a...) }
 func (logger *Logger) Trace(a ...interface{}) { logger.newEntry().Trace(a...) }
 
-func (*Logger) WithSpanContext() {
-
+type ISpanContext interface {
+	ILogger
+	GetTraceId() string
 }
 
 type SpanContext struct {
+	Context      context.Context
+	TranceID     string
+	SpanID       string
+	SpanParentID string
 }
 
-func (logger *SpanContext) newEntry() *Entry {
-	return nil
+func (span *SpanContext) GetTraceId() string { return span.TranceID }
+
+func (span *Span) newEntry() *Entry {
+	entry := span.logger.newEntry()
+	traceId := common.Message("bbq")
+	entry.Data[traceId.Key] = traceId
+	return entry
 }
-func (span *SpanContext) Debug(a ...interface{}) { span.newEntry().Debug(a...) }
-func (span *SpanContext) Info(a ...interface{})  { span.newEntry().Info(a...) }
-func (span *SpanContext) Warn(a ...interface{})  { span.newEntry().Warn(a...) }
-func (span *SpanContext) Error(a ...interface{}) { span.newEntry().Error(a...) }
-func (span *SpanContext) Fatal(a ...interface{}) { span.newEntry().Fatal(a...) }
-func (span *SpanContext) Trace(a ...interface{}) { span.newEntry().Trace(a...) }
+
+type Span struct {
+	ctx    context.Context
+	logger *Logger
+}
+
+func (span *Span) Debug(a ...interface{}) { span.newEntry().Debug(a...) }
+func (span *Span) Info(a ...interface{})  { span.newEntry().Info(a...) }
+func (span *Span) Warn(a ...interface{})  { span.newEntry().Warn(a...) }
+func (span *Span) Error(a ...interface{}) { span.newEntry().Error(a...) }
+func (span *Span) Fatal(a ...interface{}) { span.newEntry().Fatal(a...) }
+func (span *Span) Trace(a ...interface{}) { span.newEntry().Trace(a...) }
+
+func (logger *Logger) SpanWithContext(ctx context.Context) *Span {
+	if ctx == nil {
+		ctx = context.TODO()
+	}
+	ctx = context.WithValue(ctx, "trace-id", "")
+	ctx = context.WithValue(ctx, "span-id", "")
+	ctx = context.WithValue(ctx, "span-parentid", "")
+
+	var ic ISpanContext
+	ic.Info("")
+
+	return &Span{ctx, logger}
+}
+
+func (logger *Logger) SpanFromContext(ctx context.Context) *Span {
+	span, _ := ctx.Value("goost.logs.span").(*Span)
+	if span == nil {
+		span = logger.SpanWithContext(ctx)
+	}
+	return span
+}

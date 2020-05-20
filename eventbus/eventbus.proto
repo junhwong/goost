@@ -17,7 +17,10 @@ message Event {
     // 事件类型。
     // 如：{apiVerion}/{kind}/{verb} = v1/Pod/POST  v1/loging.PUSH
     string type = 2;
-    Timestamp time = 4;
-    map header = 5;
+    google.protobuf.Timestamp time = 4;
+    map<string, string> header = 5;
     bytes data = 6;
 }
+
+// go test -timeout 1200s github.com/junhwong/goost/eventbus -run ^TestClient$ -v -count=1 -parallel=4
+// go test -timeout 1200s github.com/junhwong/goost/eventbus -run ^TestServer$ -v -count=1 -parallel=4

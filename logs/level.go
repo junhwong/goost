@@ -27,7 +27,7 @@ var levelMap = map[Level]string{
 }
 
 var levelShortMap = map[Level]string{
-	UnsetLevel:   "U",
+	UnsetLevel:   "-",
 	DebugLevel:   "D",
 	InfoLevel:    "I",
 	WarningLevel: "W",
@@ -46,17 +46,17 @@ func (lvl Level) Short() string {
 // ParseLevel return a Level from given string.
 func ParseLevel(s string) Level {
 	switch strings.TrimSpace(strings.ToUpper(s)) {
-	case "DEBUG", "D":
+	case "D", "DEBUG":
 		return DebugLevel
-	case "INFO", "I":
+	case "I", "INFO":
 		return InfoLevel
-	case "WARN", "W", "WARNING", "ALERT", "NOTICE":
+	case "W", "WARNING", "WARN", "ALERT", "NOTICE":
 		return WarningLevel
-	case "ERROR", "E", "PANIC", "ERR":
+	case "E", "ERROR", "PANIC", "ERR":
 		return ErrorLevel
-	case "FATAL", "F", "CRITICAL", "EMERG", "CRIT":
+	case "F", "FATAL", "CRITICAL", "EMERG", "CRIT":
 		return FatalLevel
-	case "TRACE", "T":
+	case "T", "TRACE":
 		return TraceLevel
 	}
 	return UnsetLevel
