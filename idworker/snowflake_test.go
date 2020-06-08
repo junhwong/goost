@@ -2,6 +2,8 @@ package idworker
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -70,7 +72,9 @@ import (
 // 	return count
 
 // }
-
+func TestNextId(t *testing.T) {
+	NextId()
+}
 func BenchmarkNextId(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.Log(NextId())
@@ -139,14 +143,26 @@ func TestLong(t *testing.T) {
 }
 
 func TestA(t *testing.T) {
+
 	t.Parallel()
 	for i := 0; i < 100; i++ {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			t.Parallel()
-			for j := 0; j < 10000; j++ {
-				NextId()
+			f, err := os.OpenFile("/home/devshost/works/goost/tmp.id", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			for j := 0; j < 100; j++ {
+				id := NextId()
+
+				_, err = f.WriteString(strconv.FormatUint(uint64(id), 10) + "\n")
+				if err != nil {
+					t.Fatal(err)
+				}
+				f.Sync()
+				// ioutil.WriteFile("/home/devshost/works/goost/tmp.id", []byte(strconv.FormatUint(uint64(id), 10)), os.ModeAppend)
 			}
 		})
-
 	}
 }

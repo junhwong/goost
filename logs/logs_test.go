@@ -1,6 +1,8 @@
 package logs
 
 import (
+	"context"
+	"log"
 	"os"
 	"testing"
 
@@ -38,16 +40,37 @@ func TestLog(t *testing.T) {
 		Out:       os.Stdout,
 		Formatter: new(JsonFormatter),
 	}
+
 	std.Debug("here %s", "world", common.Message("bbq"))
-	span := std.SpanWithContext(nil)
+}
+
+func TestSpan(t *testing.T) {
+	std := Logger{
+		Out:       os.Stdout,
+		Formatter: new(JsonFormatter),
+	}
+	span := std.WithSpan(context.TODO(), "test/abc123")
+	defer span.Finish()
 	// https://opentracing.io/docs/getting-started/
 	// .StartSpan("hello")
 	// .Finish()
-	span.Debug()
+
+	span.Debug("hello span")
 }
 
 func TestX(t *testing.T) {
 	var v interface{} = 12
 	z, _ := v.(string)
 	t.Log(z)
+	log.SetPrefix("[abc]")
+	log.Println("hhhh")
+}
+
+func TestIDgen(t *testing.T) {
+	t.Log(newTraceId())
+	t.Log(newTraceId())
+	t.Log(newTraceId())
+	t.Log(newTraceId())
+	t.Log(newTraceId())
+	t.Log(newTraceId())
 }

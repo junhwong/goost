@@ -12,7 +12,7 @@ var (
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
-	gen, err := NewLongSnowflakeIdBuilder().Build()
+	gen, err := NewIdBuilder("default").Build()
 	if err != nil {
 		panic(err)
 	}
@@ -20,7 +20,7 @@ func init() {
 }
 
 // ID 表示一个分布式唯一标识
-type ID string // 数据库主键，配合模糊查询
+type ID uint64
 
 type IDGenerator func() ID
 
