@@ -11,6 +11,7 @@ require (
 	github.com/golang/protobuf v1.3.5
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/gorilla/mux v1.7.4 // indirect
+	github.com/json-iterator/go v1.1.7
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/sirupsen/logrus v1.5.0 // indirect
