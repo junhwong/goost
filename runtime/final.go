@@ -5,6 +5,10 @@ import (
 	"io"
 )
 
+type Finalizer interface {
+	Finalize() error
+}
+
 func Finalize(finalizer interface{}) {
 	if finalizer == nil {
 		panic("finalizer cannot be nil")
@@ -15,6 +19,8 @@ func Finalize(finalizer interface{}) {
 		err = ins()
 	case io.Closer:
 		err = ins.Close()
+	case Finalizer:
+		err = ins.Finalize()
 	default:
 		//todo:
 	}
