@@ -2,9 +2,10 @@ package idworker
 
 import (
 	"fmt"
-	"hash/crc32"
 	"os"
 	"time"
+
+	"github.com/junhwong/goost/runtime"
 )
 
 func WorkerWithHash(data []byte, max uint64) (uint64, error) {
@@ -14,10 +15,14 @@ func WorkerWithHash(data []byte, max uint64) (uint64, error) {
 	if len(data) == 0 {
 		return 0, fmt.Errorf("data cannot be nil or empty")
 	}
-	id := crc32.ChecksumIEEE(data) % uint32(max)
+	id := uint64(runtime.HashCode(data)) % max
+	// id := crc32.ChecksumIEEE(data) % uint32(max)
 	return uint64(id), nil
 }
 
+// WorkerWithPodIDOrHostname 获取工作节点ID.
+// 算法:
+//		hash(env.podid || hostname) % max
 func WorkerWithPodIDOrHostname(max uint64) (uint64, error) {
 	name, ok := os.LookupEnv("POD_ID")
 	if !ok || name == "" {

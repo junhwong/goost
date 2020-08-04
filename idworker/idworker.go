@@ -12,11 +12,11 @@ var (
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
-	gen, err := NewIdBuilder("default").Build()
+	gen, err := NewIdBuilder("default", DefaultLayout).Build()
 	if err != nil {
 		panic(err)
 	}
-	defaultGen = gen
+	_ = SetDefault(gen)
 }
 
 // ID 表示一个分布式唯一标识
