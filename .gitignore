@@ -25,4 +25,4 @@ $RECYCLE.BIN/
 .keystore
 *.keystore
 tmp.id
-
+/tmp
