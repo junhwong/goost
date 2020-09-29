@@ -1,58 +1,104 @@
 package currency
 
-// Currency 货币。系统代表本位币，始终是1，如人民币 1元=10000毫。4位小数 0.0001
-//
-// bug() 比特币的最小单位是一个中本聪，等于0.00000001个比特币。
-type Currency int64
-
-const (
-	currencyBase  Currency = 10000
-	currencyBasef float64  = 10000
-
-	// CurrencyMaxValue 货币的最大值， 90.22兆
-	CurrencyMaxValue Currency = 9223372036854775800
-	// CurrencyMinValue 货币的最小值
-	CurrencyMinValue Currency = -9223372036854775800
+import (
+	"errors"
+	"strings"
+	"sync/atomic"
 )
 
-// BaseCurrencyCode 本位币代码
-var BaseCurrencyCode string = "CNY"
+const (
+	// MoneyMaxValue 货币的最大值， 90.22兆
+	MoneyMaxValue Money = 9223372036854775800
+	// MoneyMinValue 货币的最小值
+	MoneyMinValue Money = -9223372036854775800
+	// Precision 用于存储和转换货币相对于系统的精度，也用于format。
+	// 最大值是8。
+	// 如人民币: 1元=10000毫。4位小数为 0.0001元，即 1Currency=0.0001元
+	Precision uint8 = 4
+	// BaseCurrencyCode 表示本位币代码。
+	BaseCurrencyCode CurrencyCode = "CNY"
+)
 
-// CurrencyPair 货币对。 https://www.investopedia.com/terms/c/currencypair.asp
+func init() {
+	// 如果编译改变该值将会检测到它的准确性
+	if BaseCurrencyCode.Invalid() {
+		panic("currency: Invalid BaseCurrencyCode: " + string(BaseCurrencyCode))
+	}
+	defines.Store(map[CurrencyCode]*CurrencyPair{})
+}
+
+// // CurrencyPair 表示一个相对于本位币的货币对。
+// type CurrencyPair interface {
+// 	Code() CurrencyCode
+// 	Rate() Money
+// 	Format(money Money, withoutCode ...bool) string
+// 	Invalid() bool
+// }
+
+// CurrencyPair 表示一个相对于本位币的货币对。
 type CurrencyPair struct {
-	// 本位币 ISO Currency Code
-	BaseCode string
-	// 报价货币 ISO Currency Code
-	QuoteCode string
-	// 汇率, *10000
-	ExchangeRate int32
+	code CurrencyCode
+	rate Money
 }
 
-// 转换为本位币
-func (cp CurrencyPair) Exchange(quote Currency) Currency {
-	return 0
+func (p *CurrencyPair) Code() CurrencyCode {
+	return p.code
+}
+func (p *CurrencyPair) Rate() Money {
+	return p.rate
+}
+func (p *CurrencyPair) Invalid() bool {
+	if p == nil || p.rate < 1 {
+		return true
+	}
+	return p.code.Invalid()
+}
+func (p *CurrencyPair) Format(m Money, withoutCode ...bool) string {
+	code := CurrencyCode("")
+	if p != nil {
+		code = p.code
+	}
+	return m.Format(code, Precision, withoutCode...)
 }
 
-func ParseE(fullValue interface{}) (Currency, error) {
-	return 0, nil
-	//   f,err:= cast.float64E(fullValue)
-	//   if err!=nil{
-	//     return 0, err
-	//   }
-	//   return Currency(f * currencyBasef)
+var (
+	baseCurrency = &CurrencyPair{BaseCurrencyCode, 1}
+	defines      = atomic.Value{}
+)
+
+func Define(code string, exchangeRate Money) (*CurrencyPair, error) {
+	c := CurrencyCode(strings.ToUpper(strings.TrimSpace(code)))
+	if c.Invalid() {
+		return nil, errors.New("Invalid currency code: " + code)
+	}
+	if c == BaseCurrencyCode {
+		return nil, errors.New("Cannot set base currency: " + code)
+	}
+	dirty := map[CurrencyCode]*CurrencyPair{}
+	if p := defines.Load().(map[CurrencyCode]*CurrencyPair); p != nil {
+		for k, v := range p {
+			dirty[k] = v
+		}
+	}
+	def := &CurrencyPair{
+		code: c,
+		rate: exchangeRate,
+	}
+	dirty[c] = def
+	defines.Store(dirty)
+	return def, nil
 }
 
-func Parse(fullValue interface{}) Currency {
-	v, _ := ParseE(fullValue)
-	return v
-}
-
-// 转换为交易金额字符串，2位小数。
-func (c Currency) TradeString() string {
-	return ""
-}
-
-// 4位小数金额。
-func (c Currency) String() string {
-	return ""
+func Currency(code string) *CurrencyPair {
+	c := CurrencyCode(code)
+	if c == BaseCurrencyCode {
+		return baseCurrency
+	}
+	if p := defines.Load().(map[CurrencyCode]*CurrencyPair); p != nil {
+		def := p[c]
+		if def != nil {
+			return def
+		}
+	}
+	return nil
 }
