@@ -1,4 +1,12 @@
-package logs
+package apm
+
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/junhwong/goost/runtime"
+)
 
 // var (
 // 	Root RootLogger = &DefaultLogger{Prefix: "default"}
@@ -23,3 +31,28 @@ package logs
 // 	debug.PrintStack()
 // 	os.Exit(1)
 // }
+var std = Logger{
+	Out:       os.Stdout,
+	queue:     make(chan *Entry, 1000),
+	Formatter: new(JsonFormatter),
+}
+
+func init() {
+	ctx, cancel := context.WithCancel(context.TODO())
+	std = Logger{
+		Out:       os.Stdout,
+		queue:     make(chan *Entry, 1000),
+		Formatter: new(JsonFormatter),
+		cancel:    cancel,
+	}
+	go std.Run(ctx.Done())
+}
+func Run(stopCh runtime.StopCh) {
+	std.Run(stopCh)
+}
+func Done() {
+	std.cancel()
+	time.Sleep(time.Second) // TODO 不延迟处理
+
+	std.flush()
+}

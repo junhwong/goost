@@ -1,7 +1,8 @@
-package logs
+package apm
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -22,13 +23,19 @@ func (f *JsonFormatter) Format(entry *Entry, dest *bytes.Buffer) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = fmt.Fprintf(dest, `"level":%q,`, entry.Level)
+	_, err = fmt.Fprintf(dest, `"level":%q`, entry.Level)
 	if err != nil {
 		return
 	}
-	_, err = fmt.Fprintf(dest, `"time":%q,`, entry.Time.Format(time.RFC3339))
+	_, err = fmt.Fprintf(dest, `,"time":%q`, entry.Time.Format(time.RFC3339))
 	if err != nil {
 		return
+	}
+	if entry.Message != "" {
+		_, err = fmt.Fprintf(dest, `,"message":%q`, entry.Message)
+		if err != nil {
+			return
+		}
 	}
 	for _, it := range entry.Data {
 		if !it.IsValid() {
@@ -40,16 +47,26 @@ func (f *JsonFormatter) Format(entry *Entry, dest *bytes.Buffer) (err error) {
 		case "level", "time", "message":
 			name = "_field." + name
 		}
-		_, err = fmt.Fprintf(dest, `%q:%s,`, name, it.GetValue())
+		val := it.GetValue()
+		if val == nil {
+			continue
+		}
+		var data []byte
+		data, err = json.Marshal(val)
+		if err != nil {
+			return
+		}
+		_, err = fmt.Fprintf(dest, `,%q:%s`, name, data)
 		if err != nil {
 			return
 		}
 	}
-	_, err = fmt.Fprintf(dest, `"message":%q`, entry.Message)
+
+	err = dest.WriteByte('}')
 	if err != nil {
 		return
 	}
-	err = dest.WriteByte('}')
+	err = dest.WriteByte('\n')
 	return
 }
 

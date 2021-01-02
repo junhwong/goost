@@ -1,4 +1,4 @@
-package logs
+package apm
 
 type ConsoleHandler struct {
 }

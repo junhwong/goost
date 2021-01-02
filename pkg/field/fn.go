@@ -3,6 +3,7 @@ package field
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 func makeField(k Key, v interface{}, b ...bool) *Field {
@@ -17,7 +18,7 @@ func String(name string) func(v string) *Field {
 	k := makeOrGetKey(name, StringKind)
 	return func(v string) *Field {
 		v = strings.TrimSpace(v)
-		return makeField(k, v, true)
+		return makeField(k, v, v != "")
 	}
 }
 func Stringf(name string) func(s string, a ...interface{}) *Field {
@@ -28,23 +29,34 @@ func Stringf(name string) func(s string, a ...interface{}) *Field {
 		return makeField(k, v, true)
 	}
 }
+func Strings(name string) func(a ...interface{}) *Field {
+	k := makeOrGetKey(name, StringsKind)
+	return func(a ...interface{}) *Field {
+		return makeField(k, a, true)
+	}
+}
 
-// Slice 返回一个数组对象，值得键名将被忽略
+// Slice 返回一个数组对象
 //	like json:
 //	```json
 //	{
 //		key: [1, "string", true]
 //	}
 //	```
-// 注意：嵌套对象的子健必须包含父级键名前缀，如：foo.bar。否则 panic
-func Slice(name string) func(v ...*Field) *Field {
+func Slice(name string, dataType ...KeyKind) func(v ...interface{}) *Field {
+	dt := StringKind
+	for _, t := range dataType {
+		dt = t
+	}
 	k := makeOrGetKey(name, SliceKind)
-	return func(v ...*Field) *Field {
-		return makeField(k, v)
+	return func(v ...interface{}) *Field {
+		f := makeField(k, v)
+		f.sliceDataType = dt
+		return f
 	}
 }
 
-// Map 返回一个数组对象，值得键名将被忽略
+// Map 返回一个嵌套对象
 //	like json:
 //	```json
 //	{
@@ -54,7 +66,6 @@ func Slice(name string) func(v ...*Field) *Field {
 //		}
 //	}
 //	```
-// 注意：嵌套对象的子健必须包含父级键名前缀，如：foo.bar。否则 panic
 func Map(name string) func(v ...*Field) *Field {
 	k := makeOrGetKey(name, MapKind)
 	return func(v ...*Field) *Field {
@@ -94,39 +105,59 @@ func Int64(name string) func(v int64) *Field {
 }
 
 func Uint(name string) func(v uint) *Field {
-	k := makeOrGetKey(name, UintKind)
+	k := makeOrGetKey(name, IntKind)
 	return func(v uint) *Field {
-		return makeField(k, uint64(v))
+		return makeField(k, int64(v))
 	}
 }
 func Uint8(name string) func(v uint8) *Field {
-	k := makeOrGetKey(name, UintKind)
+	k := makeOrGetKey(name, IntKind)
 	return func(v uint8) *Field {
-		return makeField(k, uint64(v))
+		return makeField(k, int64(v))
 	}
 }
 func Uint16(name string) func(v uint16) *Field {
-	k := makeOrGetKey(name, UintKind)
+	k := makeOrGetKey(name, IntKind)
 	return func(v uint16) *Field {
-		return makeField(k, uint64(v))
+		return makeField(k, int64(v))
 	}
 }
 func Uint32(name string) func(v uint32) *Field {
-	k := makeOrGetKey(name, UintKind)
+	k := makeOrGetKey(name, IntKind)
 	return func(v uint32) *Field {
-		return makeField(k, uint64(v))
+		return makeField(k, int64(v))
 	}
 }
 func Uint64(name string) func(v uint64) *Field {
-	k := makeOrGetKey(name, UintKind)
+	k := makeOrGetKey(name, IntKind)
 	return func(v uint64) *Field {
-		return makeField(k, v)
+		return makeField(k, int64(v))
 	}
 }
+func Duration(name string) func(v time.Duration) *Field {
+	k := makeOrGetKey(name, IntKind)
+	return func(v time.Duration) *Field {
+		return makeField(k, v.Nanoseconds(), v >= 0)
+	}
+}
+
 func Byte(name string) func(v byte) *Field {
-	k := makeOrGetKey(name, UintKind)
+	k := makeOrGetKey(name, IntKind)
 	return func(v byte) *Field {
-		return makeField(k, uint64(v))
+		return makeField(k, int64(v))
+	}
+}
+
+func Float32(name string) func(v float32) *Field {
+	k := makeOrGetKey(name, FloatKind)
+	return func(v float32) *Field {
+		return makeField(k, float64(v))
+	}
+}
+func Float(name string) func(v float64) *Field {
+	k := makeOrGetKey(name, FloatKind)
+	return func(v float64) *Field {
+		return makeField(k, float64(v))
 	}
 }
 

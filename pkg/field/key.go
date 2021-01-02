@@ -10,20 +10,17 @@ import (
 type KeyKind uint
 
 const (
-	// InvalidKind 表示无效的字段，将被忽略
-	InvalidKind KeyKind = iota
-	// StringKind 表示一个字符串
-	StringKind
-	// SliceKind 表示一个数组
-	SliceKind
-	// MapKind 表示一个嵌套对象
-	MapKind
-	// IntKind 表示一个整数(int,int8,int16,int32,int64)=int64
-	IntKind
-	// UintKind 表示一个无符号整数(uint,uint8,uint16,uint32,uint64,byte)=uint64
-	UintKind
-	// FloatKind 表示一个浮点数(float32,float64)=float64
-	FloatKind
+	InvalidKind KeyKind = iota // 表示无效的字段，将被忽略
+	StringKind                 // 表示一个字符串
+	SliceKind                  // 表示一个数组
+	MapKind                    // 表示一个嵌套对象
+	IntKind                    // 表示一个整数 int64
+	FloatKind                  // 表示一个浮点数(float32,float64)=float64
+	// // UintKind 表示一个无符号整数(uint,uint8,uint16,uint32,uint64,byte)=uint64
+	// UintKind
+	StringsKind // 表示一个数组
+	IntsKind    // 表示一个数组
+	FloatsKind  // 表示一个数组
 )
 
 var (
@@ -36,8 +33,11 @@ var (
 var kindNames = map[KeyKind]string{
 	InvalidKind: "",
 	StringKind:  "string",
+	StringsKind: "strings",
 	SliceKind:   "slice",
+	MapKind:     "map",
 	IntKind:     "int",
+	FloatKind:   "float",
 }
 
 // Key 表示一个统一规范的 key/value 结构的键名称。
@@ -66,6 +66,9 @@ func (k *key) String() string {
 func makeOrGetKey(name string, kind KeyKind) Key {
 	if !IsValidKeyName(name) {
 		panic(fmt.Errorf("Invalid key name: %s", name))
+	}
+	if kind <= InvalidKind || kind > FloatsKind {
+		panic(fmt.Errorf("Out of range KeyKind: %v", kind))
 	}
 	obj, _ := keys.LoadOrStore(name, &key{name: name, kind: kind})
 	if key := obj.(*key); key != nil && key.kind == kind {

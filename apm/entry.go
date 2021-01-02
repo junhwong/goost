@@ -1,9 +1,8 @@
-package logs
+package apm
 
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -25,40 +24,43 @@ type Field = field.Field
 
 // Entry 单条日志记录
 type Entry struct {
-	Logger  *Logger   // 处理器
+	equeue  func(entry *Entry)
 	Time    time.Time // 时间戳
 	Level   Level     // 日志级别
 	Message string    // 消息
 	Data    Fields    // 附加数据
 }
 
-func NewEntry(logger *Logger) *Entry {
+func NewEntry(equeue func(entry *Entry)) *Entry {
 	return &Entry{
-		Logger: logger,
+		equeue: equeue,
 		Data:   make(Fields, 5),
 	}
 }
 
-func (entry Entry) log(lvl Level, args []interface{}) {
-	if entry.Logger == nil {
+func (entry *Entry) log(lvl Level, args []interface{}) {
+	if entry.equeue == nil {
 		return
 	}
-	defer entry.Logger.releaseEntry(&entry)
+	// defer entry.Logger.releaseEntry(entry)
 
-	if entry.Logger.level() > entry.Level && len(args) == 0 {
-		return
-	}
-
-	format, fmtok := args[0].(string)
-
-	if fmtok {
-		if format == "" {
-			fmtok = false
-		}
-		args = args[1:]
-	}
+	// if entry.Logger.level() > entry.Level && len(args) == 0 {
+	// 	return
+	// }
 	entry.Level = lvl
-	entry.Time = time.Now()
+	if entry.Time.IsZero() {
+		entry.Time = time.Now()
+	}
+	format, fmtok := "", false
+	if len(args) > 0 {
+		format, fmtok = args[0].(string)
+		if fmtok {
+			if format == "" {
+				fmtok = false
+			}
+			args = args[1:]
+		}
+	}
 
 	a := []interface{}{}
 	for _, f := range args {
@@ -78,24 +80,8 @@ func (entry Entry) log(lvl Level, args []interface{}) {
 		entry.Message = format
 	}
 
-	buf := bufferPool.Get().(*bytes.Buffer)
-	defer bufferPool.Put(buf)
-	buf.Reset()
-	err := entry.Logger.format(&entry, buf)
-	if err != nil {
-		entry.Logger.mu.Lock()
-		fmt.Fprintf(os.Stderr, "Failed to obtain reader, %v\n", err)
-		entry.Logger.mu.Unlock()
-		return
-	}
+	entry.equeue(entry)
 
-	err = entry.Logger.write(buf)
-	if err != nil {
-		entry.Logger.mu.Lock()
-		fmt.Fprintf(os.Stderr, "Failed to write to log, %v\n", err)
-		entry.Logger.mu.Unlock()
-		return
-	}
 }
 
 func (e *Entry) Debug(args ...interface{}) { e.log(DebugLevel, args) }

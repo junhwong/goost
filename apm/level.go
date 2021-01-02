@@ -1,9 +1,9 @@
-package logs
+package apm
 
 import "strings"
 
 // Level type.
-type Level uint16
+type Level uint8
 
 // log levels.
 const (

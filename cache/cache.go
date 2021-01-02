@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+//http://www.ehcache.org/documentation/3.8/107.html
+
 // IndexFunc knows how to compute the set of indexed values for an object.
 type IndexFunc func(obj interface{}) ([]string, error)
 

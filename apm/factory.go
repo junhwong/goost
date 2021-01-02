@@ -1,4 +1,4 @@
-package logs
+package apm
 
 // var root = &Factory{
 // 	Handler: NewFormatHandler(DEBUG, "${level|-5s} [${time|yyyy-MM-ddTHH:mm:ssS}] ${message}\n", nil),
