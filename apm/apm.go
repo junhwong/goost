@@ -4,7 +4,10 @@ import (
 	"context"
 )
 
-var std *DefaultLogger
+var (
+	std  *DefaultLogger
+	defi Interface
+)
 
 func init() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -14,6 +17,7 @@ func init() {
 		cancel:   cancel,
 	}
 	go std.Run(ctx.Done())
+	defi = New(context.Background())
 }
 
 func Done() {
@@ -32,8 +36,12 @@ type Interface interface {
 	SpanInterface
 }
 
-func Default() Adapter {
+func GetAdapter() Adapter {
 	return std
+}
+
+func Default() Interface {
+	return defi
 }
 
 func AddHandlers(handlers ...Handler) {
