@@ -18,7 +18,7 @@ $RECYCLE.BIN/
 .TemporaryItems
 .Trashes
 /bin
-
+/target
 # Local or Security
 .local
 *.local
@@ -26,3 +26,7 @@ $RECYCLE.BIN/
 *.keystore
 tmp.id
 /tmp
+
+
+# go
+go.sum

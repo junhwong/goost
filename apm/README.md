@@ -5,11 +5,7 @@
 ```go
 
 func main(){
-  ch := runtime.ListenTerminate()
-  apm.SetHandler(custom) //
-  go apm.RunOrDie(settings, ch)
-
-  //其它初始化...
+  // TBD ...
 }
 
 

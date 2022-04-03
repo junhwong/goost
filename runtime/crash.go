@@ -73,9 +73,9 @@ func PanicIf(err error) {
 
 /////
 
-type StopCh <-chan struct{}
+type StopCh = <-chan struct{}
 
-func ListenTerminate() StopCh {
+func AwaitTermination() StopCh {
 	ch := make(chan struct{})
 	go func() {
 		sigch := make(chan os.Signal, 1)

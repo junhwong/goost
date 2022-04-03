@@ -4,7 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/junhwong/goost/apm/level"
+	"github.com/junhwong/goost/pkg/field"
+	"github.com/spf13/cast"
 )
 
 // Formatter 表示一个格式化器。
@@ -12,176 +17,89 @@ type Formatter interface {
 	// Format 格式化一条日志。
 	//
 	// 注意：不要缓存 `entry`, `dest` 对象，因为它们是池化对象。
-	Format(entry *Entry, dest *bytes.Buffer) (err error)
+	Format(entry Entry, dest *bytes.Buffer) (err error)
 }
+
+var _ Formatter = (*JsonFormatter)(nil)
 
 type JsonFormatter struct {
+	layout string
 }
 
-func (f *JsonFormatter) Format(entry *Entry, dest *bytes.Buffer) (err error) {
-	err = dest.WriteByte('{')
-	if err != nil {
-		return
-	}
-	_, err = fmt.Fprintf(dest, `"level":%q`, entry.Level)
-	if err != nil {
-		return
-	}
-	_, err = fmt.Fprintf(dest, `,"time":%q`, entry.Time.Format(time.RFC3339))
-	if err != nil {
-		return
-	}
-	if entry.Message != "" {
-		_, err = fmt.Fprintf(dest, `,"message":%q`, entry.Message)
+func (f *JsonFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
+	settings := FormatSettings{TrimFieldPrefix: []string{"apm."}}
+	writeByte := func(c byte) {
 		if err != nil {
 			return
 		}
+		err = dest.WriteByte(c)
 	}
-	for _, it := range entry.Data {
-		if !it.IsValid() {
-			continue
+	fprintf := func(format string, a ...interface{}) {
+		if err != nil {
+			return
 		}
+		_, err = fmt.Fprintf(dest, format, a...)
+	}
 
-		name := it.Key.Name()
-		switch name {
-		case "level", "time", "message":
-			name = "_field." + name
+	writeByte('{')
+	fs := field.Fields(entry)
+	lvl := level.String(entry.GetLevel())
+	if lvl != "" {
+		fprintf(`"level":%q`, lvl)
+	}
+	fs.Del(LevelKey)
+	if f := fs.Del(TimeKey); f != nil && f.Valid() {
+		t, err := cast.ToTimeE(f.Value)
+		if err == nil && !t.IsZero() {
+			fprintf(`,"time":%q`, t.Format(time.RFC3339Nano))
 		}
-		val := it.GetValue()
-		if val == nil {
+	}
+
+	if f := fs.Del(MessageKey); f != nil && f.Valid() {
+		fprintf(`,"message":%q`, f.Value)
+	}
+
+	for _, it := range entry {
+		if !it.Valid() {
+			fmt.Println("apm: skip") // TODO devop log
 			continue
 		}
+		val := it.Value // it.GetValue()
+		// if val == nil {
+		// 	continue
+		// }
 		var data []byte
 		data, err = json.Marshal(val)
 		if err != nil {
 			return
 		}
-		_, err = fmt.Fprintf(dest, `,%q:%s`, name, data)
-		if err != nil {
-			return
+
+		name := it.Key.Name()
+		for _, prefix := range settings.TrimFieldPrefix {
+			name = strings.TrimSpace(strings.TrimPrefix(name, prefix))
 		}
+		if len(name) == 0 {
+			fmt.Println("apm: skip entry: name") // TODO devop log
+			continue
+		}
+
+		switch name {
+		case "level", "time", "message":
+			name = "data." + name
+		}
+
+		fprintf(`,%q:%s`, name, data)
 	}
 
-	err = dest.WriteByte('}')
-	if err != nil {
-		return
-	}
-	err = dest.WriteByte('\n')
+	writeByte('}')
+	writeByte('\n')
 	return
 }
 
-// // Field 表示一个日志标签。
-// //
-// // 注意：不建议直接使用该结构初始化，应该使用 `logs.String()`, `logs.Int()`等这类辅助方法创建。
-// type Field struct {
-// 	// 命名规则 `[a-z][a-z0-9_]*`根据木桶原理，由当前市面上比较流行的几种存储和分析软件调整而来。
-// 	//
-// 	// - MySQL and Systemd-Journal.
-// 	//
-// 	// - [Elasticsearch](https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html)
-// 	//
-// 	// - [InfluxDB](https://v2.docs.influxdata.com/v2.0/reference/line-protocol/#naming-restrictions)
-// 	//
-// 	// - [Prometheus](https://prometheus.io/docs/concepts/data_model/)
-// 	Name    string
-// 	Value   interface{}
-// 	Index   bool
-// 	NoIndex bool
-// 	Type    FieldKind
-// }
+func (f *JsonFormatter) FormatWith(entry Entry, cb func(err error, buf *bytes.Buffer)) {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	defer bufferPool.Put(buf)
+	buf.Reset()
+	cb(f.Format(entry, buf), buf)
 
-// // MarkIndex 标记为索引
-// func (f *Field) MarkIndex(force ...bool) *Field {
-// 	switch {
-// 	case f.Index && f.Type == FKInvalid || f.Type == FKTriceback:
-// 	case f.Type != FKString && len(force) > 0 && force[0]:
-// 		f.Value = fmt.Sprint(f.Value)
-// 		f.Type = FKString
-// 		f.Index = true
-// 	case f.Type == FKString:
-// 		f.Index = true
-// 	}
-// 	return f
-// }
-
-// var nameRegex = regexp.MustCompile(`[a-z][a-z0-9_]*`)
-
-// func newField(n string, v interface{}, t FieldKind) *Field {
-// 	if v == nil || !nameRegex.MatchString(n) {
-// 		t = FKInvalid
-// 	}
-// 	f := &Field{
-// 		Name:  n,
-// 		Value: v,
-// 		Type:  t,
-// 	}
-// 	return f
-// }
-
-// func Any(name string, value interface{}) *Field {
-// 	switch v := value.(type) {
-// 	case int:
-// 		return newField(name, int64(v), FKInteger)
-// 	case uint:
-// 		return newField(name, int64(v), FKInteger)
-// 	case int16:
-// 		return newField(name, int64(v), FKInteger)
-// 	case uint16:
-// 		return newField(name, int64(v), FKInteger)
-// 	case int32:
-// 		return newField(name, int64(v), FKInteger)
-// 	case uint32:
-// 		return newField(name, int64(v), FKInteger)
-// 	case int64:
-// 		return newField(name, v, FKInteger)
-// 	case uint64:
-// 		return newField(name, int64(v), FKInteger)
-// 	case uint8:
-// 		return newField(name, int64(v), FKInteger)
-// 	case uintptr:
-// 		return newField(name, int64(v), FKInteger)
-// 	case float32:
-// 		f := float64(v)
-// 		if !strings.Contains(strconv.FormatFloat(f, 'f', -1, 64), ".") {
-// 			return newField(name, int64(v), FKInteger)
-// 		} else {
-// 			return newField(name, f, FKFloat)
-// 		}
-// 	case float64:
-// 		if !strings.Contains(strconv.FormatFloat(v, 'f', -1, 64), ".") {
-// 			return newField(name, int64(v), FKInteger)
-// 		} else {
-// 			return newField(name, v, FKFloat)
-// 		}
-// 	case bool:
-// 		return newField(name, v, FKBool)
-// 	case string:
-// 		t := FKString
-// 		if v == "" {
-// 			t = FKInvalid
-// 		}
-// 		return newField(name, v, t)
-// 	case time.Time:
-// 		return newField(name, v, FKTime)
-// 	case time.Duration:
-// 		return newField(name, v, FKDuration)
-// 	default:
-// 		return newField(name, v, FKAny)
-// 	}
-// }
-
-// func String(name, value string) *Field {
-// 	t := FKString
-// 	if value == "" {
-// 		t = FKInvalid
-// 	}
-// 	return newField(name, value, t)
-// }
-
-// func Int(name string, value int64) *Field {
-// 	return newField(name, value, FKInteger)
-// }
-
-// func Float(name string, value float64) *Field {
-// 	return newField(name, value, FKFloat)
-// }
+}

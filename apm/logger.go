@@ -1,100 +1,64 @@
 package apm
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"io"
-	"os"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/junhwong/goost/apm/level"
+	"github.com/junhwong/goost/errors"
+	"github.com/junhwong/goost/pkg/field"
 	"github.com/junhwong/goost/runtime"
 )
 
 type LoggerInterface interface {
+	Log(ctx context.Context, calldepth int, level level.Level, args []interface{})
+	Logf(ctx context.Context, calldepth int, level level.Level, format string, args []interface{})
+	NewSpan(ctx context.Context, options ...Option) (context.Context, SpanInterface)
+}
+
+type EntryInterface interface {
 	Debug(...interface{})
 	Info(...interface{})
 	Warn(...interface{})
 	Error(...interface{})
 	Fatal(...interface{})
+
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Warnf(string, ...interface{})
+	Errorf(string, ...interface{})
+	Fatalf(string, ...interface{})
 }
 
-// ILogger 纯日志接口
-type ILogger interface {
-	Debug(...interface{})
-	Info(...interface{})
-	Warn(...interface{})
-	Error(...interface{})
-	Fatal(...interface{})
-	Trace(...interface{})
+type DefaultLogger struct {
+	mu       sync.Mutex
+	wg       sync.WaitGroup
+	queue    chan Entry
+	cancel   context.CancelFunc
+	handlers handlerSlice
 }
 
-type Logger struct {
-	Out       io.Writer
-	Formatter Formatter
+func (logger *DefaultLogger) handle(entry Entry) {
+	std.mu.Lock()
+	defer std.mu.Unlock()
 
-	entryPool sync.Pool
-	mu        sync.Mutex
-	queue     chan *Entry
-	cancel    context.CancelFunc
-}
-
-func (logger *Logger) equeue(entry *Entry) {
-	entry.equeue = nil
-	logger.queue <- entry
-}
-
-func (logger *Logger) newEntry() *Entry {
-	entry, ok := logger.entryPool.Get().(*Entry)
-	if !ok {
-		entry = NewEntry(logger.equeue)
+	size := logger.handlers.Len()
+	crt := 0
+	var next func()
+	next = func() {
+		if crt >= size {
+			return
+		}
+		h := logger.handlers[crt]
+		crt++
+		h.Handle(entry, next)
 	}
-	entry.equeue = logger.equeue
-	entry.Time = time.Now()
-	entry.Data = make(Fields, 5) // reset
-	return entry
-}
-func (logger *Logger) releaseEntry(entry *Entry) {
-	entry.equeue = nil
-	logger.entryPool.Put(entry)
+	next()
 }
 
-func (logger *Logger) level() Level {
-	return DebugLevel
-}
-
-func (logger *Logger) format(entry *Entry, buf *bytes.Buffer) error {
-	return logger.Formatter.Format(entry, buf)
-}
-func (logger *Logger) write(buf *bytes.Buffer) error {
-	_, err := buf.WriteTo(logger.Out)
-	return err
-}
-func (logger *Logger) handle(entry *Entry) {
-	if entry == nil {
-		return
-	}
-	buf := bufferPool.Get().(*bytes.Buffer)
-	defer bufferPool.Put(buf)
-	buf.Reset()
-	err := logger.format(entry, buf)
-	if err != nil {
-		logger.mu.Lock()
-		fmt.Fprintf(os.Stderr, "Failed to obtain reader, %v\n", err)
-		logger.mu.Unlock()
-		return
-	}
-
-	err = logger.write(buf)
-	if err != nil {
-		logger.mu.Lock()
-		fmt.Fprintf(os.Stderr, "Failed to write to log, %v\n", err)
-		logger.mu.Unlock()
-		return
-	}
-}
-func (logger *Logger) flush() {
+func (logger *DefaultLogger) flush() {
 	for {
 		select {
 		case entry := <-logger.queue:
@@ -105,20 +69,109 @@ func (logger *Logger) flush() {
 	}
 }
 
-func (logger *Logger) Run(stopCh runtime.StopCh) {
+func (logger *DefaultLogger) Run(stopCh runtime.StopCh) {
 	for {
 		select {
 		case entry := <-logger.queue:
 			logger.handle(entry)
 		case <-stopCh:
-			return
+			goto END
 		}
 	}
+
+END:
+	logger.flush()
 }
 
-func (logger *Logger) Debug(a ...interface{}) { logger.newEntry().Debug(a...) }
-func (logger *Logger) Info(a ...interface{})  { logger.newEntry().Info(a...) }
-func (logger *Logger) Warn(a ...interface{})  { logger.newEntry().Warn(a...) }
-func (logger *Logger) Error(a ...interface{}) { logger.newEntry().Error(a...) }
-func (logger *Logger) Fatal(a ...interface{}) { logger.newEntry().Fatal(a...) }
-func (logger *Logger) Trace(a ...interface{}) { logger.newEntry().Trace(a...) }
+func (logger *DefaultLogger) Close() error {
+	logger.cancel()
+	time.Sleep(time.Millisecond) // 给协程一点时间启动
+	logger.wg.Wait()
+	return nil
+}
+
+func (logger *DefaultLogger) NewSpan(ctx context.Context, options ...Option) (context.Context, SpanInterface) {
+	return newSpan(ctx, logger, options)
+}
+
+func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level.Level, format string, args []interface{}) {
+
+	fs := make(field.Fields, 5)
+
+	var err error
+	a := []interface{}{}
+	for _, f := range args {
+		if fd, ok := f.(*field.Field); ok {
+			fs.Set(fd)
+		} else {
+			a = append(a, f)
+			if ex, ok := f.(error); ok {
+				err = ex
+			}
+		}
+	}
+
+	var method string
+	var line int
+	if ex := errors.AsTraceback(err); ex != nil {
+		method = ex.Method
+		line = ex.Line
+		if line != 0 {
+			method += ":" + strconv.Itoa(line)
+		}
+		fs.Set(_entryErrorMethod(method))
+	}
+	if calldepth > 1 {
+		method = genCodefile(errors.Caller(calldepth))
+		if method != "" {
+			fs.Set(_entrySourcefile(method))
+		}
+	}
+
+	if _, ok := fs[TraceIDKey]; !ok && ctx != nil {
+		fs.Set(_entryTraceID(getTraceID(ctx)))
+	}
+
+	fs.Set(_entryMessage(format, a...))
+	fs.Set(_entryLevel(level))
+	if _, ok := fs[TimeKey]; !ok {
+		fs.Set(_entryTime(time.Now()))
+	}
+
+	entry.queue <- Entry(fs)
+}
+
+func (entry *DefaultLogger) Log(ctx context.Context, calldepth int, level level.Level, args []interface{}) {
+	entry.Logf(ctx, calldepth+1, level, "", args)
+}
+
+// ==================== EntryInterface ====================
+type entryLog struct {
+	logger *DefaultLogger
+	ctx    context.Context
+}
+
+func NewLog(ctx context.Context) EntryInterface {
+	return &entryLog{ctx: ctx, logger: std}
+}
+func (log *entryLog) Debug(a ...interface{}) { log.logger.Log(log.ctx, 3, level.Debug, a) }
+func (log *entryLog) Info(a ...interface{})  { log.logger.Log(log.ctx, 3, level.Info, a) }
+func (log *entryLog) Warn(a ...interface{})  { log.logger.Log(log.ctx, 3, level.Warn, a) }
+func (log *entryLog) Error(a ...interface{}) { log.logger.Log(log.ctx, 3, level.Error, a) }
+func (log *entryLog) Fatal(a ...interface{}) { log.logger.Log(log.ctx, 3, level.Fatal, a) }
+
+func (log *entryLog) Debugf(format string, a ...interface{}) {
+	log.logger.Logf(log.ctx, 3, level.Debug, format, a)
+}
+func (log *entryLog) Infof(format string, a ...interface{}) {
+	log.logger.Logf(log.ctx, 3, level.Info, format, a)
+}
+func (log *entryLog) Warnf(format string, a ...interface{}) {
+	log.logger.Logf(log.ctx, 3, level.Warn, format, a)
+}
+func (log *entryLog) Errorf(format string, a ...interface{}) {
+	log.logger.Logf(log.ctx, 3, level.Error, format, a)
+}
+func (log *entryLog) Fatalf(format string, a ...interface{}) {
+	log.logger.Logf(log.ctx, 3, level.Fatal, format, a)
+}

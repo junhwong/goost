@@ -2,12 +2,12 @@ package apm
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"os"
 	"testing"
-	"time"
 
-	"github.com/junhwong/goost/pkg/field/common"
+	"github.com/junhwong/goost/apm/level"
+	"github.com/junhwong/goost/errors"
 )
 
 // func TestLog(t *testing.T) {
@@ -37,38 +37,28 @@ import (
 // }
 
 func TestLog(t *testing.T) {
-	std := Logger{
-		Out:       os.Stdout,
-		Formatter: new(JsonFormatter),
-	}
+	// std := Logger{
+	// 	queue: make(chan *LogEntry, 1000),
+	// }
+	std.Log(context.TODO(), 2, level.Debug, []interface{}{"here %s", "world", _entryMessage("bbq")})
 
-	std.Debug("here %s", "world", common.Message("bbq"))
+	std.Close()
+}
+
+func xerr() error {
+	return errors.WithTraceback(fmt.Errorf("mock err"))
 }
 
 func TestSpan(t *testing.T) {
-	std := Logger{
-		Out:       os.Stdout,
-		queue:     make(chan *Entry, 1000),
-		Formatter: new(JsonFormatter),
+	if std == nil {
+		t.Fatal("empty")
 	}
-	ctx, cancel := context.WithCancel(context.TODO())
-	go func() {
-		std.Run(ctx.Done())
-	}()
-	go func() {
-		span := std.WithSpan(context.TODO(), WithName("GET /test/abc123"))
-		defer span.Finish()
-		// https://opentracing.io/docs/getting-started/
-		// .StartSpan("hello")
-		// .Finish()
-		//   5fb53ec94b6d4d4a035451cea68a0e77
-		//00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
-
-		span.Debug("hello span")
-	}()
-
-	time.Sleep(time.Second * 2)
-	cancel()
+	t.Cleanup(Done)
+	_, span := std.NewSpan(context.TODO(), WithName("GET /test/abc123"))
+	defer span.End()
+	err := xerr()
+	span.Error(err)
+	span.Debug("hello span")
 }
 
 func TestX(t *testing.T) {

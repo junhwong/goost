@@ -3,54 +3,66 @@ package errors
 import (
 	"errors"
 	"fmt"
-
-	"github.com/junhwong/goost/security"
+	"strings"
 )
 
-type Error struct {
-	Message string // 错误信息
-	Raise   error  // 由什么错误引起的
-	File    string // 源码文件名
-	Line    int    // 源码文件行号
-	Stack   []byte // 原始栈
-	Code    string // 错误码, 用于识别错误并处理
+// Exception 表示一个异常, 通常由`panic`引发并捕获。
+type Exception struct {
+	Err   error
+	Raise interface{} // recover 捕获的值
+	File  string      // 源码文件名
+	Line  int         // 源码文件行号
+	Stack []byte      // 原始栈
 }
 
+func (ex *Exception) Unwrap() error {
+	return ex.Err
+}
+func (ex *Exception) Error() string {
+	return fmt.Sprintf("%#v", ex)
+}
+
+// Error 通用错误
+type Error struct {
+	Message string // 错误信息。通常该值是可公开的，不包含敏感信息。
+	Err     error  // 由什么错误引起的
+	// File    string // 源码文件名
+	// Line    int    // 源码文件行号
+	// Stack   []byte // 原始栈
+	Code   string // 错误码, 用于识别错误并处理
+	Status int    // 状态码
+	Field  string // 字段名称
+}
+
+func (err *Error) Unwrap() error {
+	return err.Err
+}
 func (err *Error) Error() string {
 	switch {
 	case err.Message != "" && err.Code != "":
 		return err.Code + ":" + err.Message
 	case err.Message != "":
 		return err.Message
-	case err.Raise != nil:
-		return err.Raise.Error()
+	case err.Err != nil:
+		return err.Err.Error()
 	case err.Code != "":
 		return err.Code
 	}
-	return ""
+
+	return "Error"
+}
+
+type Cause struct {
+	Err error
+}
+
+func (err *Cause) Unwrap() error {
+	return err.Err
 }
 
 // MarshalJSON impl json.Marshaller to starand-logs error fields
 func (err *Error) MarshalJSON() ([]byte, error) {
 	return nil, nil
-}
-
-type AccessDeniedError struct {
-	Err    error
-	Any    bool
-	Denied []security.Permission
-}
-
-func (err *AccessDeniedError) Error() string {
-	temp := "Access Denied: mismatch all of %v"
-	if err.Any {
-		temp = "Access Denied: mismatch any of %v"
-	}
-	return fmt.Sprintf(temp, err.Denied)
-}
-
-func (err *AccessDeniedError) Unwrap() error {
-	return err.Err
 }
 
 type InvalidParameterError struct {
@@ -66,18 +78,6 @@ func (err *InvalidParameterError) Unwrap() error {
 func (err *InvalidParameterError) Error() string {
 
 	return fmt.Sprintf("Invalid parameter: %q, %s", err.Field, err.Message)
-}
-
-type UnauthorizedError struct {
-	Err                        error
-	WwwAuthenticateHeaderValue string // https://tools.ietf.org/html/rfc2617#section-3.2.1
-}
-
-func (err *UnauthorizedError) Unwrap() error {
-	return err.Err
-}
-func (err *UnauthorizedError) Error() string {
-	return "Unauthorized"
 }
 
 type IllegalArgumentError struct {
@@ -131,6 +131,12 @@ func NewInvalidArgumentError(field, message string, err error) *ArgumentError {
 		Message: message,
 	}
 }
+func WrapInvalidArgumentError(err error, field string) *ArgumentError {
+	return &ArgumentError{Err: err,
+		Code:  "invalid_argument",
+		Field: field,
+	}
+}
 
 // type UnauthorizedError struct {
 // 	description string
@@ -144,13 +150,17 @@ func NewInvalidArgumentError(field, message string, err error) *ArgumentError {
 // 	return "Unauthorized error: " + err.description
 // }
 
-//
-func Is(err error, target error) bool {
-	return errors.Is(err, target)
-}
-func As(err error, target interface{}) bool {
-	return errors.As(err, target)
-}
+var (
+	Is = errors.Is
+	As = errors.As
+)
+
+// func Is(err error, target error) bool {
+// 	return errors.Is(err, target)
+// }
+// func As(err error, target interface{}) bool {
+// 	return errors.As(err, target)
+// }
 func AsArgumentError(err error) (target *ArgumentError) {
 	if !errors.As(err, &target) {
 		return nil
@@ -158,12 +168,110 @@ func AsArgumentError(err error) (target *ArgumentError) {
 	return
 }
 
-type ErrorResponseEntry struct {
-	Code    string `json:"code,omitempty"`
-	Message string `json:"message,omitempty"`
-	Field   string `json:"field,omitempty"`
+// ErrorCodeGetter 错误码
+type ErrorCodeGetter interface {
+	ErrorCode() string
 }
-type ErrorResponseBody struct {
-	ErrorResponseEntry `json:",inline"`
-	Errors             []ErrorResponseEntry `json:"errors,omitempty"`
+
+// ErrorCodeGetter 错误码
+type ErrorMessageGetter interface {
+	ErrorMessage() string
+}
+
+// StatusCodeGetter 状态码
+type StatusCodeGetter interface {
+	StatusCode() int
+}
+
+////
+
+type CodeError struct {
+	Err  error
+	Code string
+	// Message string
+}
+
+type codeError string
+
+func (err codeError) Error() string {
+	return string(err)
+}
+func (err codeError) ErrorCode() string {
+	return strings.SplitN(string(err), " ", 2)[0]
+}
+func (err codeError) ErrorMessage() string {
+	if arr := strings.SplitN(string(err), " ", 2); len(arr) == 2 {
+		return arr[1]
+	}
+	return ""
+}
+
+func New(code string, message ...string) error {
+	code = strings.TrimSpace(code)
+	if len(code) == 0 {
+		panic("errors: code cannot empty")
+	}
+	s := strings.Join(message, "")
+	if s == "" {
+		return codeError(code)
+	}
+	return codeError(code + " " + s)
+}
+
+func GetErrorCode(err error) string {
+	if err == nil {
+		return ""
+	}
+	if f, ok := err.(ErrorCodeGetter); ok {
+		if s := f.ErrorCode(); s != "" {
+			return s
+		}
+	}
+	return GetErrorCode(errors.Unwrap(err))
+}
+func GetErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	if f, ok := err.(ErrorMessageGetter); ok {
+		if s := f.ErrorMessage(); s != "" {
+			return s
+		}
+	}
+
+	return GetErrorCode(errors.Unwrap(err))
+}
+
+////
+func WithErrorCode(err error, code string) error {
+	if len(code) == 0 {
+		panic("errors: code cannot empty")
+	}
+	base, _ := err.(*Error)
+	if base != nil && base.Code == "" {
+		base.Code = code
+		return base
+	}
+
+	e := &Error{
+		Err:  err,
+		Code: code,
+	}
+	return e
+}
+func WithStatusCode(err error, v int) error {
+	if v == 0 {
+		panic("errors: v cannot be zero")
+	}
+	base, _ := err.(*Error)
+	if base != nil && base.Code == "" {
+		base.Status = v
+		return base
+	}
+
+	e := &Error{
+		Err:    err,
+		Status: v,
+	}
+	return e
 }

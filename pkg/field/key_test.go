@@ -60,9 +60,3 @@ func TestIsValidKeyName(t *testing.T) {
 		})
 	}
 }
-
-func TestInt(t *testing.T) {
-	// 922_337_203_685 = 9.22千亿, 央行万亿以上
-	// 验证
-	t.Logf("%d", 9223372036854775800/10000000)
-}

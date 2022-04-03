@@ -1,35 +1,17 @@
 package security
 
-import (
-	"context"
-)
-
-// 敏感字符串，如：密码
-type SensitiveString string
-
-func (ss SensitiveString) String() string {
-	return "***"
-}
-
-func (ss SensitiveString) Raw() string {
-	return string(ss)
-}
-
-func (ss SensitiveString) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + ss.String() + `"`), nil
-}
-
+// 用户详情
 type UserDetails interface {
-	Principal
-	GetPassword() string
-	GetUsername() string
-	// GetNameKind() NameKind
-	IsExpired() bool
-	IsLocked() bool
-	IsEnabled() bool
+	GetIdentity() string       // 返回此主体的唯一标识。
+	GetTenantIdentity() string // 返回用户所属租户唯一标识。
+	GetUsername() string       // 返回用户名
+	IsExpired() bool           // 是否过期
+	IsLocked() bool            // 是否锁定
+	IsDisabled() bool          // 是否禁用
 }
 
-type UserDetailsService interface {
-	LoadUserById(ctx context.Context, userID string) (UserDetails, error)
-	LoadUser(ctx context.Context, clientID string, username string) (UserDetails, error)
-}
+// type UserDetailsService interface {
+// 	LoadUserById(ctx context.Context, id string) (UserDetails, error)
+// 	LoadUser(ctx context.Context, username string) (UserDetails, error)
+// 	LoadUserWithPassword(ctx context.Context, username string, passwd SensitiveString) (UserDetails, error)
+// }

@@ -1,4 +1,4 @@
-# Golang Development Kit
+# Goost
 
 [![Project status](https://img.shields.io/badge/status-Experimental-red.svg)](#status)
 
@@ -16,7 +16,7 @@ TBD
 | ------------  application ------------ |
 |     services     |   desktop&terminal  |
 | -------------- goost ----------------- |
-|  web | logging | rpc | data | config.. |
+|  web | apm | rpc | data | config ..... |
 | -------------------------------------- |
 |    container     |                     |
 |                  |    virtual machine  |
@@ -25,7 +25,7 @@ TBD
 
 ## 功能：
 
-- [ ] logging: TBD.
+- [ ] apm: TBD.
 - [ ] web: TBD.
 - [ ] rpc: TBD.
 - [ ] 生命周期管理: TBD

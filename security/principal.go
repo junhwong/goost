@@ -5,32 +5,34 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Principal 表示主体的抽象概念，它可以用来表示任何实体，例如，个人、组织。
 type Principal interface {
 	// GetIdentity 返回此主体的唯一标识。
 	GetIdentity() string
-	// GetTenantIdentity 返回此主体的所属租户唯一标识。
-	GetTenantIdentity() string
 }
 
+// Authentication 表示一个用户的认证授权
 type Authentication interface {
-	// 凭据
-	GetCredentials() Credentials // token,sessionid
-	// 主体
-	GetPrincipal() Principal
-	// 用户明细
-	GetDetails() UserDetails
-	// 是否认证
-	IsAuthenticated() bool
-	// IsGranted 确定当前用户是否拥有指定的权限
-	IsGranted(perm Permission) bool
+	GetCredentials() Credentials    // 凭据
+	GetPrincipal() Principal        // 主体
+	GetDetails() UserDetails        // 用户明细
+	IsAuthenticated() bool          // 是否认证
+	IsGranted(perm Permission) bool // 确定当前用户是否拥有指定的权限
+}
+
+// Token 表示认证令牌
+type Token interface {
+	// LoadUser 通过该Token获取用户
+	LoadUser(context.Context) (UserDetails, error)
 }
 
 // 认证管理器
 type AuthenticationManager interface {
-	Authenticate(context.Context, Credentials) (Authentication, error)
+	// Authenticate 认证
+	Authenticate(context.Context, Token) (Authentication, error)
 }
 
 const (
@@ -57,10 +59,23 @@ func AuthenticationFromContext(ctx context.Context) Authentication {
 //https://docs.microsoft.com/zh-cn/dotnet/api/system.net.networkcredential?view=netcore-3.1
 //https://docs.microsoft.com/zh-cn/dotnet/api/system.net.credentialcache?view=netcore-3.1
 type Credentials interface {
-	GetKind() string
+	// GetKind() string
 	// GetClaim(name string) *Claim
-	Get(name string) interface{}
-	GetString(name string) string
+	// Get(name string) interface{}
+	// GetString(name string) string
+
+	// 授权令牌
+	Token() Token
+	SessionID() string
+	// 凭据颁发时间
+	IssuedAt() time.Time
+
+	// 会话超时时长
+	AccessTimeout() time.Duration
+	RefreshTimeout() time.Duration
+
+	// 是否过期
+	IsExpired() bool
 }
 
 //
@@ -171,13 +186,3 @@ type AuthenticationProvider interface {
 // type AuthenticateService interface {
 // 	DoAuthenticate(c Credentials) (Principal, error)
 // }
-
-type PasswordEncoder interface {
-	Hash() string
-	Encode(rawPasswd string) (string, error)
-	Matches(rawPasswd string, encodedPasswd string) error
-}
-
-type PasswordEncoderFactory interface {
-	Create() (PasswordEncoder, error)
-}

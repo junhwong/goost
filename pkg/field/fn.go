@@ -4,35 +4,63 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/spf13/cast"
 )
 
-func makeField(k Key, v interface{}, b ...bool) *Field {
-	valid := true
-	for _, it := range b {
-		valid = it
+func makeField(k Key, v interface{}, valid bool, err ...error) *Field {
+	var ex error
+	for _, it := range err {
+		ex = it
+	}
+	if ex != nil {
+		valid = false
 	}
 	return &Field{Key: k, Value: v, valid: valid}
 }
 
-func String(name string) func(v string) *Field {
+// 构造一个动态字段
+func Dynamic(name string) func(v interface{}) *Field {
+	return func(v interface{}) *Field {
+		return &Field{Key: &key{
+			name: name,
+			kind: DynamicKind,
+		}, Value: v, valid: v != nil && v != ""}
+	}
+}
+
+func String(name string) (Key, func(string, ...interface{}) *Field) {
 	k := makeOrGetKey(name, StringKind)
-	return func(v string) *Field {
+	return k, func(s string, a ...interface{}) *Field {
+		v := s
+		if s != "" && len(a) > 0 {
+			v = fmt.Sprintf(s, a...)
+		} else if len(a) > 0 {
+			v = fmt.Sprint(a...)
+		}
 		v = strings.TrimSpace(v)
 		return makeField(k, v, v != "")
 	}
 }
-func Stringf(name string) func(s string, a ...interface{}) *Field {
-	k := makeOrGetKey(name, StringKind)
-	return func(s string, a ...interface{}) *Field {
-		v := fmt.Sprintf(s, a...)
-		v = strings.TrimSpace(v)
+
+// func Strings(name string) func(a ...interface{}) *Field {
+// 	k := makeOrGetKey(name, StringsKind)
+// 	return func(a ...interface{}) *Field {
+// 		return makeField(k, a, true)
+// 	}
+// }
+
+func Bool(name string) (Key, func(bool) *Field) {
+	k := makeOrGetKey(name, BoolKind)
+	return k, func(v bool) *Field {
 		return makeField(k, v, true)
 	}
 }
-func Strings(name string) func(a ...interface{}) *Field {
-	k := makeOrGetKey(name, StringsKind)
-	return func(a ...interface{}) *Field {
-		return makeField(k, a, true)
+
+func Time(name string) (Key, func(time.Time) *Field) {
+	k := makeOrGetKey(name, TimeKind)
+	return k, func(t time.Time) *Field {
+		return makeField(k, t, !t.IsZero())
 	}
 }
 
@@ -43,14 +71,14 @@ func Strings(name string) func(a ...interface{}) *Field {
 //		key: [1, "string", true]
 //	}
 //	```
-func Slice(name string, dataType ...KeyKind) func(v ...interface{}) *Field {
+func Slice(name string, dataType ...KeyKind) func(...interface{}) *Field {
 	dt := StringKind
 	for _, t := range dataType {
 		dt = t
 	}
 	k := makeOrGetKey(name, SliceKind)
 	return func(v ...interface{}) *Field {
-		f := makeField(k, v)
+		f := makeField(k, v, true)
 		f.sliceDataType = dt
 		return f
 	}
@@ -69,97 +97,48 @@ func Slice(name string, dataType ...KeyKind) func(v ...interface{}) *Field {
 func Map(name string) func(v ...*Field) *Field {
 	k := makeOrGetKey(name, MapKind)
 	return func(v ...*Field) *Field {
-		return makeField(k, v)
+		return makeField(k, v, true)
 	}
 }
 
-func Int(name string) func(v int) *Field {
+func Int(name string) (Key, func(interface{}) *Field) {
 	k := makeOrGetKey(name, IntKind)
-	return func(v int) *Field {
-		return makeField(k, int64(v))
-	}
-}
-func Int8(name string) func(v int8) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v int8) *Field {
-		return makeField(k, int64(v))
-	}
-}
-func Int16(name string) func(v int16) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v int16) *Field {
-		return makeField(k, int64(v))
-	}
-}
-func Int32(name string) func(v int32) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v int32) *Field {
-		return makeField(k, int64(v))
-	}
-}
-func Int64(name string) func(v int64) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v int64) *Field {
-		return makeField(k, v)
+	return k, func(v interface{}) *Field {
+		i, err := cast.ToInt64E(v)
+		return makeField(k, i, err == nil, err)
 	}
 }
 
-func Uint(name string) func(v uint) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v uint) *Field {
-		return makeField(k, int64(v))
-	}
-}
-func Uint8(name string) func(v uint8) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v uint8) *Field {
-		return makeField(k, int64(v))
-	}
-}
-func Uint16(name string) func(v uint16) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v uint16) *Field {
-		return makeField(k, int64(v))
-	}
-}
-func Uint32(name string) func(v uint32) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v uint32) *Field {
-		return makeField(k, int64(v))
-	}
-}
-func Uint64(name string) func(v uint64) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v uint64) *Field {
-		return makeField(k, int64(v))
-	}
-}
-func Duration(name string) func(v time.Duration) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v time.Duration) *Field {
-		return makeField(k, v.Nanoseconds(), v >= 0)
+func Uint(name string) (Key, func(interface{}) *Field) {
+	k := makeOrGetKey(name, UintKind)
+	return k, func(v interface{}) *Field {
+		i, err := cast.ToUint64E(v)
+		return makeField(k, i, err == nil, err)
 	}
 }
 
-func Byte(name string) func(v byte) *Field {
-	k := makeOrGetKey(name, IntKind)
-	return func(v byte) *Field {
-		return makeField(k, int64(v))
-	}
-}
-
-func Float32(name string) func(v float32) *Field {
+func Float(name string) (Key, func(interface{}) *Field) {
 	k := makeOrGetKey(name, FloatKind)
-	return func(v float32) *Field {
-		return makeField(k, float64(v))
+	return k, func(v interface{}) *Field {
+		i, err := cast.ToFloat64E(v)
+		return makeField(k, i, err == nil, err)
 	}
 }
-func Float(name string) func(v float64) *Field {
-	k := makeOrGetKey(name, FloatKind)
-	return func(v float64) *Field {
-		return makeField(k, float64(v))
+
+// 时延。微秒
+func Duration(name string) (Key, func(time.Duration) *Field) {
+	k := makeOrGetKey(name, IntKind)
+	return k, func(v time.Duration) *Field {
+		return makeField(k, v.Microseconds(), v >= 0)
 	}
 }
+
+// func Byte(name string) (Key,func(byte) *Field) {
+// 	k := makeOrGetKey(name, IntKind)
+// 	return k,func(v byte) *Field {
+// 		return makeField(k, int64(v))
+// 	}
+// }
 
 // func Any(name string, value interface{}) *Field {
 // 	switch v := value.(type) {
