@@ -1,0 +1,4 @@
+package sqlx
+
+//VARBINARY(16)sqldb. sql.
+// INET6_ATON INET6_NTOA INET_ATON INET_NTOA
