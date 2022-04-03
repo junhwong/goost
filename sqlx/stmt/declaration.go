@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/junhwong/goost/sqlx"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type statementType string
