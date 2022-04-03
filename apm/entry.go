@@ -9,17 +9,16 @@ import (
 	"github.com/spf13/cast"
 )
 
-type Entry field.Fields
+type Entry = field.Fields
 
-func (e Entry) GetLevel() level.Level {
-	fs := field.Fields(e)
-	f := fs.Get(LevelKey)
-	v := cast.ToInt(f.Value)
-	return level.FromInt(v)
-}
-
-type FormatSettings struct {
-	TrimFieldPrefix []string
+func GetLevel(entry Entry) (lvl level.Level) {
+	if entry == nil {
+		return
+	}
+	if f := entry.Get(LevelKey); f != nil {
+		lvl = level.FromInt(cast.ToInt(f.Value))
+	}
+	return
 }
 
 func genCodefile(method string, file string, line int) string {

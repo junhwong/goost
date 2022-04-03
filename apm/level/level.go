@@ -13,8 +13,6 @@ const (
 	Error              // 错误(可恢复性错误，不确定系统后续是否正常工作)
 	Fatal              // 故障(严重的错误系统无法继续，程序应该挂掉)
 	Trace              // 跟踪(用于跟踪系统运行状态,如：sql执行时间)
-
-	_maxLevel
 )
 
 var levelMap = map[Level]string{
@@ -64,7 +62,7 @@ func Parse(s string) Level {
 }
 
 func FromInt(v int) Level {
-	if v <= Unset || v >= _maxLevel {
+	if v <= Unset || v > Trace {
 		return Unset
 	}
 	return v

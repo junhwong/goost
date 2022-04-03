@@ -69,7 +69,7 @@ func WithTrimFieldPrefix(prefix ...string) Option {
 // 	panic("apm.FromContext: span not found in context")
 // }
 
-func Start(ctx context.Context, options ...Option) (context.Context, SpanInterface) {
+func Start(ctx context.Context, options ...Option) (context.Context, Span) {
 	return std.NewSpan(ctx, options...)
 }
 

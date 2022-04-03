@@ -12,13 +12,14 @@ import (
 	"github.com/junhwong/goost/runtime"
 )
 
+// LoggerInterface 日志记录接口
 type LoggerInterface interface {
 	Log(ctx context.Context, calldepth int, level level.Level, args []interface{})
 	Logf(ctx context.Context, calldepth int, level level.Level, format string, args []interface{})
-	NewSpan(ctx context.Context, options ...Option) (context.Context, SpanInterface)
 }
 
-type EntryInterface interface {
+// Logger 日志操作接口
+type Logger interface {
 	Debug(...interface{})
 	Info(...interface{})
 	Warn(...interface{})
@@ -90,7 +91,7 @@ func (logger *DefaultLogger) Close() error {
 	return nil
 }
 
-func (logger *DefaultLogger) NewSpan(ctx context.Context, options ...Option) (context.Context, SpanInterface) {
+func (logger *DefaultLogger) NewSpan(ctx context.Context, options ...Option) (context.Context, Span) {
 	return newSpan(ctx, logger, options)
 }
 
@@ -147,13 +148,10 @@ func (entry *DefaultLogger) Log(ctx context.Context, calldepth int, level level.
 
 // ==================== EntryInterface ====================
 type entryLog struct {
-	logger *DefaultLogger
+	logger LoggerInterface
 	ctx    context.Context
 }
 
-func NewLog(ctx context.Context) EntryInterface {
-	return &entryLog{ctx: ctx, logger: std}
-}
 func (log *entryLog) Debug(a ...interface{}) { log.logger.Log(log.ctx, 3, level.Debug, a) }
 func (log *entryLog) Info(a ...interface{})  { log.logger.Log(log.ctx, 3, level.Info, a) }
 func (log *entryLog) Warn(a ...interface{})  { log.logger.Log(log.ctx, 3, level.Warn, a) }

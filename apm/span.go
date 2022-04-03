@@ -9,7 +9,10 @@ import (
 )
 
 type SpanInterface interface {
-	EntryInterface
+	NewSpan(ctx context.Context, options ...Option) (context.Context, Span)
+}
+type Span interface {
+	Logger
 	// Trace(...interface{})     //
 	End(options ...EndOption) // 结束该Span。
 	Fail()                    // Fail 标记该Span为失败。
@@ -33,7 +36,7 @@ const (
 	spanInContextKey = "$apm.spanInContextKey"
 )
 
-var _ SpanInterface = (*spanImpl)(nil)
+var _ Span = (*spanImpl)(nil)
 
 type spanImpl struct {
 	entryLog

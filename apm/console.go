@@ -21,7 +21,7 @@ func (h *ConsoleHandler) Priority() int {
 
 func (h *ConsoleHandler) Handle(entry Entry, next func()) {
 	defer next()
-	lvl := entry.GetLevel()
+	lvl := GetLevel(entry)
 	// if lvl == level.Trace {
 	// 	return
 	// }
@@ -32,7 +32,7 @@ func (h *ConsoleHandler) Handle(entry Entry, next func()) {
 		}
 
 		out := os.Stdout
-		if lvl >= level.Error {
+		if lvl >= level.Error && lvl < level.Trace {
 			out = os.Stderr
 		}
 

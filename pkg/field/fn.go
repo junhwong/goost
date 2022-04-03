@@ -71,13 +71,13 @@ func Time(name string) (Key, func(time.Time) *Field) {
 //		key: [1, "string", true]
 //	}
 //	```
-func Slice(name string, dataType ...KeyKind) func(...interface{}) *Field {
+func Slice(name string, dataType ...KeyKind) (Key, func(...interface{}) *Field) {
 	dt := StringKind
 	for _, t := range dataType {
 		dt = t
 	}
 	k := makeOrGetKey(name, SliceKind)
-	return func(v ...interface{}) *Field {
+	return k, func(v ...interface{}) *Field {
 		f := makeField(k, v, true)
 		f.sliceDataType = dt
 		return f

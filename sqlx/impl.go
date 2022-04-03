@@ -209,10 +209,10 @@ func (c *txWarp) Do(run func(conn Transaction) error) {
 
 /////
 var (
-	dbInstance     = field.String("db.instance")
-	dbType         = field.String("db.type")
-	dbStmt         = field.String("db.statement")
-	dbArgs         = field.Strings("db.arguments")
+	_, dbInstance  = field.String("db.instance")
+	_, dbType      = field.String("db.type")
+	_, dbStmt      = field.String("db.statement")
+	_, dbArgs      = field.Slice("db.arguments", field.StringKind)
 	StatementIDKey = struct{ name string }{"$$statement_id"}
 )
 
@@ -242,7 +242,7 @@ func argSlim(a []interface{}) []interface{} {
 }
 
 //https://github.com/opentracing/specification/blob/master/semantic_conventions.md
-func prepareContext(ctx context.Context, name string, conn sqlPrepare, query string, args []interface{}) (context.Context, apm.SpanInterface, *sql.Stmt, error) {
+func prepareContext(ctx context.Context, name string, conn sqlPrepare, query string, args []interface{}) (context.Context, apm.Span, *sql.Stmt, error) {
 	var id string
 	if s, ok := ctx.Value(StatementIDKey).(string); ok {
 		id = s
