@@ -46,3 +46,19 @@ func genCodefile(method string, file string, line int) string {
 	}
 	return method
 }
+func genCodefile2(method string, file string, line int) (string, string, int) {
+	i := strings.LastIndex(method, "/")
+	if i > 0 {
+		method = method[i+1:]
+	}
+
+	return method, file, line
+}
+
+func getSplitLast(s string, substr string) string {
+	i := strings.LastIndex(s, substr)
+	if i > 0 {
+		s = s[i+1:]
+	}
+	return s
+}

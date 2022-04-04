@@ -40,9 +40,10 @@ func TestLog(t *testing.T) {
 	// std := Logger{
 	// 	queue: make(chan *LogEntry, 1000),
 	// }
-	std.Log(context.TODO(), 2, level.Debug, []interface{}{"here %s", "world", _entryMessage("bbq")})
+	std.Log(context.TODO(), 0, level.Debug, []interface{}{"here %s", "world", _entryMessage("bbq")})
 
 	std.Close()
+
 }
 
 func xerr() error {
@@ -59,6 +60,7 @@ func TestSpan(t *testing.T) {
 	err := xerr()
 	span.Error(err)
 	span.Debug("hello span")
+	Default().Debugf("hhh%v", 2)
 }
 
 func TestX(t *testing.T) {

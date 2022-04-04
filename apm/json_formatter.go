@@ -66,6 +66,14 @@ func (jf *JsonFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 			continue
 		}
 
+		if key == TracebackPathKey || key == TracebackLineNoKey {
+			continue
+		}
+
+		if key == TracebackCallerKey {
+			val = fmt.Sprintf("%s:%v", val, entry.Get(TracebackLineNoKey, 0))
+		}
+
 		var data []byte
 
 		if data, err = json.Marshal(val); err != nil {

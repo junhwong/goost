@@ -122,7 +122,7 @@ func (span *spanImpl) End(options ...EndOption) {
 	if span.failed {
 		fs = append(fs, _entryTraceError(span.failed))
 	}
-	span.logger.Log(span.ctx, 3, level.Trace, fs)
+	span.logger.Log(span.ctx, 1, level.Trace, fs)
 	span.logger = nil // 移除关联,
 }
 

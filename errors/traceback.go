@@ -5,13 +5,13 @@ import (
 	"runtime"
 )
 
-func Caller(calldepth int) (method, file string, line int) {
+func Caller(calldepth int) (funcName, file string, line int) {
 	var pc uintptr
 	var ok bool
-	pc, file, line, ok = runtime.Caller(calldepth)
+	pc, file, line, ok = runtime.Caller(calldepth + 1)
 
 	if ok {
-		method = runtime.FuncForPC(pc).Name()
+		funcName = runtime.FuncForPC(pc).Name()
 	}
 	return
 }
@@ -47,7 +47,7 @@ func WithTraceback(err error, forceWrap ...bool) error {
 			return v
 		}
 	}
-	method, file, line := Caller(2)
+	method, file, line := Caller(1)
 
 	return &TracebackError{
 		Method: method,

@@ -13,7 +13,9 @@ var (
 	SpanParentIDKey, _entrySpanParentID = field.String("span.parent_id")
 	DurationKey, _entryDuration         = field.Duration("duration") // 执行的持续时间。微秒
 	ErrorMethodKey, _entryErrorMethod   = field.String("error.method")
-	SourcefileKey, _entrySourcefile     = field.String("sourcefile")
+	TracebackCallerKey, TracebackCaller = field.String("traceback.caller")
+	TracebackPathKey, TracebackPath     = field.String("traceback.path")
+	TracebackLineNoKey, TracebackLineNo = field.Int("traceback.lineno")
 )
 
 // 	ErrorStack  = field.String("apm.error.stack_trace")
