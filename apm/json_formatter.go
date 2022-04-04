@@ -46,37 +46,38 @@ func (jf *JsonFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 
 	fprintf(`"level":%q`, level.String(GetLevel(entry)))
 
-	if f := entry.Get(TimeKey); f != nil && f.Valid() {
-		t, err := cast.ToTimeE(f.Value)
+	if val := entry.Get(TimeKey); val != nil {
+		t, err := cast.ToTimeE(val)
 		if err == nil && !t.IsZero() {
+			// TODO: 时区
 			fprintf(`,"time":%q`, t.Format(jf.timeLayout))
 		}
 	}
 
-	if f := entry.Get(MessageKey); f != nil && f.Valid() {
-		fprintf(`,"message":%q`, f.Value)
+	if val := entry.Get(MessageKey); val != nil {
+		fprintf(`,"message":%q`, val)
 	}
 
-	for _, it := range entry {
-		if !it.Valid() {
+	for key, val := range entry {
+		if key == nil || val == nil {
 			continue
 		}
-		if it.Key == TimeKey || it.Key == MessageKey || it.Key == LevelKey {
+		if key == TimeKey || key == MessageKey || key == LevelKey {
 			continue
 		}
 
 		var data []byte
 
-		if data, err = json.Marshal(it.Value); err != nil {
+		if data, err = json.Marshal(val); err != nil {
 			return
 		}
 
-		name := TrimFieldNamePrefix(it.Key.Name())
+		name := key.Name() // TrimFieldNamePrefix(it.Key.Name())
 
-		if len(name) == 0 {
-			fmt.Println("apm: skip entry: name") // TODO devop log
-			continue
-		}
+		// if len(name) == 0 {
+		// 	fmt.Println("apm: skip entry: name") // TODO devop log
+		// 	continue
+		// }
 
 		switch name {
 		case "level", "time", "message":

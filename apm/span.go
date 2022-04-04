@@ -120,7 +120,7 @@ func (span *spanImpl) End(options ...EndOption) {
 	fs = append(fs, _entryDuration(time.Since(span.startTime))) // Latency
 	fs = append(fs, _entrySpanName(name))
 	if span.failed {
-		fs = append(fs, _entryFail(span.failed))
+		fs = append(fs, _entryTraceError(span.failed))
 	}
 	span.logger.Log(span.ctx, 3, level.Trace, fs)
 	span.logger = nil // 移除关联,

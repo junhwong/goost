@@ -15,8 +15,8 @@ func GetLevel(entry Entry) (lvl level.Level) {
 	if entry == nil {
 		return
 	}
-	if f := entry.Get(LevelKey); f != nil {
-		lvl = level.FromInt(cast.ToInt(f.Value))
+	if val := entry.Get(LevelKey); val != nil {
+		lvl = level.FromInt(cast.ToInt(val))
 	}
 	return
 }

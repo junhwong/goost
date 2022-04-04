@@ -136,9 +136,9 @@ const (
 // }
 
 var (
-	_, clientIP   = field.String("__web.client.ip")
-	_, httpStatus = field.Int("__web.http.response.status_code")
-	_, httpMethod = field.String("__web.http.request.method")
+	ClientIPKey, clientIP             = field.String("client.ip")
+	HTTPResponseStatusKey, httpStatus = field.Int("http.response.status_code")
+	HTTPRequestMethodKey, httpMethod  = field.String("http.request.method")
 )
 
 // // 入口

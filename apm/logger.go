@@ -102,7 +102,7 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 	var err error
 	a := []interface{}{}
 	for _, f := range args {
-		if fd, ok := f.(*field.Field); ok {
+		if fd, ok := f.(field.Field); ok {
 			fs.Set(fd)
 		} else {
 			a = append(a, f)

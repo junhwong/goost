@@ -47,7 +47,7 @@ func WithReplaceSpanName(getName func() string) EndOption {
 		target.getName = getName
 	}}
 }
-func WithFields(fs ...*field.Field) *traceOption {
+func WithFields(fs ...field.Field) *traceOption {
 	return &traceOption{delegate: func(target *traceOption) {
 		for _, f := range fs {
 			target.attrs.Set(f)
