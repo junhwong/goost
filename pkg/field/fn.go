@@ -20,8 +20,21 @@ func makeField(k Key, v interface{}, valid bool, err ...error) Field {
 }
 
 // 构造一个动态字段
-func Dynamic(name string) (Key, func(v interface{}) Field) {
-	k := makeOrGetKey(name, DynamicKind)
+func Dynamic(name string, checkKey ...bool) (Key, func(v interface{}) Field) {
+	check := false
+	for _, b := range checkKey {
+		check = b
+	}
+	var k Key
+	if check {
+		k = makeOrGetKey(name, DynamicKind)
+	} else {
+		if !IsValidKeyName(name) {
+			panic(fmt.Errorf("field: Invalid key name: %s", name))
+		}
+		k = &key{name: name, kind: DynamicKind}
+	}
+
 	return k, func(v interface{}) Field {
 		return makeField(k, v, v != nil && v != "")
 	}
