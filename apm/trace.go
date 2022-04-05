@@ -18,7 +18,7 @@ type EndOption interface {
 type traceOption struct {
 	trimFieldPrefix []string
 	name            string
-	attrs           field.Fields
+	attrs           []field.Field
 	delegate        func(*traceOption)
 	getName         func() string
 }
@@ -49,9 +49,7 @@ func WithReplaceSpanName(getName func() string) EndOption {
 }
 func WithFields(fs ...field.Field) *traceOption {
 	return &traceOption{delegate: func(target *traceOption) {
-		for _, f := range fs {
-			target.attrs.Set(f)
-		}
+		target.attrs = append(target.attrs, fs...)
 	}}
 }
 

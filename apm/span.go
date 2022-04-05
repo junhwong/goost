@@ -54,7 +54,7 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []Option) (cont
 		ctx = context.Background()
 	}
 	option := traceOption{
-		attrs: field.Fields{},
+		attrs: make([]field.Field, 0),
 	}
 	for _, opt := range options {
 		if opt == nil {

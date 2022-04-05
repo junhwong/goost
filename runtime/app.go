@@ -127,7 +127,7 @@ func (app *appImpl) Run(constructor interface{}, opts ...InvokeOption) {
 
 func (app *appImpl) doExit(ctx context.Context, wg *sync.WaitGroup, builder hookBuilder) {
 	<-ctx.Done()
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second*10)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer stopCancel()
 	go func() {
 		<-stopCtx.Done()
@@ -214,6 +214,7 @@ func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 			OnStart: func(ctx context.Context) {
 				signal.Notify(ch, sig...)
 				<-ch
+
 				go func() {
 					for sig := range ch {
 						if sig == os.Interrupt {

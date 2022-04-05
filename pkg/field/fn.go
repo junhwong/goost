@@ -86,25 +86,34 @@ func Slice(name string, kind ...KeyKind) (Key, func(...interface{}) Field) {
 		switch dtype {
 		case StringKind:
 			val, err := cast.ToStringSliceE(v)
-			r = makeField(k, val, true, err)
+			r = makeField(k, val, len(val) > 0, err)
 		case IntKind:
 			val, err := ToInt64SliceE(v)
-			r = makeField(k, val, true, err)
+			r = makeField(k, val, len(val) > 0, err)
 		case UintKind:
 			val, err := ToUint64SliceE(v)
-			r = makeField(k, val, true, err)
+			r = makeField(k, val, len(val) > 0, err)
 		case FloatKind:
 			val, err := ToFloat64SliceE(v)
-			r = makeField(k, val, true, err)
+			r = makeField(k, val, len(val) > 0, err)
 		case BoolKind:
 			val, err := cast.ToBoolSliceE(v)
-			r = makeField(k, val, true, err)
+			r = makeField(k, val, len(val) > 0, err)
 		case TimeKind:
 			// TODO: 时区未解决, 目前是UTC
-			val, err := cast.ToTimeE(v)
-			r = makeField(k, val, true, err)
+			val := []time.Time{}
+			var err error
+			for _, it := range v {
+				if t, ex := cast.ToTimeE(it); ex == nil {
+					val = append(val, t)
+				} else {
+					err = ex
+					break
+				}
+			}
+			r = makeField(k, val, len(val) > 0, err)
 		default:
-			r = makeField(k, v, v != nil, nil)
+			r = makeField(k, v, len(v) > 0, nil)
 		}
 		return
 	}

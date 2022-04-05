@@ -56,12 +56,12 @@ func New(config Config) (DBInterface, error) {
 		} else {
 			//localhost:3306 tcp unix
 		}
-		config.Name = config.Driver + "://" + s
+		config.Name = s
 	}
 
 	conn := &connWrap{
 		db:   pool,
-		name: config.Name,
+		name: config.Driver + "://" + config.Name,
 	}
 
 	if rows, err := pool.Query("SELECT VERSION()"); err != nil {
