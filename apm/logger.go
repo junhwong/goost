@@ -9,7 +9,6 @@ import (
 	"github.com/junhwong/goost/apm/level"
 	"github.com/junhwong/goost/errors"
 	"github.com/junhwong/goost/pkg/field"
-	"github.com/junhwong/goost/runtime"
 )
 
 // LoggerInterface 日志记录接口
@@ -70,7 +69,7 @@ func (logger *DefaultLogger) flush() {
 	}
 }
 
-func (logger *DefaultLogger) Run(stopCh runtime.StopCh) {
+func (logger *DefaultLogger) Run(stopCh <-chan struct{}) {
 	for {
 		select {
 		case entry := <-logger.queue:
