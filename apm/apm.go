@@ -11,9 +11,10 @@ var (
 
 func init() {
 	ctx, cancel := context.WithCancel(context.Background())
+	f := NewTextFormatter() // NewJsonFormatter()
 	std = &DefaultLogger{
 		queue:    make(chan Entry, 1024),
-		handlers: []Handler{&ConsoleHandler{Formatter: NewJsonFormatter()}},
+		handlers: []Handler{&ConsoleHandler{Formatter: f}},
 		cancel:   cancel,
 	}
 	go std.Run(ctx.Done())

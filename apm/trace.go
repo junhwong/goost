@@ -74,7 +74,7 @@ func WithTrimFieldPrefix(prefix ...string) Option {
 // }
 
 func Start(ctx context.Context, options ...Option) (context.Context, Span) {
-	return std.NewSpan(ctx, options...)
+	return defi.NewSpan(ctx, options...)
 }
 
 // // SpanFromConext 返回与ctx关联的SpanContext，如果未找到则创建一个新的对象。

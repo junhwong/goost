@@ -22,9 +22,11 @@ func (h *ConsoleHandler) Priority() int {
 func (h *ConsoleHandler) Handle(entry Entry, next func()) {
 	defer next()
 	lvl := GetLevel(entry)
-	// if lvl == level.Trace {
-	// 	return
-	// }
+
+	// TODO: 临时开发
+	if lvl == level.Trace {
+		return
+	}
 
 	err := UseBuffer(func(buf *bytes.Buffer) error {
 		if err := h.Formatter.Format(entry, buf); err != nil {
