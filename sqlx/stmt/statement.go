@@ -4,11 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 
 	"github.com/junhwong/goost/sqlx"
 )
 
-var stmts = map[string]*Statement{}
+// var stmts = map[string]*Statement{}
+var (
+	stmts = sync.Map{}
+)
 
 type Statement struct {
 	stype  statementType
@@ -30,36 +34,42 @@ func Key(ctx context.Context, statementID string) context.Context {
 }
 
 func (stmt *Statement) Exec(ctx context.Context, conn sqlx.ExecutableInterface, getter sqlx.ParameterGetter) (sqlx.ExecutedResult, error) {
-	values, err := stmt.params.Values(getter)
+	args, err := stmt.params.Values(getter)
 	if err != nil {
 		return nil, err
 	}
-	return conn.Exec(ctx, stmt.query, values)
+	return conn.Exec(ctx, stmt.query, args)
 }
 
 func (stmt *Statement) Query(ctx context.Context, conn sqlx.QueryableInterface, getter sqlx.ParameterGetter) (sqlx.Rows, error) {
-	values, err := stmt.params.Values(getter)
+	args, err := stmt.params.Values(getter)
 	if err != nil {
 		return nil, err
 	}
-	return conn.Query(ctx, stmt.query, values)
+	return conn.Query(ctx, stmt.query, args)
 }
 
 func GetStatement(id string) *Statement {
-	return stmts[id]
+	if v, ok := stmts.Load(id); ok {
+		if s, _ := v.(*Statement); s != nil {
+			return s
+		}
+	}
+
+	return nil
 }
 
 func getStatementWithCtx(ctx context.Context, stype statementType) (*Statement, error) {
-	var id string
-	if s, ok := ctx.Value(sqlx.StatementIDKey).(string); ok {
-		id = s
+	key, _ := ctx.Value(sqlx.StatementIDKey).(string)
+	if key == "" {
+		return nil, fmt.Errorf("stmt: Cannot get Statement key from context")
 	}
-	stmt := GetStatement(id)
+	stmt := GetStatement(key)
 	if stmt == nil {
-		return nil, fmt.Errorf("Statement %q undefined", id)
+		return nil, fmt.Errorf("stmt: Statement %q undefined", key)
 	}
 	if stmt.stype != stype {
-		return nil, fmt.Errorf("Statement %q defined, but mismatch type: %q != %q", id, stype, stmt.stype)
+		return nil, fmt.Errorf("stmt: Statement %q defined, but mismatch type: %q != %q", key, stype, stmt.stype)
 	}
 	return stmt, nil
 }
@@ -70,8 +80,10 @@ type RowInterface interface {
 	Columns() ([]string, error)
 }
 
+type RowIter = func(row RowInterface) error
+
 func Query(ctx context.Context, conn sqlx.QueryableInterface, getter sqlx.ParameterGetter,
-	iterator func(row RowInterface) error) error {
+	iter RowIter, nextResultIterator ...RowIter) error {
 	stmt, err := getStatementWithCtx(ctx, QueryStatement)
 	if err != nil {
 		return err
@@ -82,12 +94,21 @@ func Query(ctx context.Context, conn sqlx.QueryableInterface, getter sqlx.Parame
 	}
 	defer rows.Close()
 
-	for rows.Next() {
-		err = iterator(rows)
-		if err != nil {
-			break
+	for err == nil && rows.Next() {
+		err = iter(rows)
+	}
+
+	var nextIter RowIter
+	for _, it := range nextResultIterator {
+		nextIter = it
+	}
+
+	for err == nil && nextIter != nil && rows.NextResultSet() {
+		for err == nil && rows.Next() {
+			err = nextIter(rows)
 		}
 	}
+
 	return err
 }
 

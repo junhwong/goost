@@ -27,19 +27,39 @@ var PanicHandlers = []func(interface{}){logPanic}
 // handlers and logging the panic message.
 //
 // E.g., you can provide one or more additional handlers for something like shutting down go routines gracefully.
-func HandleCrash(additionalHandlers ...func(interface{})) {
-	if r := recover(); r != nil {
-		for _, fn := range PanicHandlers {
-			fn(r)
-		}
-		for _, fn := range additionalHandlers {
-			fn(r)
-		}
-		if ReallyCrash {
-			// Actually proceed to panic.
-			panic(r)
-		}
+func HandleCrash(handlers ...func(interface{})) {
+	r := recover()
+	if r == nil {
+		return
 	}
+	ok := false
+	for _, fn := range handlers {
+		if fn == nil {
+			continue
+		}
+		ok = true
+		fn(r)
+	}
+	if ok {
+		return
+	}
+
+	// 默认处理
+	for _, fn := range PanicHandlers {
+		if fn == nil {
+			continue
+		}
+		ok = true
+		fn(r)
+	}
+	if !ok {
+		logPanic(r)
+	}
+	if ReallyCrash {
+		// Actually proceed to panic.
+		panic(r)
+	}
+
 }
 
 // logPanic logs the caller tree when a panic occurs (except in the special case of http.ErrAbortHandler).

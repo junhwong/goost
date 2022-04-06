@@ -62,11 +62,12 @@ func Store(desc map[string]Declaration) error {
 			return "?"
 		}
 		sql := parameterExtract(def.Statement, replacer)
-		stmts[name] = &Statement{
+		// TODO: 没有检查是否存在
+		stmts.Store(name, &Statement{
 			stype:  st,
 			query:  strings.TrimSpace(removeBlankString(removeBlankString(sql, " "), " ")),
 			params: holders,
-		}
+		})
 	}
 	return nil
 }

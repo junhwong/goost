@@ -9,6 +9,7 @@ import (
 
 	"github.com/junhwong/goost/apm"
 	"github.com/junhwong/goost/pkg/field"
+	"github.com/junhwong/goost/runtime"
 )
 
 type Config struct {
@@ -27,12 +28,12 @@ type connWrap struct {
 }
 
 func New(config Config) (DBInterface, error) {
-	pool, err := sql.Open(config.Driver, config.DSN)
+	db, err := sql.Open(config.Driver, config.DSN)
 	if err != nil {
 		return nil, err
 	}
-	// pool.Driver()
-	err = pool.Ping()
+	// db.Driver()
+	err = db.Ping()
 	if err != nil {
 		return nil, err
 	}
@@ -54,17 +55,17 @@ func New(config Config) (DBInterface, error) {
 			}
 			s = s + "/" + dbs
 		} else {
-			//localhost:3306 tcp unix
+			s = "unnamed"
 		}
 		config.Name = s
 	}
 
 	conn := &connWrap{
-		db:   pool,
+		db:   db,
 		name: config.Driver + "://" + config.Name,
 	}
 
-	if rows, err := pool.Query("SELECT VERSION()"); err != nil {
+	if rows, err := db.Query("SELECT VERSION()"); err != nil {
 		return nil, err
 	} else {
 		defer rows.Close()
@@ -79,13 +80,13 @@ func New(config Config) (DBInterface, error) {
 		if conn.db == nil {
 			return nil, fmt.Errorf("conn was closed")
 		}
-		t, err := conn.db.Begin()
+		tx, err := conn.db.Begin()
 		if err != nil {
 			return nil, err
 		}
 		return &txWarp{
 			name: conn.name,
-			tx:   t,
+			tx:   tx,
 		}, nil
 	}
 	conn.newConnFn = func(ctx context.Context) (ConnectionInterface, error) {
@@ -130,7 +131,7 @@ func (c *connWrap) Close() error {
 		c.conn = nil
 	}()
 
-	//TODO err
+	// TODO err
 	if c.db != nil {
 		c.db.Close()
 	}
@@ -162,6 +163,7 @@ func (w *txWarp) Exec(ctx context.Context, query string, args []interface{}) (Ex
 func (w *txWarp) Query(ctx context.Context, query string, args []interface{}) (Rows, error) {
 	return sqlQuery(ctx, w.name, w.tx, query, args)
 }
+
 func (c *txWarp) doClose() error {
 	defer func() {
 		c.tx = nil
@@ -171,43 +173,57 @@ func (c *txWarp) doClose() error {
 	}
 	return c.tx.Rollback()
 }
+
 func (c *txWarp) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return c.doClose()
+	if err := c.doClose(); err != nil {
+		fmt.Println("sqlx: 关闭发生错误:", err)
+	}
+	return c.err
 }
+
+func (c *txWarp) check() error {
+	if c.err != nil {
+		return c.err
+	}
+	if c.tx == nil {
+		return fmt.Errorf("tx was closed")
+	}
+	return c.err
+}
+
 func (c *txWarp) Commit() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	defer c.doClose() // TODO err
-
-	if c.err != nil {
-		return c.err
+	defer c.doClose()
+	if err := c.check(); err != nil {
+		return err
 	}
-
-	if c.tx == nil {
-		return fmt.Errorf("tx was closed")
+	c.err = wrapErr(c.tx.Commit())
+	if c.err == nil {
+		// 防止再次 Rollback
+		c.tx = nil
 	}
-	return c.tx.Commit()
+	return c.err
 }
+
 func (c *txWarp) Do(run func(conn Transaction) error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.err != nil {
+	if err := c.check(); err != nil {
 		return
 	}
-	if c.tx == nil {
-		c.err = fmt.Errorf("tx was closed")
-		return
-	}
-	// TODO: recover error
+
+	defer runtime.HandleCrash(func(r interface{}) {
+		c.err = fmt.Errorf("panic with tx: %v", r)
+	})
 	c.err = run(c)
 }
 
-/////
 var (
 	_, dbInstance  = field.String("db.instance")
 	_, dbType      = field.String("db.type")
@@ -241,7 +257,7 @@ func argSlim(a []interface{}) []interface{} {
 	return target
 }
 
-//https://github.com/opentracing/specification/blob/master/semantic_conventions.md
+// https://github.com/opentracing/specification/blob/master/semantic_conventions.md
 func prepareContext(ctx context.Context, instance string, conn sqlPrepare, query string, args []interface{}) (context.Context, apm.Span, *sql.Stmt, error) {
 	var id string
 	if s, ok := ctx.Value(StatementIDKey).(string); ok {
@@ -265,10 +281,6 @@ func prepareContext(ctx context.Context, instance string, conn sqlPrepare, query
 
 	return ctx, span, stmt, err
 }
-
-// type SQLError struct {
-// 	Err error
-// }
 
 func sqlExec(ctx context.Context, instance string, conn sqlPrepare, query string, args []interface{}) (ExecutedResult, error) {
 	ctx, span, stmt, err := prepareContext(ctx, instance, conn, query, args)
