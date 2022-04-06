@@ -242,28 +242,25 @@ func argSlim(a []interface{}) []interface{} {
 }
 
 //https://github.com/opentracing/specification/blob/master/semantic_conventions.md
-func prepareContext(ctx context.Context, name string, conn sqlPrepare, query string, args []interface{}) (context.Context, apm.Span, *sql.Stmt, error) {
+func prepareContext(ctx context.Context, instance string, conn sqlPrepare, query string, args []interface{}) (context.Context, apm.Span, *sql.Stmt, error) {
 	var id string
 	if s, ok := ctx.Value(StatementIDKey).(string); ok {
 		id = s
 	}
-	if id == "" {
-		id = "sql"
-	}
-	ctx, span := apm.Start(ctx,
-		apm.WithName(id),
-		apm.WithFields(
-			dbType("sql"),
-			dbInstance(name),
-			dbStmt(query),
-			dbArgs(argSlim(args)...),
-		),
-	)
+	// if id == "" {
+	// 	id = "sql"
+	// }
+	ctx, span := apm.Start(ctx, apm.WithName(id), apm.WithCalldepth(4))
 
 	if conn == nil {
 		return ctx, span, nil, fmt.Errorf("conn was closed")
 	}
-
+	span.Debug(
+		dbType("sql"),
+		dbInstance(instance),
+		dbStmt(query),
+		dbArgs(argSlim(args)...),
+	)
 	stmt, err := conn.PrepareContext(ctx, query)
 
 	return ctx, span, stmt, err
@@ -273,9 +270,9 @@ func prepareContext(ctx context.Context, name string, conn sqlPrepare, query str
 // 	Err error
 // }
 
-func sqlExec(ctx context.Context, name string, conn sqlPrepare, query string, args []interface{}) (ExecutedResult, error) {
-	ctx, span, stmt, err := prepareContext(ctx, name, conn, query, args)
-	defer span.End()
+func sqlExec(ctx context.Context, instance string, conn sqlPrepare, query string, args []interface{}) (ExecutedResult, error) {
+	ctx, span, stmt, err := prepareContext(ctx, instance, conn, query, args)
+	defer span.End(apm.WithCalldepth(2))
 	if span.FailIf(err) {
 		return nil, err
 	}
@@ -287,9 +284,9 @@ func sqlExec(ctx context.Context, name string, conn sqlPrepare, query string, ar
 	}
 	return result, err
 }
-func sqlQuery(ctx context.Context, name string, conn sqlPrepare, query string, args []interface{}) (Rows, error) {
-	ctx, span, stmt, err := prepareContext(ctx, name, conn, query, args)
-	defer span.End()
+func sqlQuery(ctx context.Context, instance string, conn sqlPrepare, query string, args []interface{}) (Rows, error) {
+	ctx, span, stmt, err := prepareContext(ctx, instance, conn, query, args)
+	defer span.End(apm.WithCalldepth(2))
 	if span.FailIf(err) {
 		return nil, err
 	}

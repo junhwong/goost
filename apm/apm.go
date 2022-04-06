@@ -59,6 +59,7 @@ func AddHandlers(handlers ...Handler) {
 func New(ctx context.Context) Interface {
 	r := &stdImpl{entryLog: entryLog{ctx: ctx, logger: std}}
 	r.spi = std
+	r.calldepth = 1
 	return r
 }
 

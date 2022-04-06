@@ -21,6 +21,7 @@ type traceOption struct {
 	attrs           []field.Field
 	delegate        func(*traceOption)
 	getName         func() string
+	calldepth       int
 }
 
 func (opt *traceOption) apply(target *traceOption) {
@@ -35,6 +36,11 @@ func (opt *traceOption) applyEnd(target *traceOption) {
 func WithName(name string) Option {
 	return &traceOption{delegate: func(target *traceOption) {
 		target.name = name
+	}}
+}
+func WithCalldepth(depth int) *traceOption {
+	return &traceOption{delegate: func(target *traceOption) {
+		target.calldepth = depth
 	}}
 }
 

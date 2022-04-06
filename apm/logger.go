@@ -147,28 +147,29 @@ func (entry *DefaultLogger) Log(ctx context.Context, calldepth int, level level.
 
 // ==================== EntryInterface ====================
 type entryLog struct {
-	logger LoggerInterface
-	ctx    context.Context
+	calldepth int // 1
+	logger    LoggerInterface
+	ctx       context.Context
 }
 
-func (log *entryLog) Debug(a ...interface{}) { log.logger.Log(log.ctx, 1, level.Debug, a) }
-func (log *entryLog) Info(a ...interface{})  { log.logger.Log(log.ctx, 1, level.Info, a) }
-func (log *entryLog) Warn(a ...interface{})  { log.logger.Log(log.ctx, 1, level.Warn, a) }
-func (log *entryLog) Error(a ...interface{}) { log.logger.Log(log.ctx, 1, level.Error, a) }
-func (log *entryLog) Fatal(a ...interface{}) { log.logger.Log(log.ctx, 1, level.Fatal, a) }
+func (log *entryLog) Debug(a ...interface{}) { log.logger.Log(log.ctx, log.calldepth, level.Debug, a) }
+func (log *entryLog) Info(a ...interface{})  { log.logger.Log(log.ctx, log.calldepth, level.Info, a) }
+func (log *entryLog) Warn(a ...interface{})  { log.logger.Log(log.ctx, log.calldepth, level.Warn, a) }
+func (log *entryLog) Error(a ...interface{}) { log.logger.Log(log.ctx, log.calldepth, level.Error, a) }
+func (log *entryLog) Fatal(a ...interface{}) { log.logger.Log(log.ctx, log.calldepth, level.Fatal, a) }
 
 func (log *entryLog) Debugf(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, 1, level.Debug, format, a)
+	log.logger.Logf(log.ctx, log.calldepth, level.Debug, format, a)
 }
 func (log *entryLog) Infof(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, 1, level.Info, format, a)
+	log.logger.Logf(log.ctx, log.calldepth, level.Info, format, a)
 }
 func (log *entryLog) Warnf(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, 1, level.Warn, format, a)
+	log.logger.Logf(log.ctx, log.calldepth, level.Warn, format, a)
 }
 func (log *entryLog) Errorf(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, 1, level.Error, format, a)
+	log.logger.Logf(log.ctx, log.calldepth, level.Error, format, a)
 }
 func (log *entryLog) Fatalf(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, 1, level.Fatal, format, a)
+	log.logger.Logf(log.ctx, log.calldepth, level.Fatal, format, a)
 }

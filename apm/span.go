@@ -54,7 +54,8 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []Option) (cont
 		ctx = context.Background()
 	}
 	option := traceOption{
-		attrs: make([]field.Field, 0),
+		calldepth: 1,
+		attrs:     make([]field.Field, 0),
 	}
 	for _, opt := range options {
 		if opt == nil {
@@ -93,6 +94,7 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []Option) (cont
 	span.option = option
 	span.logger = logger
 	span.ctx = ctx
+	span.calldepth = option.calldepth
 	return ctx, span
 }
 
@@ -122,8 +124,9 @@ func (span *spanImpl) End(options ...EndOption) {
 	if span.failed {
 		fs = append(fs, _entryTraceError(span.failed))
 	}
-	span.logger.Log(span.ctx, 1, level.Trace, fs)
-	span.logger = nil // 移除关联,
+	span.calldepth = span.option.calldepth
+	span.logger.Log(span.ctx, span.calldepth, level.Trace, fs) // TODO: calldepth 不能获取到 defer 位置
+	span.logger = nil                                          // 移除关联,
 }
 
 func (span *spanImpl) Context() context.Context { return span.ctx }
