@@ -90,7 +90,7 @@ func (logger *DefaultLogger) Close() error {
 	return nil
 }
 
-func (logger *DefaultLogger) NewSpan(ctx context.Context, options ...Option) (context.Context, Span) {
+func (logger *DefaultLogger) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
 	return newSpan(ctx, logger, options)
 }
 

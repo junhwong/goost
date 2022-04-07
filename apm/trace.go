@@ -6,14 +6,14 @@ import (
 	"github.com/junhwong/goost/pkg/field"
 )
 
-type Option interface {
-	apply(*traceOption)
+type SpanOption interface {
+	applySpanOption(*traceOption)
 }
-type StartOption interface {
-	applyStart(*traceOption)
+type StartSpanOption interface {
+	applyStartSpanOption(*traceOption)
 }
-type EndOption interface {
-	applyEnd(*traceOption)
+type EndSpanOption interface {
+	applyEndOption(*traceOption)
 }
 type traceOption struct {
 	trimFieldPrefix []string
@@ -24,20 +24,24 @@ type traceOption struct {
 	calldepth       int
 }
 
-func (opt *traceOption) apply(target *traceOption) {
+func (opt *traceOption) applySpanOption(target *traceOption) {
 	opt.delegate(target)
 }
-func (opt *traceOption) applyStart(target *traceOption) {
-	opt.apply(target)
+func (opt *traceOption) applyEndOption(target *traceOption) {
+	opt.applySpanOption(target)
 }
-func (opt *traceOption) applyEnd(target *traceOption) {
-	opt.apply(target)
-}
-func WithName(name string) Option {
+
+// func (opt *traceOption) applyStartSpanOption(target *traceOption) {
+// 	opt.applyStartSpanOption(target)
+// }
+
+func WithName(name string) SpanOption {
 	return &traceOption{delegate: func(target *traceOption) {
 		target.name = name
 	}}
 }
+
+// 调整日志堆栈记录深度
 func WithCalldepth(depth int) *traceOption {
 	return &traceOption{delegate: func(target *traceOption) {
 		target.calldepth = depth
@@ -45,7 +49,7 @@ func WithCalldepth(depth int) *traceOption {
 }
 
 // 替换SpanName
-func WithReplaceSpanName(getName func() string) EndOption {
+func WithReplaceSpanName(getName func() string) EndSpanOption {
 	if getName == nil {
 		panic("apm: getName cannot be nil")
 	}
@@ -53,44 +57,22 @@ func WithReplaceSpanName(getName func() string) EndOption {
 		target.getName = getName
 	}}
 }
-func WithFields(fs ...field.Field) *traceOption {
-	return &traceOption{delegate: func(target *traceOption) {
-		target.attrs = append(target.attrs, fs...)
-	}}
+
+//
+func (fn appendFields) applySpanOption(opt *traceOption) {
+	opt.attrs = append(opt.attrs, fn()...)
+}
+func (fn appendFields) applyEndOption(opt *traceOption) {
+	opt.attrs = append(opt.attrs, fn()...)
 }
 
-func WithTrimFieldPrefix(prefix ...string) Option {
+// Deprecated 已经废弃
+func WithTrimFieldPrefix(prefix ...string) SpanOption {
 	return &traceOption{delegate: func(target *traceOption) {
 		target.trimFieldPrefix = prefix
 	}}
 }
 
-// func FromContext(ctx context.Context) LoggerInterface {
-// 	span, _ := ctx.Value(spanInContextKey).(*Span)
-// 	if span != nil && span.logger != nil {
-// 		return span
-// 	}
-// 	panic("apm.FromContext: span not found in context")
-// }
-
-func Start(ctx context.Context, options ...Option) (context.Context, Span) {
+func Start(ctx context.Context, options ...SpanOption) (context.Context, Span) {
 	return defi.NewSpan(ctx, options...)
 }
-
-// // SpanFromConext 返回与ctx关联的SpanContext，如果未找到则创建一个新的对象。
-// func SpanFromConext(ctx context.Context) (span SpanContext) {
-// 	if ctx == nil {
-// 		ctx = context.TODO()
-// 	}
-// 	if prent, ok := ctx.Value(spanInContextKey).(*Span); ok && prent != nil {
-// 		span.TranceID = prent.TranceID
-// 		span.SpanParentID = prent.SpanParentID
-// 		span.Name = prent.Name
-// 		span.SpanID = prent.SpanID
-// 	} else {
-// 		span.SpanID = newSpanId()
-// 		span.TranceID = TraceIDFromContext(ctx)
-// 		span.first = true
-// 	}
-// 	return
-// }

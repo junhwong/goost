@@ -9,16 +9,16 @@ import (
 )
 
 type SpanInterface interface {
-	NewSpan(ctx context.Context, options ...Option) (context.Context, Span)
+	NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span)
 }
 type Span interface {
 	Logger
 	// Trace(...interface{})     //
-	End(options ...EndOption) // 结束该Span。
-	Fail()                    // Fail 标记该Span为失败。
-	FailIf(err error) bool    // 如果`err`不为`nil`, 则标记失败并返回`true`，否则`false`
-	PanicIf(err error)        // 如果`err`不为`nil`, 则标记失败并`panic`
-	Context() context.Context // 返回与该span关联的上下文
+	End(options ...EndSpanOption) // 结束该Span。
+	Fail()                        // Fail 标记该Span为失败。
+	FailIf(err error) bool        // 如果`err`不为`nil`, 则标记失败并返回`true`，否则`false`
+	PanicIf(err error)            // 如果`err`不为`nil`, 则标记失败并`panic`
+	Context() context.Context     // 返回与该span关联的上下文
 }
 type SpanContext struct {
 	TranceID     string
@@ -46,7 +46,7 @@ type spanImpl struct {
 	option    traceOption
 }
 
-func newSpan(ctx context.Context, logger *DefaultLogger, options []Option) (context.Context, *spanImpl) {
+func newSpan(ctx context.Context, logger *DefaultLogger, options []SpanOption) (context.Context, *spanImpl) {
 	if logger == nil {
 		panic("apm: logger cannot be nil")
 	}
@@ -61,7 +61,7 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []Option) (cont
 		if opt == nil {
 			continue
 		}
-		opt.apply(&option)
+		opt.applySpanOption(&option)
 	}
 	span := &spanImpl{
 		option:    option,
@@ -98,10 +98,10 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []Option) (cont
 	return ctx, span
 }
 
-func (span *spanImpl) End(options ...EndOption) {
+func (span *spanImpl) End(options ...EndSpanOption) {
 	for _, option := range options {
 		if option != nil {
-			option.applyEnd(&span.option)
+			option.applyEndOption(&span.option)
 		}
 	}
 	name := span.Name

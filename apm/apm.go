@@ -2,6 +2,8 @@ package apm
 
 import (
 	"context"
+
+	"github.com/junhwong/goost/pkg/field"
 )
 
 var (
@@ -57,7 +59,28 @@ func AddHandlers(handlers ...Handler) {
 	std.handlers.Sort()
 }
 
-func New(ctx context.Context) Interface {
+// type appendFields struct {
+// 	fields []field.Field
+// }
+
+type appendFields func() []field.Field
+
+func (fn appendFields) applyInterface(impl *stdImpl) {
+	fs := fn()
+	impl.fields = append(impl.fields, fs...)
+}
+
+type Option interface {
+	applyInterface(*stdImpl)
+}
+
+func WithFields(fs ...field.Field) appendFields {
+	return func() []field.Field {
+		return fs
+	}
+}
+
+func New(ctx context.Context, options ...Option) Interface {
 	r := &stdImpl{entryLog: entryLog{ctx: ctx, logger: std}}
 	r.spi = std
 	r.calldepth = 1
@@ -66,9 +89,10 @@ func New(ctx context.Context) Interface {
 
 type stdImpl struct {
 	entryLog
-	spi SpanInterface
+	fields []field.Field
+	spi    SpanInterface
 }
 
-func (log *stdImpl) NewSpan(ctx context.Context, options ...Option) (context.Context, Span) {
+func (log *stdImpl) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
 	return log.spi.NewSpan(ctx, options...)
 }
