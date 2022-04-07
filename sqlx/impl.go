@@ -218,8 +218,8 @@ func (c *txWarp) Do(run func(conn Transaction) error) {
 		return
 	}
 
-	defer runtime.HandleCrash(func(r error) {
-		c.err = fmt.Errorf("panic with tx: %v", r)
+	defer runtime.HandleCrash(func(err error) {
+		c.err = err
 	})
 	c.err = run(c)
 }

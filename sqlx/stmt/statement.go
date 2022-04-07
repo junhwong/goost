@@ -24,12 +24,7 @@ func (stmt *Statement) Type() statementType {
 	return stmt.stype
 }
 
-// Deprecated: 重命名 Key
 func Of(ctx context.Context, statementID string) context.Context {
-	return context.WithValue(ctx, sqlx.StatementIDKey, statementID)
-}
-
-func Key(ctx context.Context, statementID string) context.Context {
 	return context.WithValue(ctx, sqlx.StatementIDKey, statementID)
 }
 
@@ -59,19 +54,19 @@ func GetStatement(id string) *Statement {
 	return nil
 }
 
-func getStatementWithCtx(ctx context.Context, stype statementType) (*Statement, error) {
-	key, _ := ctx.Value(sqlx.StatementIDKey).(string)
-	if key == "" {
-		return nil, fmt.Errorf("stmt: Cannot get Statement key from context")
-	}
+func getStatementWithCtx(ctx context.Context, key string, stype statementType) (context.Context, *Statement, error) {
+	// key, _ := ctx.Value(sqlx.StatementIDKey).(string)
+	// if key == "" {
+	// 	return ctx,nil, fmt.Errorf("stmt: Cannot get Statement key from context")
+	// }
 	stmt := GetStatement(key)
 	if stmt == nil {
-		return nil, fmt.Errorf("stmt: Statement %q undefined", key)
+		return ctx, nil, fmt.Errorf("stmt: Statement %q undefined", key)
 	}
 	if stmt.stype != stype {
-		return nil, fmt.Errorf("stmt: Statement %q defined, but mismatch type: %q != %q", key, stype, stmt.stype)
+		return ctx, nil, fmt.Errorf("stmt: Statement %q defined, but mismatch type: %q != %q", key, stype, stmt.stype)
 	}
-	return stmt, nil
+	return Of(ctx, key), stmt, nil
 }
 
 type RowInterface interface {
@@ -82,9 +77,9 @@ type RowInterface interface {
 
 type RowIter = func(row RowInterface) error
 
-func Query(ctx context.Context, conn sqlx.QueryableInterface, getter sqlx.ParameterGetter,
+func Query(ctx context.Context, key string, conn sqlx.QueryableInterface, getter sqlx.ParameterGetter,
 	iter RowIter, nextResultIterator ...RowIter) error {
-	stmt, err := getStatementWithCtx(ctx, QueryStatement)
+	ctx, stmt, err := getStatementWithCtx(ctx, key, QueryStatement)
 	if err != nil {
 		return err
 	}
@@ -112,8 +107,8 @@ func Query(ctx context.Context, conn sqlx.QueryableInterface, getter sqlx.Parame
 	return err
 }
 
-func Exec(ctx context.Context, conn sqlx.ExecutableInterface, getter sqlx.ParameterGetter) (sqlx.ExecutedResult, error) {
-	stmt, err := getStatementWithCtx(ctx, ExecStatement)
+func Exec(ctx context.Context, key string, conn sqlx.ExecutableInterface, getter sqlx.ParameterGetter) (sqlx.ExecutedResult, error) {
+	ctx, stmt, err := getStatementWithCtx(ctx, key, ExecStatement)
 	if err != nil {
 		return nil, err
 	}
