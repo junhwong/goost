@@ -2,13 +2,12 @@ package apm
 
 import (
 	"context"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/junhwong/goost/apm/level"
-	"github.com/junhwong/goost/errors"
 	"github.com/junhwong/goost/pkg/field"
+	"github.com/junhwong/goost/runtime"
 )
 
 // LoggerInterface 日志记录接口
@@ -94,6 +93,10 @@ func (logger *DefaultLogger) NewSpan(ctx context.Context, options ...SpanOption)
 	return newSpan(ctx, logger, options)
 }
 
+type _GetCallLastInfo interface {
+	GetCallLastInfo() runtime.CallSourceInfo
+}
+
 func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level.Level, format string, args []interface{}) {
 	fs := make(field.Fields, 5)
 
@@ -110,21 +113,16 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 		}
 	}
 
-	var method string
-	var line int
-	if ex := errors.AsTraceback(err); ex != nil {
-		method = ex.Method
-		line = ex.Line
-		if line != 0 {
-			method += ":" + strconv.Itoa(line)
-		}
-		fs.Set(_entryErrorMethod(method))
+	if d, _ := err.(_GetCallLastInfo); d != nil {
+		info := d.GetCallLastInfo()
+		fs.Set(_entryErrorMethod(info.Method))
 	}
+
 	if calldepth > -1 {
-		caller, path, lineno := errors.Caller(calldepth + 1)
-		fs.Set(TracebackCaller(getSplitLast(caller, "/")))
-		fs.Set(TracebackLineNo(lineno))
-		fs.Set(TracebackPath(path))
+		info := runtime.Caller(calldepth + 1)
+		fs.Set(TracebackCaller(getSplitLast(info.Method, "/")))
+		fs.Set(TracebackLineNo(info.Line))
+		fs.Set(TracebackPath(info.File))
 	}
 
 	if _, ok := fs[TraceIDKey]; !ok && ctx != nil {

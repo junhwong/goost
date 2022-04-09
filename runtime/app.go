@@ -205,7 +205,8 @@ func (hooks *hookBuilder) Append(hook Hook) {
 // 跟踪中断信号。
 func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 	if len(sig) == 0 {
-		sig = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
+		// systemd restart terminated , syscall.SIGTERM 子进程?
+		sig = []os.Signal{os.Interrupt, syscall.SIGHUP}
 	}
 	ch := make(chan os.Signal, 1)
 	return func(life Lifecycle) {
@@ -213,8 +214,9 @@ func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 			Serving: true,
 			OnStart: func(ctx context.Context) {
 				signal.Notify(ch, sig...)
-				<-ch
-
+				b := <-ch
+				// TODO 临时检测具体信号
+				fmt.Println("收到信号", b)
 				go func() {
 					for sig := range ch {
 						if sig == os.Interrupt {
@@ -226,7 +228,8 @@ func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 				}()
 			},
 			OnStop: func(ctx context.Context) {
-				ch <- syscall.SIGTERM // 自定义退出
+				fmt.Println("主动发起")
+				ch <- syscall.SIGPIPE // 自定义退出
 			},
 		})
 	}

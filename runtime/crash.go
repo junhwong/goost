@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -35,8 +34,8 @@ func HandleCrash(handlers ...func(error)) {
 		err = &recoveredError{recovered: r}
 		// TODO: 获取堆栈的首行
 	}
-	err = wrapTracebackLastError(err, 1, false)
-	err = wrapTracebackStackError(err, 1, false)
+	err = WrapCallLast(err, 1, false)
+	err = WrapCallStack(err, 1, false)
 
 	ok := false
 	for _, fn := range handlers {
@@ -99,91 +98,6 @@ func logPanic(r error) {
 	fmt.Printf("Observed a panic: %#v (%v)\n%s", r, r, stacktrace)
 }
 
-// PanicIf panics on non-nil errors. Useful to handling programmer level errors.
-func PanicIf(err error) {
-	if err == nil {
-		return
-	}
-	err = wrapTracebackLastError(err, 1, false)
-	err = wrapTracebackStackError(err, 1, false)
-	panic(err)
-}
-
-func Caller(depth int) (funcName, file string, line int) {
-	var pc uintptr
-	var ok bool
-	pc, file, line, ok = runtime.Caller(depth + 1)
-
-	if ok {
-		funcName = runtime.FuncForPC(pc).Name()
-	}
-	return
-}
-func wrapTracebackLastError(err error, depth int, f bool) (ex *TracebackLastError) {
-	if err == nil {
-		panic("err cannot nil")
-	}
-	if errors.As(err, &ex) && !f {
-		return
-	}
-	ex = &TracebackLastError{
-		Err:   err,
-		depth: depth + 1,
-	}
-	ex.Method, ex.File, ex.Line = Caller(ex.depth)
-
-	return
-}
-
-type TracebackLast struct {
-	File   string
-	Line   int
-	Method string
-}
-
-type TracebackLastError struct {
-	TracebackLast
-	Err error
-
-	depth int
-}
-
-func (err *TracebackLastError) Unwrap() error {
-	return err.Err
-}
-func (err *TracebackLastError) Error() string {
-	return err.Err.Error()
-}
-
-func wrapTracebackStackError(err error, depth int, f bool) (ex *TracebackStackError) {
-	if err == nil {
-		panic("err cannot nil")
-	}
-	if errors.As(err, &ex) && !f {
-		return
-	}
-	ex = &TracebackStackError{
-		Err:   err,
-		depth: depth + 1,
-	}
-	const size = 64 << 10
-	stacktrace := make([]byte, size)
-	ex.Stack = stacktrace[:runtime.Stack(stacktrace, false)]
-	return
-}
-
-type TracebackStackError struct {
-	Err   error
-	Stack []byte
-
-	depth int
-}
-
-func (err *TracebackStackError) Unwrap() error {
-	return err.Err
-}
-func (err *TracebackStackError) Error() string {
-	return err.Err.Error()
-}
+//
 
 // type StopCh = <-chan struct{}
