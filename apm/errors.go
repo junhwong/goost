@@ -100,9 +100,9 @@ func GetFieldsFromError(err error) []field.Field {
 	return ex.Fields
 }
 
-func Wrap(code string, msg string, httpCode ...int) func(error, ...field.Field) error {
+func WrapError(code string, msg string, httpCode ...int) (error, func(error, ...field.Field) error) {
 	err := loadOrStoreCodeErr(code, msg, httpCode)
-	return func(f error, fs ...field.Field) error {
+	return err, func(f error, fs ...field.Field) error {
 		return &fieldsError{
 			Err:    err,
 			Fields: fs,
@@ -117,4 +117,8 @@ func WrapTraceback(err error, depth int, forceWrap ...bool) error {
 	err = runtime.WrapCallLast(err, depth+1, forceWrap...)
 	err = runtime.WrapCallStack(err, depth+1, forceWrap...)
 	return err
+}
+
+func WrapCallLast(err error, forceWrap ...bool) error {
+	return runtime.WrapCallLast(err, 1, forceWrap...)
 }

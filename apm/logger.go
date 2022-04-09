@@ -113,8 +113,7 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 		}
 	}
 
-	if d, _ := err.(_GetCallLastInfo); d != nil {
-		info := d.GetCallLastInfo()
+	if info, ok := runtime.GetCallLastFromError(err); ok {
 		fs.Set(_entryErrorMethod(info.Method))
 	}
 

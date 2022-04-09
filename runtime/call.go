@@ -61,3 +61,12 @@ func WrapCallLast(err error, depth int, forceWrap ...bool) (ex *wrappedCallLastE
 
 	return
 }
+
+func GetCallLastFromError(err error) (info CallSourceInfo, ok bool) {
+	var ex *wrappedCallLastError
+	if errors.As(err, &ex) {
+		info = ex.CallSourceInfo
+		ok = true
+	}
+	return
+}
