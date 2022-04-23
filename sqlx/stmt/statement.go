@@ -3,9 +3,9 @@ package stmt
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"sync"
 
+	"github.com/junhwong/goost/apm"
 	"github.com/junhwong/goost/sqlx"
 )
 
@@ -14,10 +14,20 @@ var (
 	stmts = sync.Map{}
 )
 
+type statementType string
 type Statement struct {
 	stype  statementType
+	name   string
 	query  string
 	params sqlx.ParameterHolders
+}
+
+func New(name, query string, params sqlx.ParameterHolders) *Statement {
+	return &Statement{
+		query:  query,
+		params: params,
+		name:   name,
+	}
 }
 
 func (stmt *Statement) Type() statementType {
@@ -28,48 +38,17 @@ func Of(ctx context.Context, statementID string) context.Context {
 	return context.WithValue(ctx, sqlx.StatementIDKey, statementID)
 }
 
-func (stmt *Statement) Exec(ctx context.Context, conn sqlx.ExecutableInterface, getter sqlx.ParameterGetter) (sqlx.ExecutedResult, error) {
-	args, err := stmt.params.Values(getter)
-	if err != nil {
-		return nil, err
-	}
-	return conn.Exec(ctx, stmt.query, args)
-}
-
-func (stmt *Statement) Query(ctx context.Context, conn sqlx.QueryableInterface, getter sqlx.ParameterGetter) (sqlx.Rows, error) {
-	args, err := stmt.params.Values(getter)
-	if err != nil {
-		return nil, err
-	}
-	return conn.Query(ctx, stmt.query, args)
-}
-
 func GetStatement(id string) *Statement {
 	if v, ok := stmts.Load(id); ok {
 		if s, _ := v.(*Statement); s != nil {
 			return s
 		}
 	}
-
 	return nil
 }
 
-func getStatementWithCtx(ctx context.Context, key string, stype statementType) (context.Context, *Statement, error) {
-	// key, _ := ctx.Value(sqlx.StatementIDKey).(string)
-	// if key == "" {
-	// 	return ctx,nil, fmt.Errorf("stmt: Cannot get Statement key from context")
-	// }
-	stmt := GetStatement(key)
-	if stmt == nil {
-		return ctx, nil, fmt.Errorf("stmt: Statement %q undefined", key)
-	}
-	if stmt.stype != stype {
-		return ctx, nil, fmt.Errorf("stmt: Statement %q defined, but mismatch type: %q != %q", key, stype, stmt.stype)
-	}
-	return Of(ctx, key), stmt, nil
-}
-
 type RowInterface interface {
+	Err() error
 	Scan(dest ...interface{}) error
 	ColumnTypes() ([]*sql.ColumnType, error)
 	Columns() ([]string, error)
@@ -77,13 +56,22 @@ type RowInterface interface {
 
 type RowIter = func(row RowInterface) error
 
-func Query(ctx context.Context, key string, conn sqlx.QueryableInterface, getter sqlx.ParameterGetter,
-	iter RowIter, nextResultIterator ...RowIter) error {
-	ctx, stmt, err := getStatementWithCtx(ctx, key, QueryStatement)
+func (s *Statement) Query(ctx context.Context, raw sqlx.Conn, getter sqlx.ParameterGetter,
+	iter RowIter, nextResultIter ...RowIter) error {
+	ctx, span := apm.Start(ctx)
+	defer span.End()
+
+	stmt, err := raw.Prepare(ctx, s.query)
 	if err != nil {
 		return err
 	}
-	rows, err := stmt.Query(ctx, conn, getter)
+	defer apm.Close(stmt, span)
+
+	args, err := s.params.Values(getter)
+	if err != nil {
+		return err
+	}
+	rows, err := stmt.Query(ctx, args...)
 	if err != nil {
 		return err
 	}
@@ -92,9 +80,8 @@ func Query(ctx context.Context, key string, conn sqlx.QueryableInterface, getter
 	for err == nil && rows.Next() {
 		err = iter(rows)
 	}
-
 	var nextIter RowIter
-	for _, it := range nextResultIterator {
+	for _, it := range nextResultIter {
 		nextIter = it
 	}
 
@@ -107,10 +94,36 @@ func Query(ctx context.Context, key string, conn sqlx.QueryableInterface, getter
 	return err
 }
 
-func Exec(ctx context.Context, key string, conn sqlx.ExecutableInterface, getter sqlx.ParameterGetter) (sqlx.ExecutedResult, error) {
-	ctx, stmt, err := getStatementWithCtx(ctx, key, ExecStatement)
+func (s *Statement) Exec(ctx context.Context, raw sqlx.Conn, getter sqlx.ParameterGetter) (sqlx.ExecutedResult, error) {
+	ctx, span := apm.Start(ctx,
+		apm.WithFields(),
+		apm.WithCallDepth(2),
+	)
+	defer span.End()
+	stmt, err := raw.Prepare(ctx, s.query)
 	if err != nil {
 		return nil, err
 	}
-	return stmt.Exec(ctx, conn, getter)
+	defer apm.Close(stmt, span)
+
+	args, err := s.params.Values(getter)
+	if err != nil {
+		return nil, err
+	}
+	return stmt.Exec(ctx, args...)
+}
+
+type structedStmt struct {
+	*Statement
+	names map[string]int
+}
+
+func (s *structedStmt) NewParams(obj interface{}, filters ...ParamterFilter) (*structedParams, error) {
+	return NewStructedParams(obj, s.names, filters...)
+}
+
+type StructedStmt interface {
+	Query(ctx context.Context, raw sqlx.Conn, getter sqlx.ParameterGetter, iter func(row RowInterface) error, nextResultIter ...func(row RowInterface) error) error
+	Exec(ctx context.Context, raw sqlx.Conn, getter sqlx.ParameterGetter) (sql.Result, error)
+	NewParams(obj interface{}, filters ...ParamterFilter) (*structedParams, error)
 }

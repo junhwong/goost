@@ -4,12 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
-	"sync"
+	"io"
 
 	"github.com/junhwong/goost/apm"
 	"github.com/junhwong/goost/pkg/field"
-	"github.com/junhwong/goost/runtime"
 )
 
 type Config struct {
@@ -18,222 +16,22 @@ type Config struct {
 	DSN    string `json:"dsn" yml:"dsn"`
 }
 
-type connWrap struct {
-	serverVersion string
-	name          string
-	db            *sql.DB
-	conn          *sql.Conn
-	beginTxFn     func(ctx context.Context) (TransactionInterface, error)
-	newConnFn     func(ctx context.Context) (ConnectionInterface, error)
-}
-
-func New(config Config) (DBInterface, error) {
-	db, err := sql.Open(config.Driver, config.DSN)
-	if err != nil {
-		return nil, err
-	}
-	// db.Driver()
-	err = db.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	if config.Name == "" {
-		s := ""
-		arr := strings.SplitN(config.DSN, "/", 2)
-		if len(arr) == 2 {
-			index := strings.Index(arr[0], "(")
-			if index > 0 {
-				s = arr[0][index+1 : len(arr[0])-1]
-			} else {
-				s = "localhost"
-			}
-			dbs := arr[1]
-			index = strings.Index(dbs, "?")
-			if index > 0 {
-				dbs = dbs[:index]
-			}
-			s = s + "/" + dbs
-		} else {
-			s = "unnamed"
-		}
-		config.Name = s
-	}
-
-	conn := &connWrap{
-		db:   db,
-		name: config.Driver + "://" + config.Name,
-	}
-
-	if rows, err := db.Query("SELECT VERSION()"); err != nil {
-		return nil, err
-	} else {
-		defer rows.Close()
-		for rows.Next() {
-			if err := rows.Scan(&conn.serverVersion); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	conn.beginTxFn = func(ctx context.Context) (TransactionInterface, error) {
-		if conn.db == nil {
-			return nil, fmt.Errorf("conn was closed")
-		}
-		tx, err := conn.db.Begin()
-		if err != nil {
-			return nil, err
-		}
-		return &txWarp{
-			name: conn.name,
-			tx:   tx,
-		}, nil
-	}
-	conn.newConnFn = func(ctx context.Context) (ConnectionInterface, error) {
-		if conn.db == nil {
-			return nil, fmt.Errorf("conn was closed")
-		}
-		nc, err := conn.db.Conn(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return &connWrap{
-			name:      conn.name,
-			conn:      nc,
-			beginTxFn: conn.beginTxFn,
-			newConnFn: conn.newConnFn,
-		}, nil
-	}
-	return conn, nil
-}
-
-func (c *connWrap) ServerVersion() string {
-	return c.serverVersion
-}
-
-func (w *connWrap) Exec(ctx context.Context, query string, args []interface{}) (ExecutedResult, error) {
-	var conn sqlPrepare = w.db
-	if conn == nil {
-		conn = w.conn
-	}
-	return sqlExec(ctx, w.name, conn, query, args)
-}
-func (w *connWrap) Query(ctx context.Context, query string, args []interface{}) (Rows, error) {
-	var conn sqlPrepare = w.db
-	if conn == nil {
-		conn = w.conn
-	}
-	return sqlQuery(ctx, w.name, conn, query, args)
-}
-func (c *connWrap) Close() error {
-	defer func() {
-		c.db = nil
-		c.conn = nil
-	}()
-
-	// TODO err
-	if c.db != nil {
-		c.db.Close()
-	}
-	if c.conn != nil {
-		c.conn.Close()
-	}
-	return nil
-}
-
-func (c *connWrap) Begin(ctx context.Context) (TransactionInterface, error) {
-	return c.beginTxFn(ctx)
-}
-func (c *connWrap) New(ctx context.Context) (ConnectionInterface, error) {
-	return c.newConnFn(ctx)
-}
-
-type txWarp struct {
-	name string
-	tx   *sql.Tx
-	err  error
-	mu   sync.Mutex
-}
-
-func (w *txWarp) internal() {}
-
-func (w *txWarp) Exec(ctx context.Context, query string, args []interface{}) (ExecutedResult, error) {
-	return sqlExec(ctx, w.name, w.tx, query, args)
-}
-func (w *txWarp) Query(ctx context.Context, query string, args []interface{}) (Rows, error) {
-	return sqlQuery(ctx, w.name, w.tx, query, args)
-}
-
-func (c *txWarp) doClose() error {
-	defer func() {
-		c.tx = nil
-	}()
-	if c.tx == nil {
-		return nil
-	}
-	return c.tx.Rollback()
-}
-
-func (c *txWarp) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if err := c.doClose(); err != nil {
-		fmt.Println("sqlx: 关闭发生错误:", err)
-	}
-	return c.err
-}
-
-func (c *txWarp) check() error {
-	if c.err != nil {
-		return c.err
-	}
-	if c.tx == nil {
-		return fmt.Errorf("tx was closed")
-	}
-	return c.err
-}
-
-func (c *txWarp) Commit() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	defer c.doClose()
-	if err := c.check(); err != nil {
-		return err
-	}
-	c.err = wrapErr(c.tx.Commit())
-	if c.err == nil {
-		// 防止再次 Rollback
-		c.tx = nil
-	}
-	return c.err
-}
-
-func (c *txWarp) Do(run func(conn Transaction) error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if err := c.check(); err != nil {
-		return
-	}
-
-	defer runtime.HandleCrash(func(err error) {
-		c.err = err
-	})
-	c.err = run(c)
-}
-
 var (
 	_, dbInstance  = field.String("db.instance")
 	_, dbType      = field.String("db.type")
 	_, dbStmt      = field.String("db.statement")
+	_, dbStage     = field.String("db.stage")
+	_, dbPrepareID = field.String("db.prepareid")
 	_, dbArgs      = field.Slice("db.arguments", field.StringKind)
 	StatementIDKey = struct{ name string }{"$$statement_id"}
 )
 
 type sqlPrepare interface {
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
+}
+type sqlConn interface {
+	io.Closer
+	sqlPrepare
 }
 
 // 裁剪参数以使日志减小
@@ -257,56 +55,88 @@ func argSlim(a []interface{}) []interface{} {
 	return target
 }
 
-// https://github.com/opentracing/specification/blob/master/semantic_conventions.md
-func prepareContext(ctx context.Context, instance string, conn sqlPrepare, query string, args []interface{}) (context.Context, apm.Span, *sql.Stmt, error) {
-	var id string
-	if s, ok := ctx.Value(StatementIDKey).(string); ok {
-		id = s
+func prepareContext(ctx context.Context, meta connMeta, raw sqlPrepare, query string) (*stmtWrap, error) {
+	if raw == nil {
+		return nil, fmt.Errorf("conn was closed")
 	}
+	// var id string
+	// if s, ok := ctx.Value(StatementIDKey).(string); ok {
+	// 	id = s
+	// }
 	// if id == "" {
 	// 	id = "sql"
 	// }
-	ctx, span := apm.Start(ctx, apm.WithName(id), apm.WithCalldepth(4))
-
-	if conn == nil {
-		return ctx, span, nil, fmt.Errorf("conn was closed")
-	}
-	span.Debug(
-		dbType("sql"),
-		dbInstance(instance),
-		dbStmt(query),
-		dbArgs(argSlim(args)...),
+	ctx, span := apm.Start(ctx,
+		apm.WithFields(
+			dbType("sql"),
+			dbStage("prepare"),
+			dbInstance(meta.getInstance()),
+			dbStmt(query),
+		),
+		apm.WithCallDepth(3),
+		// , apm.WithName(id), apm.WithCallDepth(3)
 	)
-	stmt, err := conn.PrepareContext(ctx, query)
+	defer span.End()
 
-	return ctx, span, stmt, err
+	// fmt.Println("sql", query)
+	stmt, err := raw.PrepareContext(ctx, query)
+	if err != nil {
+		span.Fail()
+		return nil, err
+	}
+
+	return &stmtWrap{stmt: stmt}, nil
 }
 
-func sqlExec(ctx context.Context, instance string, conn sqlPrepare, query string, args []interface{}) (ExecutedResult, error) {
-	ctx, span, stmt, err := prepareContext(ctx, instance, conn, query, args)
-	defer span.End(apm.WithCalldepth(2))
-	if span.FailIf(err) {
-		return nil, err
-	}
-	defer stmt.Close()
-
-	result, err := stmt.ExecContext(ctx, args...)
-	if span.FailIf(err) {
-		return nil, err
-	}
-	return result, err
+type stmtWrap struct {
+	stmt      *sql.Stmt
+	prepareid string
 }
-func sqlQuery(ctx context.Context, instance string, conn sqlPrepare, query string, args []interface{}) (Rows, error) {
-	ctx, span, stmt, err := prepareContext(ctx, instance, conn, query, args)
-	defer span.End(apm.WithCalldepth(2))
-	if span.FailIf(err) {
-		return nil, err
-	}
-	defer stmt.Close()
 
-	result, err := stmt.QueryContext(ctx, args...)
-	if span.FailIf(err) {
-		return nil, err
-	}
-	return result, err
+func (stmt *stmtWrap) Exec(ctx context.Context, args ...interface{}) (ExecutedResult, error) {
+	ctx, span := apm.Start(ctx,
+		apm.WithFields(
+			dbType("sql"),
+			dbStage("exec"),
+			dbPrepareID(stmt.prepareid),
+			dbArgs(argSlim(args)...),
+		),
+		apm.WithCallDepth(3),
+	)
+	defer span.End()
+
+	return stmt.stmt.ExecContext(ctx, args...)
+}
+
+func (stmt *stmtWrap) Query(ctx context.Context, args ...interface{}) (Rows, error) {
+	ctx, span := apm.Start(ctx,
+		apm.WithFields(
+			dbType("sql"),
+			dbStage("query"),
+			dbPrepareID(stmt.prepareid),
+			dbArgs(argSlim(args)...),
+		),
+	)
+	defer span.End()
+
+	return stmt.stmt.QueryContext(ctx, args...)
+}
+
+func (stmt *stmtWrap) QueryRow(ctx context.Context, args ...interface{}) (*sql.Row, error) {
+	ctx, span := apm.Start(ctx,
+		apm.WithFields(
+			dbType("sql"),
+			dbStage("query"),
+			dbPrepareID(stmt.prepareid),
+			dbArgs(argSlim(args)...),
+		),
+	)
+	defer span.End()
+
+	row := stmt.stmt.QueryRowContext(ctx, args...)
+	return row, nil
+}
+
+func (stmt *stmtWrap) Close() error {
+	return nil
 }
