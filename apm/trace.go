@@ -22,6 +22,7 @@ type traceOption struct {
 	delegate        func(*traceOption)
 	getName         func() string
 	calldepth       int
+	endCalls        []func(Span)
 }
 
 func (opt *traceOption) applySpanOption(target *traceOption) {
@@ -42,7 +43,7 @@ func WithName(name string) SpanOption {
 }
 
 // 调整日志堆栈记录深度
-func WithCalldepth(depth int) *traceOption {
+func WithCallDepth(depth int) *traceOption {
 	return &traceOption{delegate: func(target *traceOption) {
 		target.calldepth = depth
 	}}
@@ -75,4 +76,22 @@ func WithTrimFieldPrefix(prefix ...string) SpanOption {
 
 func Start(ctx context.Context, options ...SpanOption) (context.Context, Span) {
 	return defi.NewSpan(ctx, options...)
+}
+
+// 调整日志堆栈记录深度
+func WithEndCall(fn func(Span)) *traceOption {
+	return &traceOption{delegate: func(target *traceOption) {
+		// if target.endCalls == nil {
+		// 	target.endCalls = []func(){fn}
+		// 	return
+		// }
+		target.endCalls = append(target.endCalls, fn)
+	}}
+}
+
+// 调整日志堆栈记录深度
+func WithClearup(closer interface{}) *traceOption {
+	return WithEndCall(func(s Span) {
+		Close(closer, s)
+	})
 }

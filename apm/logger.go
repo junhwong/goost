@@ -94,7 +94,7 @@ func (logger *DefaultLogger) NewSpan(ctx context.Context, options ...SpanOption)
 }
 
 type _GetCallLastInfo interface {
-	GetCallLastInfo() runtime.CallSourceInfo
+	GetCallLastInfo() runtime.CallerInfo
 }
 
 func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level.Level, format string, args []interface{}) {

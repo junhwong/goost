@@ -3,31 +3,44 @@ package runtime
 import (
 	"errors"
 	"runtime"
+	"strings"
 )
 
-func Caller(depth int) (info CallSourceInfo) {
-	var pc uintptr
-	var ok bool
-	pc, info.File, info.Line, ok = runtime.Caller(depth + 1)
+// 对标准库 `runtime.Caller` 的封装
+func Caller(depth int) (info CallerInfo) {
+	info.depth = depth + 1
+	info.pc, info.File, info.Line, info.ok = runtime.Caller(info.depth)
 
-	if ok {
-		info.Method = runtime.FuncForPC(pc).Name()
+	if info.ok {
+		info.Method, info.Package = split(runtime.FuncForPC(info.pc).Name())
 	}
+	info.File, info.Path = split(info.File)
 	return
 }
+func split(s string) (string, string) {
+	i := strings.LastIndex(s, "/")
+	if i > 0 {
+		return s[i+1:], s[:i]
+	}
+	return s, ""
+}
 
-// 调用源简单信息
-type CallSourceInfo struct {
-	File   string
-	Line   int
-	Method string
+// 函数调用的名称等简单信息
+type CallerInfo struct {
+	Path    string
+	File    string
+	Package string
+	Method  string
+	Line    int
+
+	depth int
+	pc    uintptr
+	ok    bool
 }
 
 type wrappedCallLastError struct {
-	CallSourceInfo
+	CallerInfo
 	Err error
-
-	depth int
 }
 
 func (err *wrappedCallLastError) Unwrap() error {
@@ -38,8 +51,8 @@ func (err *wrappedCallLastError) Error() string {
 }
 
 // 接口: 获取调用栈的最后
-func (err *wrappedCallLastError) GetCallLastInfo() CallSourceInfo {
-	return err.CallSourceInfo
+func (err *wrappedCallLastError) GetCallLastInfo() CallerInfo {
+	return err.CallerInfo
 }
 
 func WrapCallLast(err error, depth int, forceWrap ...bool) (ex *wrappedCallLastError) {
@@ -54,18 +67,17 @@ func WrapCallLast(err error, depth int, forceWrap ...bool) (ex *wrappedCallLastE
 		return
 	}
 	ex = &wrappedCallLastError{
-		Err:            err,
-		depth:          depth + 1,
-		CallSourceInfo: Caller(depth + 1),
+		Err:        err,
+		CallerInfo: Caller(depth + 1),
 	}
 
 	return
 }
 
-func GetCallLastFromError(err error) (info CallSourceInfo, ok bool) {
+func GetCallLastFromError(err error) (info CallerInfo, ok bool) {
 	var ex *wrappedCallLastError
 	if errors.As(err, &ex) {
-		info = ex.CallSourceInfo
+		info = ex.CallerInfo
 		ok = true
 	}
 	return

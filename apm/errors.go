@@ -21,20 +21,20 @@ func (err *CodeError) Status() int     { return err.status }
 func (err *CodeError) Message() string { return err.msg }
 
 func (err *CodeError) Error() string {
-	return fmt.Sprintf("ERROR %s(%d)", err.code, err.status)
+	return fmt.Sprintf("%s(%d)", err.code, err.status)
 }
 
 var codeErrors = sync.Map{}
 
-func loadOrStoreCodeErr(code string, msg string, status []int) (err *CodeError) {
-	s := -1
-	if len(status) > 0 {
-		s = status[len(status)-1]
+func loadOrStoreCodeErr(code string, status int, msg []string) (err *CodeError) {
+	var s string
+	if len(msg) > 0 {
+		s = msg[len(msg)-1]
 	}
 	obj, loaded := codeErrors.LoadOrStore(code, &CodeError{
 		code:   code,
-		msg:    msg,
-		status: s,
+		msg:    s,
+		status: status,
 	})
 	err = obj.(*CodeError) // TODO 强制转换, 可能出现bug, 持续跟踪
 	// if err == nil {
@@ -44,7 +44,7 @@ func loadOrStoreCodeErr(code string, msg string, status []int) (err *CodeError) 
 	// 		Status:  status,
 	// 	}
 	// }
-	if !loaded && (err.status != s || err.msg != msg) {
+	if !loaded && (err.status != status || err.msg != s) {
 		panic("错误码已经定义, 但不一致")
 	}
 	return
@@ -54,24 +54,29 @@ func loadOrStoreCodeErr(code string, msg string, status []int) (err *CodeError) 
 
 // }
 
-func Error(code string, msg string, status ...int) (error, func(...interface{}) error) {
-	err := loadOrStoreCodeErr(code, msg, status)
+func Error(code string, status int, msg ...string) (error, func(...interface{}) error) {
+	err := loadOrStoreCodeErr(code, status, msg)
 	return err, func(a ...interface{}) error {
-		msg := fmt.Sprint(a...)
-		if msg == "" {
+		if len(a) == 0 {
 			return err
 		}
-		return fmt.Errorf("%w: %s", err, msg)
+		return fmt.Errorf("%w: %s", err, fmt.Sprint(a...))
 	}
 }
-func Errorf(code string, msg string, status ...int) (error, func(string, ...interface{}) error) {
-	err := loadOrStoreCodeErr(code, msg, status)
+func Errorf(code string, status int, msg ...string) (error, func(string, ...interface{}) error) {
+	err := loadOrStoreCodeErr(code, status, msg)
 	return err, func(f string, a ...interface{}) error {
-		msg := fmt.Sprintf(f, a...)
-		if msg == "" {
+		switch {
+		case f != "" && len(a) != 0:
+			f = fmt.Sprintf(f, a...)
+		case f != "":
+		case len(a) != 0:
+			f = fmt.Sprint(a...)
+		default:
 			return err
 		}
-		return fmt.Errorf("%w: %s", err, msg)
+
+		return fmt.Errorf("%w: %s", err, f)
 	}
 }
 
@@ -100,8 +105,8 @@ func GetFieldsFromError(err error) []field.Field {
 	return ex.Fields
 }
 
-func WrapError(code string, msg string, httpCode ...int) (error, func(error, ...field.Field) error) {
-	err := loadOrStoreCodeErr(code, msg, httpCode)
+func WrapError(code string, status int, msg ...string) (error, func(error, ...field.Field) error) {
+	err := loadOrStoreCodeErr(code, status, msg)
 	return err, func(f error, fs ...field.Field) error {
 		return &fieldsError{
 			Err:    err,

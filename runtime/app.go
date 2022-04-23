@@ -216,7 +216,7 @@ func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 				signal.Notify(ch, sig...)
 				b := <-ch
 				// TODO 临时检测具体信号
-				fmt.Println("收到信号", b)
+				fmt.Println("runtime/WatchInterrupt: 收到信号", b)
 				go func() {
 					for sig := range ch {
 						if sig == os.Interrupt {
@@ -228,7 +228,6 @@ func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 				}()
 			},
 			OnStop: func(ctx context.Context) {
-				fmt.Println("主动发起")
 				ch <- syscall.SIGPIPE // 自定义退出
 			},
 		})

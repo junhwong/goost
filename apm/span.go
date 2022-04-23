@@ -116,11 +116,16 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	for _, it := range span.option.attrs {
 		fs = append(fs, it)
 	}
+	fs = append(fs, _entrySpanName(name))
 	fs = append(fs, _entryTime(span.startTime))
 	fs = append(fs, _entrySpanID(span.SpanID))
 	fs = append(fs, _entrySpanParentID(span.SpanParentID))
 	fs = append(fs, _entryDuration(time.Since(span.startTime))) // Latency
-	fs = append(fs, _entrySpanName(name))
+
+	for _, fn := range span.option.endCalls {
+		fn(span)
+	}
+
 	if span.failed {
 		fs = append(fs, _entryTraceError(span.failed))
 	}

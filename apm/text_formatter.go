@@ -16,7 +16,7 @@ func NewTextFormatter(timeLayout ...string) *TextFormatter {
 		f.timeLayout = v
 	}
 	if f.timeLayout == "" {
-		f.timeLayout = "15:04:05"
+		f.timeLayout = "20060102 15:04:05.000"
 	}
 	return f
 }
@@ -28,6 +28,13 @@ type TextFormatter struct {
 	timeLayout string
 }
 
+func cutstr(v interface{}, l int) string {
+	s := cast.ToString(v)
+	if ls := len(s); ls >= l {
+		return s[ls-l:]
+	}
+	return s
+}
 func (jf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	writeByte := func(c byte) {
 		if err != nil {
@@ -48,10 +55,16 @@ func (jf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		t, err := cast.ToTimeE(val)
 		if err == nil && !t.IsZero() {
 			// TODO: 时区
+			// v := float64(t.UnixMilli()) / 1000
+			// fprintf(`%0.6f`, v)
 			fprintf(`%s`, t.Format(jf.timeLayout))
 		}
 	}
 	writeByte('|')
+	fprintf(`%s`, entry.Get(TracebackCallerKey))
+	fprintf(`:%v`, entry.Get(TracebackLineNoKey))
+	// writeByte(']')
+	writeByte('\n')
 	if val := entry.Get(MessageKey); val != nil {
 		fprintf(`%s`, val)
 	}
@@ -65,9 +78,9 @@ func (jf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		switch key {
 		case TimeKey, MessageKey, LevelKey: // 已经处理
 			continue
-		case TraceIDKey, TracebackCallerKey: // TODO: 开发者选项
-			continue
-		case TracebackPathKey, TracebackLineNoKey: // TODO: 调用者选项
+		// case TraceIDKey: // TODO: 开发者选项
+		// 	continue
+		case TracebackCallerKey, TracebackPathKey, TracebackLineNoKey: // TODO: 调用者选项
 			continue
 		}
 
@@ -92,10 +105,10 @@ func (jf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		case "level", "time", "message":
 			name = "data." + name
 		}
-		fs = append(fs, fmt.Sprintf("%s=%s", name, data))
+		fs = append(fs, fmt.Sprintf("%q:%s", name, data))
 	}
 	if len(fs) > 0 {
-		fprintf(` {%s}`, strings.Join(fs, ","))
+		fprintf(" {\n%s\n}", strings.Join(fs, ",\n"))
 	}
 	writeByte('\n')
 	return
