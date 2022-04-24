@@ -18,14 +18,15 @@ type Span interface {
 	Fail()                        // Fail 标记该Span为失败。
 	FailIf(err error) bool        // 如果`err`不为`nil`, 则标记失败并返回`true`，否则`false`
 	PanicIf(err error)            // 如果`err`不为`nil`, 则标记失败并`panic`
-	Context() context.Context     // 返回与该span关联的上下文
+	Context() SpanContext         // 返回与该span关联的上下文
 }
 type SpanContext struct {
 	TranceID     string
 	SpanID       string
 	SpanParentID string
-	Name         string
-	first        bool
+
+	name  string
+	first bool
 }
 
 func (ctx *SpanContext) IsFirst() bool {
@@ -68,7 +69,7 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []SpanOption) (
 		startTime: time.Now(),
 		SpanContext: SpanContext{
 			SpanID: newSpanId(),
-			Name:   option.name,
+			name:   option.name,
 		},
 	}
 
@@ -104,12 +105,12 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 			option.applyEndOption(&span.option)
 		}
 	}
-	name := span.Name
+	name := span.name
 	if span.option.getName != nil {
 		name = span.option.getName()
 	}
 	if name == "" {
-		name = span.Name // TODO: 处理未定义名称的情况
+		name = span.name // TODO: 处理未定义名称的情况
 	}
 
 	fs := []interface{}{}
@@ -134,9 +135,7 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	span.logger = nil                                          // 移除关联,
 }
 
-func (span *spanImpl) Context() context.Context { return span.ctx }
-
-// func (span *SpanContext) GetTraceId() string         { return span.TranceID }
+func (span *spanImpl) Context() SpanContext { return span.SpanContext }
 
 // 标记失败
 func (span *spanImpl) Fail() {
