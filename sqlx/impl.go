@@ -85,7 +85,7 @@ func prepareContext(ctx context.Context, meta connMeta, raw sqlPrepare, query st
 		return nil, err
 	}
 
-	return &stmtWrap{stmt: stmt}, nil
+	return &stmtWrap{stmt: stmt, prepareid: span.Context().SpanID}, nil
 }
 
 type stmtWrap struct {
