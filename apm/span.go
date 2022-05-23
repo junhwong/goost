@@ -117,18 +117,18 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	for _, it := range span.option.attrs {
 		fs = append(fs, it)
 	}
-	fs = append(fs, _entrySpanName(name))
-	fs = append(fs, _entryTime(span.startTime))
-	fs = append(fs, _entrySpanID(span.SpanID))
-	fs = append(fs, _entrySpanParentID(span.SpanParentID))
-	fs = append(fs, _entryDuration(time.Since(span.startTime))) // Latency
+	fs = append(fs, SpanName(name))
+	fs = append(fs, Time(span.startTime))
+	fs = append(fs, SpanID(span.SpanID))
+	fs = append(fs, SpanParentID(span.SpanParentID))
+	fs = append(fs, Duration(time.Since(span.startTime))) // Latency
 
 	for _, fn := range span.option.endCalls {
 		fn(span)
 	}
 
 	if span.failed {
-		fs = append(fs, _entryTraceError(span.failed))
+		fs = append(fs, TraceError(span.failed))
 	}
 	span.calldepth = span.option.calldepth
 	span.logger.Log(span.ctx, span.calldepth, level.Trace, fs) // TODO: calldepth 不能获取到 defer 位置

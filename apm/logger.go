@@ -114,7 +114,7 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 	}
 
 	if info, ok := runtime.GetCallLastFromError(err); ok {
-		fs.Set(_entryErrorMethod(info.Method))
+		fs.Set(ErrorMethod(info.Method))
 	}
 
 	if calldepth > -1 {
@@ -125,13 +125,13 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 	}
 
 	if _, ok := fs[TraceIDKey]; !ok && ctx != nil {
-		fs.Set(_entryTraceID(getTraceID(ctx)))
+		fs.Set(TraceID(getTraceID(ctx)))
 	}
 
-	fs.Set(_entryMessage(format, a...))
-	fs.Set(_entryLevel(level))
+	fs.Set(Message(format, a...))
+	fs.Set(Level(level))
 	if _, ok := fs[TimeKey]; !ok {
-		fs.Set(_entryTime(time.Now()))
+		fs.Set(Time(time.Now()))
 	}
 
 	entry.queue <- Entry(fs)
@@ -139,6 +139,38 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 
 func (entry *DefaultLogger) Log(ctx context.Context, calldepth int, level level.Level, args []interface{}) {
 	entry.Logf(ctx, calldepth+1, level, "", args)
+}
+
+type logEntry struct {
+	Level   level.Level
+	Time    time.Time
+	Message string
+	Caller  runtime.CallerInfo
+	Fields  field.Fields
+}
+
+func (entry *DefaultLogger) Write(lvl level.Level, ts time.Time, msg string, caller runtime.CallerInfo) {
+	ent := logEntry{}
+	ent.Caller = caller
+	ent.Level = lvl
+	ent.Message = msg
+	ent.Time = ts
+
+	// io.Discard.Write([]byte(fmt.Sprintf("ent: %v", ent)))
+
+	for _, v := range entry.handlers {
+		v.Handle(nil, nil)
+	}
+
+	// ent := make(field.Fields, 5)
+	// for _, it := range fs {
+	// 	ent.Set(it)
+	// }
+	// if _, ok := ent[LevelKey]; !ok {
+	// 	return
+	// }
+	// // fmt.Println("", ent)
+	// entry.queue <- ent
 }
 
 // ==================== EntryInterface ====================

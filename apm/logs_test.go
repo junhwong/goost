@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/junhwong/goost/apm/level"
 	"github.com/junhwong/goost/errors"
+	"github.com/junhwong/goost/runtime"
 )
 
 // func TestLog(t *testing.T) {
@@ -40,7 +42,7 @@ func TestLog(t *testing.T) {
 	// std := Logger{
 	// 	queue: make(chan *LogEntry, 1000),
 	// }
-	std.Log(context.TODO(), 0, level.Debug, []interface{}{"here %s", "world", _entryMessage("bbq")})
+	std.Log(context.TODO(), 0, level.Debug, []interface{}{"here %s", "world", Message("bbq")})
 
 	std.Close()
 
@@ -81,4 +83,144 @@ func TestIDgen(t *testing.T) {
 }
 
 func TestY(t *testing.T) {
+}
+
+func BenchmarkAccumulatedContext(b *testing.B) {
+	// b.Logf("Logging with some accumulated context.")
+	b.Run("goost/apm", func(b *testing.B) {
+		// logger := newZapLogger(zap.DebugLevel).With(fakeFields()...)
+		logger, std := newTestLog()
+		b.Cleanup(func() {
+			// time.Sleep(time.Second)
+			std.Close()
+		})
+		b.ResetTimer()
+		if logger != nil {
+		}
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				// logger.Info("getMessage(0)", field.Dynamic("")(""))
+
+				std.Write(level.Debug, time.Now(), "", runtime.Caller(0))
+			}
+		})
+	})
+}
+
+func newTestLog() (Logger, *DefaultLogger) {
+	ctx, cancel := context.WithCancel(context.Background())
+	f := &TextFormatter{
+		timeLayout: "20060102 15:04:05.000",
+	}
+	std := &DefaultLogger{
+		queue:    make(chan Entry, 1024),
+		handlers: []Handler{&ConsoleHandler{Formatter: f}},
+		cancel:   cancel,
+	}
+	go std.Run(ctx.Done())
+	r := &stdImpl{entryLog: entryLog{ctx: ctx, logger: std}}
+	r.spi = std
+	r.calldepth = 1
+	return r, std
+}
+
+type tf func(interface{})
+type thand func(interface{}, tf)
+
+func TestHanc(t *testing.T) {
+
+	hds := []thand{
+		func(i interface{}, t tf) {
+			fmt.Println("1:", i)
+			if t != nil {
+				t(i)
+			}
+		},
+		func(i interface{}, t tf) {
+			fmt.Println("2:", i)
+			if t != nil {
+				t(i)
+			}
+		},
+		func(i interface{}, t tf) {
+			fmt.Println("3:", i)
+			if t != nil {
+				t(i)
+			}
+		},
+	}
+
+	var r func(interface{})
+	var ep func(interface{})
+	for i, t2 := range hds {
+		prev := r
+		var next func(interface{}) = func(ent interface{}) {
+			if prev != nil {
+				prev(ent)
+			}
+		}
+		if i+1 < len(hds) {
+			// fmt.Println("", i)
+			nh := hds[i+1]
+			next = func(ent interface{}) {
+				nh(ent, prev)
+			}
+		}
+
+		r = func(ent interface{}) {
+			t2(ent, next)
+		}
+		if ep == nil {
+			// r("bb")
+			ep = r
+		}
+	}
+	hds = nil
+	ep("abc")
+}
+
+func TestHanc2(t *testing.T) {
+
+	hds := []thand{
+		func(i interface{}, t tf) {
+			fmt.Println("1:", i)
+			if t != nil {
+				t(i)
+			}
+		},
+		func(i interface{}, t tf) {
+			fmt.Println("2:", i)
+			if t != nil {
+				t(i)
+			}
+		},
+		func(i interface{}, t tf) {
+			fmt.Println("3:", i)
+			if t != nil {
+				t(i)
+			}
+		},
+		func(i interface{}, t tf) {
+			fmt.Println("4:", i)
+			if t != nil {
+				t(i)
+			}
+		},
+	}
+
+	var r func(interface{})
+	// var ep func(interface{})
+
+	for _, t2 := range hds {
+		r = cb(r, t2)
+	}
+	hds = nil
+	r("abc")
+}
+
+func cb(n tf, c thand) tf {
+	return func(ent interface{}) {
+		c(ent, n)
+	}
+
 }

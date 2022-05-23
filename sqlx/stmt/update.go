@@ -14,11 +14,13 @@ type updateBuildSettings struct {
 	buildOpts
 	filterBuildOpts
 	pkFieldsOption
+	rcasVerBuildOpts
 }
 
 func (f buildApplyFn) applyUpdateBuild(opt *updateBuildSettings)          { f(&opt.buildOpts) }
 func (f pkFieldsOptionApplyFn) applyUpdateBuild(opt *updateBuildSettings) { f(&opt.pkFieldsOption) }
 func (f filterBuildApplyFn) applyUpdateBuild(opt *updateBuildSettings)    { f(&opt.filterBuildOpts) }
+func (f rcasVerBuildApplyFn) applyUpdateBuild(opt *updateBuildSettings)   { f(&opt.rcasVerBuildOpts) }
 
 func BuildUpdateSQL(obj interface{}, options ...UpdateBuildingOption) (*structedStmt, error) {
 	settings := updateBuildSettings{}
@@ -60,14 +62,26 @@ func BuildUpdateSQL(obj interface{}, options ...UpdateBuildingOption) (*structed
 	sets := []string{}
 	cond := []string{}
 	for name := range names {
-		if _, ok := names[name]; ok {
-			cond = append(cond, fmt.Sprintf(":%s", name))
+		// 乐观锁
+		if settings.casName == name {
+			val := ":" + name
+			if settings.casVal != "" {
+				val = settings.casVal
+			}
+			cond = append(cond, fmt.Sprintf("%q=:%s", name, name))
+			sets = append(sets, fmt.Sprintf("%q=%s", name, val))
 			continue
 		}
-		sets = append(sets, fmt.Sprintf("%q=%s", name, name))
+		if _, ok := names[name]; ok {
+			cond = append(cond, fmt.Sprintf("%q=:%s", name, name))
+			continue
+		}
+		sets = append(sets, fmt.Sprintf("%q=:%s", name, name))
 	}
 
-	// TODO: 乐观锁
+	if _, ok := names[settings.casName]; !ok && settings.casName != "" {
+		return nil, newParameterInvalidErr("行乐观锁字段%q已定义, 但字段中不存在", settings.casName)
+	}
 
 	tpl := fmt.Sprintf("update %s set %s where %s", settings.table,
 		strings.Join(sets, ","),

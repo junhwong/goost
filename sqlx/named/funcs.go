@@ -9,4 +9,7 @@ var functions = map[string]func() (interface{}, error){
 	"time_now_nano": func() (interface{}, error) {
 		return time.Now().UnixNano(), nil
 	},
+	"timestamp_us": func() (interface{}, error) {
+		return time.Now().UnixMicro(), nil
+	},
 }

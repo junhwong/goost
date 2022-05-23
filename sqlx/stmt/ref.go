@@ -13,7 +13,7 @@ type PrimaryKeys interface {
 }
 
 ////////////
-func getNames(obj interface{}, filters []func(string) bool) (map[string]int, reflect.Type, error) {
+func getNames(obj interface{}, filters []func(string) string) (map[string]int, reflect.Type, error) {
 	typ := reflect.TypeOf(obj)
 	if typ.Kind() != reflect.Ptr {
 		return nil, nil, newParameterInvalidErr("Must be a ptr")
@@ -32,7 +32,10 @@ LOOP:
 		}
 		name := strings.SplitN(jtag, ",", 2)[0]
 		for _, filter := range filters {
-			if filter != nil && !filter(name) {
+			if filter == nil {
+				continue
+			}
+			if name = filter(name); name == "" {
 				continue LOOP
 			}
 		}

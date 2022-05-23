@@ -16,7 +16,19 @@ func makeField(k Key, v interface{}, valid bool, err ...error) Field {
 	if ex != nil {
 		valid = false
 	}
+	if !valid {
+		v = nil
+	}
+	// return fnField(func() (Key, interface{}) {
+	// 	return k, v
+	// })
 	return &structField{Key: k, Value: v, valid: valid}
+}
+
+type fnField func() (Key, interface{})
+
+func (fn fnField) Unwrap() (Key, interface{}) {
+	return fn()
 }
 
 // 构造一个动态字段

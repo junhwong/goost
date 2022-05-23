@@ -3,6 +3,7 @@ package apm
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/junhwong/goost/apm/level"
@@ -33,10 +34,11 @@ func (h *ConsoleHandler) Handle(entry Entry, next func()) {
 			return err
 		}
 
-		out := os.Stdout
+		var out io.Writer = os.Stdout
 		if lvl >= level.Error && lvl < level.Trace {
 			out = os.Stderr
 		}
+		// out = io.Discard
 
 		// TODO 检查是否全部写入？
 		if _, err := buf.WriteTo(out); err != nil {

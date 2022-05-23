@@ -3,6 +3,7 @@ package field
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"sync"
 )
 
@@ -60,3 +61,10 @@ func makeOrGetKey(name string, kind KeyKind, sec ...KeyKind) Key {
 	}
 	panic(fmt.Errorf("field: Key already exists, but is not a %s: %s", kindNames[kind], obj))
 }
+
+type Keys []Key
+
+func (x Keys) Len() int           { return len(x) }
+func (x Keys) Less(i, j int) bool { return x[i].Name() < x[j].Name() }
+func (x Keys) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
+func (x Keys) Sort()              { sort.Sort(x) }

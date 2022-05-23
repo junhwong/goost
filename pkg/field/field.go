@@ -76,3 +76,12 @@ func (fs Fields) Del(k Key) interface{} {
 	delete(fs, k)
 	return v
 }
+
+func (fs Fields) Keys() Keys {
+	keys := make(Keys, 0, len(fs))
+	for k := range fs {
+		keys = append(keys, k)
+	}
+	keys.Sort()
+	return keys
+}

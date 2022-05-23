@@ -3,7 +3,6 @@ package runtime
 import (
 	"fmt"
 	"net/http"
-	"runtime"
 )
 
 // from k8s
@@ -92,10 +91,10 @@ func logPanic(r error) {
 
 	// Same as stdlib http server code. Manually allocate stack trace buffer size
 	// to prevent excessively large logs
-	const size = 64 << 10
-	stacktrace := make([]byte, size)
-	stacktrace = stacktrace[:runtime.Stack(stacktrace, false)]
-	fmt.Printf("Observed a panic: %#v (%v)\n%s", r, r, stacktrace)
+	// const size = 64 << 10
+	// stacktrace := make([]byte, size)
+	// stacktrace = stacktrace[:runtime.Stack(stacktrace, false)]
+	fmt.Printf("Observed a panic: %+v (%T)\n", r, r)
 }
 
 //
