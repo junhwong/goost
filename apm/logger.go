@@ -201,10 +201,10 @@ type entryLog struct {
 	ctx       context.Context
 }
 
-func (log *entryLog) Log(level int, a ...interface{}) {
+func (log *entryLog) Log(level int, a []interface{}) {
 	log.logger.Log(log.ctx, log.calldepth+1, level, a)
 }
-func (log *entryLog) Logf(level int, format string, a ...interface{}) {
+func (log *entryLog) Logf(level int, format string, a []interface{}) {
 	log.logger.Logf(log.ctx, log.calldepth+1, level, format, a)
 }
 

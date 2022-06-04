@@ -45,7 +45,7 @@ func loadOrStoreCodeErr(code string, status int, msg []string) (err *CodeError) 
 	// 	}
 	// }
 	if !loaded && (err.status != status || err.msg != s) {
-		panic("错误码已经定义, 但不一致")
+		panic(fmt.Sprintf("apm: 错误码冲突: code=%q, status=%q, msg=%q", code, status, msg))
 	}
 	return
 }
@@ -54,7 +54,7 @@ func loadOrStoreCodeErr(code string, status int, msg []string) (err *CodeError) 
 
 // }
 
-func Error(code string, status int, msg ...string) (error, func(...interface{}) error) {
+func NewError(code string, status int, msg ...string) (error, func(...interface{}) error) {
 	err := loadOrStoreCodeErr(code, status, msg)
 	return err, func(a ...interface{}) error {
 		if len(a) == 0 {
@@ -63,7 +63,7 @@ func Error(code string, status int, msg ...string) (error, func(...interface{}) 
 		return fmt.Errorf("%w: %s", err, fmt.Sprint(a...))
 	}
 }
-func Errorf(code string, status int, msg ...string) (error, func(string, ...interface{}) error) {
+func NewErrorf(code string, status int, msg ...string) (error, func(string, ...interface{}) error) {
 	err := loadOrStoreCodeErr(code, status, msg)
 	return err, func(f string, a ...interface{}) error {
 		switch {
@@ -105,25 +105,14 @@ func GetFieldsFromError(err error) []field.Field {
 	return ex.Fields
 }
 
-func WrapError(code string, status int, msg ...string) (error, func(error, ...field.Field) error) {
-	err := loadOrStoreCodeErr(code, status, msg)
-	return err, func(f error, fs ...field.Field) error {
-		return &fieldsError{
-			Err:    err,
-			Fields: fs,
-		}
-	}
-}
-
-func WrapTraceback(err error, depth int, forceWrap ...bool) error {
+func WrapFields(err error, fs ...field.Field) error {
 	if err == nil {
 		return nil
 	}
-	err = runtime.WrapCallLast(err, depth+1, forceWrap...)
-	err = runtime.WrapCallStack(err, depth+1, forceWrap...)
-	return err
+	return &fieldsError{Err: err, Fields: fs}
 }
 
+// 包裹错误
 func WrapCallLast(err error, forceWrap ...bool) error {
 	return runtime.WrapCallLast(err, 1, forceWrap...)
 }

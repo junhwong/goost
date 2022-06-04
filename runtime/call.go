@@ -55,7 +55,7 @@ func (err *wrappedCallLastError) GetCallLastInfo() CallerInfo {
 	return err.CallerInfo
 }
 
-func WrapCallLast(err error, depth int, forceWrap ...bool) (ex *wrappedCallLastError) {
+func WrapCallLast(err error, depth int, forceWrap ...bool) error {
 	if err == nil {
 		panic("err cannot nil")
 	}
@@ -63,15 +63,16 @@ func WrapCallLast(err error, depth int, forceWrap ...bool) (ex *wrappedCallLastE
 	if i := len(forceWrap); i > 0 {
 		b = forceWrap[i-1]
 	}
-	if errors.As(err, &ex) && !b {
-		return
+	var ex *wrappedCallLastError
+	if !b && errors.As(err, &ex) {
+		return err
 	}
 	ex = &wrappedCallLastError{
 		Err:        err,
 		CallerInfo: Caller(depth + 1),
 	}
 
-	return
+	return ex
 }
 
 func GetCallLastFromError(err error) (info CallerInfo, ok bool) {
