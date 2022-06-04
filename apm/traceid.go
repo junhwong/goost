@@ -7,12 +7,12 @@ import (
 	"time"
 )
 
-type traceID struct {
-	High uint64
-	Low  uint64
+type TraceID2 struct {
+	High int64
+	Low  int64
 }
 
-func (t traceID) String() string {
+func (t TraceID2) String() string {
 	if t.High == 0 {
 		return fmt.Sprintf("%016x", t.Low)
 	}
@@ -21,35 +21,42 @@ func (t traceID) String() string {
 
 var seededIDGen = rand.New(rand.NewSource(time.Now().UnixNano()))
 
+func NewTraceID() TraceID2 {
+	return TraceID2{
+		High: int64(time.Now().Unix()<<32) + int64(seededIDGen.Int31()),
+		Low:  int64(seededIDGen.Int63()),
+	}
+}
+
 // randomTimestamped can generate 128 bit time sortable traceid's compatible
 // with AWS X-Ray and 64 bit spanid's.
 func newTraceId() string {
-	id := traceID{
-		High: uint64(time.Now().Unix()<<32) + uint64(seededIDGen.Int31()),
-		Low:  uint64(seededIDGen.Int63()),
+	id := TraceID2{
+		High: int64(time.Now().Unix()<<32) + int64(seededIDGen.Int31()),
+		Low:  int64(seededIDGen.Int63()),
 	}
 	return id.String()
 }
 
 func newSpanId() string {
-	id := traceID{
+	id := TraceID2{
 		High: 0,
-		Low:  uint64(seededIDGen.Int63()),
+		Low:  int64(seededIDGen.Int63()),
 	}
 	return id.String()
 }
 
-func getTraceID(ctx context.Context) string {
+func getTraceID(ctx context.Context) (traceID, spanID string) {
 	if ctx == nil {
-		return ""
+		return "", ""
 	}
 	if prent, ok := ctx.Value(spanInContextKey).(*spanImpl); ok && prent != nil {
-		return prent.TranceID
+		return prent.TranceID, prent.SpanID
 	}
 	// https://opentelemetry.io/docs/reference/specification/sdk-environment-variables/
 	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#id21
 	if s, ok := ctx.Value("trace_id").(string); ok && s != "" {
-		return s
+		return s, ""
 	}
 	// https://www.w3.org/TR/trace-context/
 	if s, ok := ctx.Value("traceparent").(string); ok && s != "" {
@@ -57,10 +64,10 @@ func getTraceID(ctx context.Context) string {
 		// trace-id
 		// parent-id
 		// trace-flags
-		return s
+		return s, ""
 	}
 	if s, ok := ctx.Value("request_id").(string); ok && s != "" {
-		return s
+		return s, ""
 	}
-	return ""
+	return "", ""
 }

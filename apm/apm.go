@@ -81,9 +81,8 @@ func WithFields(fs ...field.Field) appendFields {
 }
 
 func New(ctx context.Context, options ...Option) Interface {
-	r := &stdImpl{entryLog: entryLog{ctx: ctx, logger: std}}
+	r := &stdImpl{entryLog: entryLog{ctx: ctx, logger: std, calldepth: 1}}
 	r.spi = std
-	r.calldepth = 1
 	return r
 }
 
@@ -93,6 +92,6 @@ type stdImpl struct {
 	spi    SpanInterface
 }
 
-func (log *stdImpl) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
-	return log.spi.NewSpan(ctx, options...)
+func (log *stdImpl) NewSpan(ctx context.Context, calldepth int, options ...SpanOption) (context.Context, Span) {
+	return log.spi.NewSpan(ctx, calldepth+1, options...)
 }

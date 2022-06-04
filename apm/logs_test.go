@@ -42,7 +42,7 @@ func TestLog(t *testing.T) {
 	// std := Logger{
 	// 	queue: make(chan *LogEntry, 1000),
 	// }
-	std.Log(context.TODO(), 0, level.Debug, []interface{}{"here %s", "world", Message("bbq")})
+	std.Log(context.TODO(), 0, level.Debug, []interface{}{"hello"})
 
 	std.Close()
 
@@ -53,11 +53,8 @@ func xerr() error {
 }
 
 func TestSpan(t *testing.T) {
-	if std == nil {
-		t.Fatal("empty")
-	}
 	t.Cleanup(Done)
-	_, span := std.NewSpan(context.TODO(), WithName("GET /test/abc123"))
+	_, span := std.NewSpan(context.TODO(), 0)
 	defer span.End()
 	err := xerr()
 	span.Error(err)

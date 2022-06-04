@@ -2,23 +2,26 @@ package apm
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/junhwong/goost/apm/level"
 	"github.com/junhwong/goost/pkg/field"
+	"github.com/junhwong/goost/runtime"
 )
 
 type SpanInterface interface {
-	NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span)
+	NewSpan(ctx context.Context, calldepth int, options ...SpanOption) (context.Context, Span)
 }
 type Span interface {
 	Logger
-	// Trace(...interface{})     //
-	End(options ...EndSpanOption) // 结束该Span。
-	Fail()                        // Fail 标记该Span为失败。
-	FailIf(err error) bool        // 如果`err`不为`nil`, 则标记失败并返回`true`，否则`false`
-	PanicIf(err error)            // 如果`err`不为`nil`, 则标记失败并`panic`
-	Context() SpanContext         // 返回与该span关联的上下文
+	End(options ...EndSpanOption)                                   // 结束该Span。
+	Fail()                                                          // Fail 标记该Span为失败。
+	FailIf(err error) bool                                          // 如果`err`不为`nil`, 则标记失败并返回`true`，否则`false`
+	PanicIf(err error)                                              // 如果`err`不为`nil`, 则标记失败并`panic`
+	SetStatus(code SpanStatus, description string, failure ...bool) // 设置状态
+	SetAttributes(attrs ...field.Field)                             //
+	Context() SpanContext                                           // 返回与该span关联的上下文
 }
 type SpanContext struct {
 	TranceID     string
@@ -47,7 +50,7 @@ type spanImpl struct {
 	option    traceOption
 }
 
-func newSpan(ctx context.Context, logger *DefaultLogger, options []SpanOption) (context.Context, *spanImpl) {
+func newSpan(ctx context.Context, logger *DefaultLogger, calldepth int, options []SpanOption) (context.Context, *spanImpl) {
 	if logger == nil {
 		panic("apm: logger cannot be nil")
 	}
@@ -55,7 +58,7 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []SpanOption) (
 		ctx = context.Background()
 	}
 	option := traceOption{
-		calldepth: 1,
+		calldepth: calldepth,
 		attrs:     make([]field.Field, 0),
 	}
 	for _, opt := range options {
@@ -64,6 +67,7 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []SpanOption) (
 		}
 		opt.applySpanOption(&option)
 	}
+
 	span := &spanImpl{
 		option:    option,
 		startTime: time.Now(),
@@ -78,7 +82,7 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []SpanOption) (
 		span.SpanParentID = prent.SpanID
 	} else {
 		span.first = true
-		span.TranceID = getTraceID(ctx)
+		span.TranceID, _ = getTraceID(ctx) // TODO 上级ID
 		if span.TranceID == "" {
 			span.TranceID = newTraceId()
 		}
@@ -95,7 +99,7 @@ func newSpan(ctx context.Context, logger *DefaultLogger, options []SpanOption) (
 	span.option = option
 	span.logger = logger
 	span.ctx = ctx
-	span.calldepth = option.calldepth
+	span.calldepth = option.calldepth // entrylog
 	return ctx, span
 }
 
@@ -109,8 +113,22 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	if span.option.getName != nil {
 		name = span.option.getName()
 	}
-	if name == "" {
-		name = span.name // TODO: 处理未定义名称的情况
+	if len(name) == 0 {
+		name = span.name
+		if len(name) == 0 {
+			s := runtime.Caller(span.calldepth).Method
+			i := strings.LastIndex(s, ".")
+			if i > 0 {
+				name = strings.Trim(s[i+1:], ".")
+				s = s[:i]
+			}
+			s = strings.Trim(strings.SplitN(s, "(", 2)[0], ".")
+			if len(name) > 0 {
+				name = s + "." + name
+			} else {
+				name = s
+			}
+		}
 	}
 
 	fs := []interface{}{}
@@ -157,3 +175,26 @@ func (span *spanImpl) PanicIf(err error) {
 	span.failed = true
 	panic(err) // TODO 错误包装
 }
+
+type SpanStatus string
+
+const (
+	SpanStatusUnset SpanStatus = "Unset"
+	SpanStatusError SpanStatus = "Error"
+	SpanStatusOk    SpanStatus = "Ok"
+)
+
+func (span *spanImpl) SetStatus(code SpanStatus, description string, failure ...bool) {
+	span.SetAttributes(spanStatusCode(string(code)), spanStatusDescription(description))
+	for _, v := range failure {
+		if v {
+			span.failed = true
+		}
+	}
+}
+
+func (span *spanImpl) SetAttributes(attrs ...field.Field) {
+	span.option.attrs = append(span.option.attrs, attrs...)
+}
+
+//failure

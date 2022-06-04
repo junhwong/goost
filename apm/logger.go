@@ -2,6 +2,7 @@ package apm
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -89,8 +90,8 @@ func (logger *DefaultLogger) Close() error {
 	return nil
 }
 
-func (logger *DefaultLogger) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
-	return newSpan(ctx, logger, options)
+func (logger *DefaultLogger) NewSpan(ctx context.Context, calldepth int, options ...SpanOption) (context.Context, Span) {
+	return newSpan(ctx, logger, calldepth+1, options)
 }
 
 type _GetCallLastInfo interface {
@@ -102,15 +103,27 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 
 	var err error
 	a := []interface{}{}
+	ctxs := []context.Context{ctx}
 	for _, f := range args {
-		if fd, ok := f.(field.Field); ok {
-			fs.Set(fd)
-		} else {
+		switch f := f.(type) {
+		case field.Field:
+			fs.Set(f)
+		case context.Context:
+			ctxs = append(ctxs, f)
+		case error:
 			a = append(a, f)
-			if ex, ok := f.(error); ok {
-				err = ex
-			}
+			err = f
+		default:
+			a = append(a, f)
 		}
+		// if fd, ok := f.(field.Field); ok {
+		// 	fs.Set(fd)
+		// } else {
+		// 	a = append(a, f)
+		// 	if ex, ok := f.(error); ok {
+		// 		err = ex
+		// 	}
+		// }
 	}
 
 	if info, ok := runtime.GetCallLastFromError(err); ok {
@@ -121,11 +134,31 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 		info := runtime.Caller(calldepth + 1)
 		fs.Set(TracebackCaller(getSplitLast(info.Method, "/")))
 		fs.Set(TracebackLineNo(info.Line))
-		fs.Set(TracebackPath(info.File))
+
+		p := info.Path
+		if i := strings.LastIndex(p, "/"); i > 0 {
+			p = p[i+1:]
+		}
+		if len(p) != 0 {
+			p += "/"
+		}
+
+		fs.Set(TracebackPath(p + info.File))
 	}
 
-	if _, ok := fs[TraceIDKey]; !ok && ctx != nil {
-		fs.Set(TraceID(getTraceID(ctx)))
+	if _, ok := fs[TraceIDKey]; !ok {
+		for _, ctx := range ctxs {
+			tid, sid := getTraceID(ctx)
+			if len(tid) > 0 {
+				fs.Set(TraceID(tid))
+				if _, ok := fs[SpanIDKey]; !ok {
+					if len(sid) > 0 {
+						fs.Set(SpanID(sid))
+					}
+				}
+				break
+			}
+		}
 	}
 
 	fs.Set(Message(format, a...))
@@ -156,21 +189,9 @@ func (entry *DefaultLogger) Write(lvl level.Level, ts time.Time, msg string, cal
 	ent.Message = msg
 	ent.Time = ts
 
-	// io.Discard.Write([]byte(fmt.Sprintf("ent: %v", ent)))
-
 	for _, v := range entry.handlers {
 		v.Handle(nil, nil)
 	}
-
-	// ent := make(field.Fields, 5)
-	// for _, it := range fs {
-	// 	ent.Set(it)
-	// }
-	// if _, ok := ent[LevelKey]; !ok {
-	// 	return
-	// }
-	// // fmt.Println("", ent)
-	// entry.queue <- ent
 }
 
 // ==================== EntryInterface ====================
@@ -180,24 +201,21 @@ type entryLog struct {
 	ctx       context.Context
 }
 
-func (log *entryLog) Debug(a ...interface{}) { log.logger.Log(log.ctx, log.calldepth, level.Debug, a) }
-func (log *entryLog) Info(a ...interface{})  { log.logger.Log(log.ctx, log.calldepth, level.Info, a) }
-func (log *entryLog) Warn(a ...interface{})  { log.logger.Log(log.ctx, log.calldepth, level.Warn, a) }
-func (log *entryLog) Error(a ...interface{}) { log.logger.Log(log.ctx, log.calldepth, level.Error, a) }
-func (log *entryLog) Fatal(a ...interface{}) { log.logger.Log(log.ctx, log.calldepth, level.Fatal, a) }
+func (log *entryLog) Log(level int, a ...interface{}) {
+	log.logger.Log(log.ctx, log.calldepth+1, level, a)
+}
+func (log *entryLog) Logf(level int, format string, a ...interface{}) {
+	log.logger.Logf(log.ctx, log.calldepth+1, level, format, a)
+}
 
-func (log *entryLog) Debugf(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, log.calldepth, level.Debug, format, a)
-}
-func (log *entryLog) Infof(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, log.calldepth, level.Info, format, a)
-}
-func (log *entryLog) Warnf(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, log.calldepth, level.Warn, format, a)
-}
-func (log *entryLog) Errorf(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, log.calldepth, level.Error, format, a)
-}
-func (log *entryLog) Fatalf(format string, a ...interface{}) {
-	log.logger.Logf(log.ctx, log.calldepth, level.Fatal, format, a)
-}
+func (log *entryLog) Debug(a ...interface{}) { log.Log(level.Debug, a) }
+func (log *entryLog) Info(a ...interface{})  { log.Log(level.Info, a) }
+func (log *entryLog) Warn(a ...interface{})  { log.Log(level.Warn, a) }
+func (log *entryLog) Error(a ...interface{}) { log.Log(level.Error, a) }
+func (log *entryLog) Fatal(a ...interface{}) { log.Log(level.Fatal, a) }
+
+func (log *entryLog) Debugf(format string, a ...interface{}) { log.Logf(level.Debug, format, a) }
+func (log *entryLog) Infof(format string, a ...interface{})  { log.Logf(level.Info, format, a) }
+func (log *entryLog) Warnf(format string, a ...interface{})  { log.Logf(level.Warn, format, a) }
+func (log *entryLog) Errorf(format string, a ...interface{}) { log.Logf(level.Error, format, a) }
+func (log *entryLog) Fatalf(format string, a ...interface{}) { log.Logf(level.Fatal, format, a) }

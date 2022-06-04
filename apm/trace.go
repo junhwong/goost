@@ -75,7 +75,7 @@ func WithTrimFieldPrefix(prefix ...string) SpanOption {
 }
 
 func Start(ctx context.Context, options ...SpanOption) (context.Context, Span) {
-	return defi.NewSpan(ctx, options...)
+	return std.NewSpan(ctx, 0, options...)
 }
 
 // 调整日志堆栈记录深度
