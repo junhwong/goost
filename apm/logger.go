@@ -25,10 +25,15 @@ type Logger interface {
 	Error(...interface{})
 	Fatal(...interface{})
 
+	// Deprecated
 	Debugf(string, ...interface{})
+	// Deprecated
 	Infof(string, ...interface{})
+	// Deprecated
 	Warnf(string, ...interface{})
+	// Deprecated: use Error
 	Errorf(string, ...interface{})
+	// Deprecated:
 	Fatalf(string, ...interface{})
 }
 
