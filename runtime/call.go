@@ -83,3 +83,45 @@ func GetCallLastFromError(err error) (info CallerInfo, ok bool) {
 	}
 	return
 }
+
+type wrappedCallStackError struct {
+	Stack []CallerInfo
+	Err   error
+}
+
+func (err *wrappedCallStackError) Unwrap() error {
+	return err.Err
+}
+func (err *wrappedCallStackError) Error() string {
+	return err.Err.Error()
+}
+
+// 接口: 获取调用栈的最后
+func (err *wrappedCallStackError) GetCallStack() []CallerInfo {
+	return err.Stack
+}
+
+func WrapCallStacktrace(err error, depth int) error {
+	if err == nil {
+		panic("err cannot nil")
+	}
+
+	var ex *wrappedCallStackError
+	if !errors.As(err, &ex) {
+		ex = &wrappedCallStackError{
+			Err:   err,
+			Stack: []CallerInfo{},
+		}
+	}
+	ex.Stack = append(ex.Stack, Caller(depth+1))
+	return ex
+}
+
+func GetCallStackFromError(err error) (info []CallerInfo, ok bool) {
+	var ex *wrappedCallStackError
+	if errors.As(err, &ex) {
+		info = ex.Stack
+		ok = true
+	}
+	return
+}

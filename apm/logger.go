@@ -9,6 +9,7 @@ import (
 	"github.com/junhwong/goost/apm/level"
 	"github.com/junhwong/goost/pkg/field"
 	"github.com/junhwong/goost/runtime"
+	"github.com/spf13/cast"
 )
 
 // LoggerInterface 日志记录接口
@@ -133,6 +134,18 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 
 	if info, ok := runtime.GetCallLastFromError(err); ok {
 		fs.Set(ErrorMethod(info.Method))
+	}
+
+	if stack, ok := runtime.GetCallStackFromError(err); ok {
+		arr := []string{}
+		for _, it := range stack {
+			caller := it.Path
+			if i := strings.LastIndex(caller, "/"); i > 0 {
+				caller = caller[i+1:]
+			}
+			arr = append(arr, caller+"/"+it.File+":"+cast.ToString(it.Line))
+		}
+		fs.Set(ErrorMethod(strings.Join(arr, ",")))
 	}
 
 	if calldepth > -1 {
