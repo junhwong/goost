@@ -112,7 +112,7 @@ func WrapFields(err error, fs ...field.Field) error {
 	return &fieldsError{Err: err, Fields: fs}
 }
 
-// Deprecated
+// Deprecated: use WrapCallStack
 func WrapCallLast(err error, forceWrap ...bool) error {
 	return runtime.WrapCallLast(err, 1, forceWrap...)
 }
