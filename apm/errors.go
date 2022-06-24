@@ -54,8 +54,8 @@ func loadOrStoreCodeErr(code string, status int, msg []string) (err *CodeError) 
 
 // }
 
-func NewError(code string, status int, msg ...string) (error, func(...interface{}) error) {
-	err := loadOrStoreCodeErr(code, status, msg)
+func NewError(code string, status int, desc ...string) (error, func(...interface{}) error) {
+	err := loadOrStoreCodeErr(code, status, desc)
 	return err, func(a ...interface{}) error {
 		if len(a) == 0 {
 			return err
@@ -63,8 +63,8 @@ func NewError(code string, status int, msg ...string) (error, func(...interface{
 		return fmt.Errorf("%w: %s", err, fmt.Sprint(a...))
 	}
 }
-func NewErrorf(code string, status int, msg ...string) (error, func(string, ...interface{}) error) {
-	err := loadOrStoreCodeErr(code, status, msg)
+func NewErrorf(code string, status int, desc ...string) (error, func(string, ...interface{}) error) {
+	err := loadOrStoreCodeErr(code, status, desc)
 	return err, func(f string, a ...interface{}) error {
 		switch {
 		case f != "" && len(a) != 0:
