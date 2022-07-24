@@ -152,7 +152,7 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 		info := runtime.Caller(calldepth + 1)
 		fs.Set(TracebackCaller(getSplitLast(info.Method, "/")))
 		fs.Set(TracebackLineNo(info.Line))
-
+		// fmt.Printf("info.Path: %v\n", info.Path)
 		p := info.Path
 		if i := strings.LastIndex(p, "/"); i > 0 {
 			p = p[i+1:]

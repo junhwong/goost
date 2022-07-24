@@ -103,7 +103,7 @@ func (err *wrappedCallStackError) GetCallStack() []CallerInfo {
 
 func WrapCallStacktrace(err error, depth int) error {
 	if err == nil {
-		panic("err cannot nil")
+		return nil
 	}
 
 	var ex *wrappedCallStackError

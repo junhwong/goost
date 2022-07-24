@@ -307,32 +307,47 @@ func ServerFactory(opts ...ServerOption) func(runtime.Lifecycle, Router) error {
 		}
 
 		stoped := false
-		lifecycle.Append(runtime.Hook{
-			OnStart: func(c context.Context) {
-				fmt.Println("ListenAndServe:", lis.Addr)
-				err := lis.ListenAndServe()
-				if err == nil || (stoped && errors.Is(err, http.ErrServerClosed)) {
-					return
-				}
-				if err != nil {
-					fmt.Println("ListenAndServe Faile:", err)
-				}
+		lifecycle.Append(func(ctx context.Context) {
+			fmt.Println("ListenAndServe:", lis.Addr)
+			go func() {
+				<-ctx.Done()
+				lis.Shutdown(context.TODO())
+			}()
+			err := lis.ListenAndServe()
+			if err == nil || (stoped && errors.Is(err, http.ErrServerClosed)) {
+				return
+			}
+			if err != nil {
+				fmt.Println("ListenAndServe Faile:", err)
+			}
 
-			},
-			OnStop: func(c context.Context) {
-				if stoped {
-					return
-				}
-				stoped = true
-				err := lis.Shutdown(c)
-				if err == nil || errors.Is(err, http.ErrServerClosed) {
-					return
-				}
-				if err != nil {
-					fmt.Println("Shutdown Faile:", err)
-				}
-			},
 		})
+		// lifecycle.Append(runtime.Hook{
+		// 	OnStart: func(c context.Context) {
+		// 		fmt.Println("ListenAndServe:", lis.Addr)
+		// 		err := lis.ListenAndServe()
+		// 		if err == nil || (stoped && errors.Is(err, http.ErrServerClosed)) {
+		// 			return
+		// 		}
+		// 		if err != nil {
+		// 			fmt.Println("ListenAndServe Faile:", err)
+		// 		}
+
+		// 	},
+		// 	OnStop: func(c context.Context) {
+		// 		if stoped {
+		// 			return
+		// 		}
+		// 		stoped = true
+		// 		err := lis.Shutdown(c)
+		// 		if err == nil || errors.Is(err, http.ErrServerClosed) {
+		// 			return
+		// 		}
+		// 		if err != nil {
+		// 			fmt.Println("Shutdown Faile:", err)
+		// 		}
+		// 	},
+		// })
 		return nil
 	}
 }

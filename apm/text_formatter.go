@@ -63,7 +63,7 @@ func (jf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		}
 	}
 	writeByte('|')
-	fprintf(`%s`, entry.Get(TracebackCallerKey))
+	fprintf(`%s`, entry.Get(TracebackPathKey))
 	fprintf(`:%v`, entry.Get(TracebackLineNoKey))
 	// writeByte(']')
 	writeByte('\n')
