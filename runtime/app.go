@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"go.uber.org/dig"
 )
@@ -157,12 +158,12 @@ func (app *appImpl) Run(constructor interface{}, opts ...InvokeOption) {
 // }
 
 type hookr struct {
-	run    func(int, *hookr)
+	// run    func(int, *hookr)
 	ctx    context.Context
 	cancel context.CancelFunc
-	next   *hookr
-	index  int
-	hook   *Hook
+	// next   *hookr
+	index int
+	hook  *Hook
 }
 
 func (app *appImpl) Wait() error {
@@ -173,7 +174,8 @@ func (app *appImpl) Wait() error {
 
 	err := app.doInvokes()
 	if err != nil {
-		return err
+		// TODO return err
+		return dig.RootCause(err)
 	}
 
 	var wg sync.WaitGroup
@@ -182,6 +184,9 @@ func (app *appImpl) Wait() error {
 
 	startCtx, startCancel := context.WithCancel(root)
 	defer startCancel()
+
+	var startCancelOnce sync.Once
+
 	// go app.doExit(startCtx, &wg, builder)
 
 	hookrs := []*hookr{}
@@ -192,18 +197,15 @@ func (app *appImpl) Wait() error {
 	// var nextCancel context.CancelFunc
 	var hookCtx context.Context
 	var hookCancel context.CancelFunc
-	fmt.Printf("builder: %v\n", len(builder))
 	for i, hook := range builder {
-		wg.Add(1)
-		if i+1 < len(builder) {
-			// 包含下一个
+		if hook.serving {
+			wg.Add(1)
 		}
 		if i == 0 {
 			hookCtx, hookCancel = context.WithCancel(startCtx)
 		} else {
 			hookCtx, hookCancel = context.WithCancel(hookCtx)
 		}
-
 		hr := &hookr{
 			ctx:    hookCtx,
 			cancel: hookCancel,
@@ -212,9 +214,10 @@ func (app *appImpl) Wait() error {
 		}
 		hookrs = append(hookrs, hr)
 	}
+
 	var run func(i int, crt *hookr)
 	run = func(i int, crt *hookr) {
-		defer wg.Done()
+		time.Sleep(time.Microsecond) // 稍稍延迟, 以尽量保持执行顺序
 		var next *hookr
 		if crt.index+1 < len(hookrs) {
 			next = hookrs[crt.index+1]
@@ -225,34 +228,54 @@ func (app *appImpl) Wait() error {
 		// 	ctx = next.ctx
 		// 	cancel = next.cancel
 		// }
+		serving := crt.hook.serving
 		defer cancel()
 		defer func() {
-			if crt.hook.serving {
+			if serving {
+				wg.Done()
 				startCancel()
+				startCancelOnce.Do(func() {
+					go func() {
+						timer := time.NewTimer(time.Minute * 5)
+						defer timer.Stop()
+
+						<-timer.C
+						fmt.Println("terminating timeout was forced to quit")
+						os.Exit(1)
+					}()
+				})
 			}
 		}()
+
 		defer hookCancel()
 		defer HandleCrash()
-		crt.hook.servingHook(ctx, func() {
-			if next == nil {
-				return
+
+		if serving {
+			crt.hook.servingHook(ctx, func() {
+				if next == nil {
+					return
+				}
+				go run(i+1, next)
+			})
+		} else {
+			if next != nil {
+				go run(i+1, next)
 			}
-			go run(i+1, next)
-		})
+			crt.hook.hook(ctx)
+
+		}
 	}
 	hookrsCopy := make([]*hookr, 0)
 	for n := len(hookrs) - 1; n >= 0; n-- {
-		fmt.Printf("n: %v\n", n)
 		hookrsCopy = append(hookrsCopy, hookrs[n])
 	}
 	for i := range hookrs {
 		hookrs[i].ctx = hookrsCopy[i].ctx
 		hookrs[i].cancel = hookrsCopy[i].cancel
 	}
-	fmt.Printf("hookrs: %v\n", hookrs)
-	for i, h := range hookrs {
-		run(i, h)
-		break
+
+	if len(hookrs) > 0 {
+		go run(0, hookrs[0])
 	}
 
 	// for _, hook := range builder {
@@ -291,7 +314,6 @@ type hookBuilder []*Hook
 // 	*hooks = target
 // }
 func (hooks *hookBuilder) Append(fn func(context.Context)) {
-	fmt.Println("AppendServing")
 	arr := []*Hook(*hooks)
 	target := hookBuilder(append(arr, &Hook{
 		serving: false,
@@ -300,7 +322,6 @@ func (hooks *hookBuilder) Append(fn func(context.Context)) {
 	*hooks = target
 }
 func (hooks *hookBuilder) AppendServing(fn ServingHookFunc) {
-	fmt.Println("AppendServing")
 	arr := []*Hook(*hooks)
 	target := hookBuilder(append(arr, &Hook{
 		serving:     true,
@@ -338,14 +359,21 @@ func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 		// 		ch <- syscall.SIGPIPE // 自定义退出
 		// 	},
 		// })
-		life.AppendServing(func(ctx context.Context, running func()) {
-			go func() {
-				running()
-				<-ctx.Done()
-				ch <- syscall.SIGPIPE // 自定义退出
-			}()
+		life.Append(func(ctx context.Context) {
+			// go func() {
+			// 	running()
+			// 	<-ctx.Done()
+			// 	ch <- syscall.SIGPIPE // 自定义退出
+			// }()
 			signal.Notify(ch, sig...)
-			b := <-ch
+			// running()
+			var b os.Signal
+			select {
+			case b = <-ch:
+			case <-ctx.Done():
+				b = syscall.SIGPIPE // TODO
+			}
+
 			// TODO 临时检测具体信号
 			fmt.Println("runtime/WatchInterrupt: 收到信号", b)
 			go func() {

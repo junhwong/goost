@@ -48,16 +48,17 @@ type DefaultLogger struct {
 
 func (logger *DefaultLogger) handle(entry Entry) {
 	std.mu.Lock()
-	defer std.mu.Unlock()
+	handlers := logger.handlers
+	std.mu.Unlock()
 
-	size := logger.handlers.Len()
+	size := handlers.Len()
 	crt := 0
 	var next func()
 	next = func() {
 		if crt >= size {
 			return
 		}
-		h := logger.handlers[crt]
+		h := handlers[crt]
 		crt++
 		h.Handle(entry, next)
 	}
