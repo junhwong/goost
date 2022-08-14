@@ -1,6 +1,10 @@
 package json
 
-import jsoniter "github.com/json-iterator/go"
+import (
+	"io"
+
+	jsoniter "github.com/json-iterator/go"
+)
 
 var API = jsoniter.ConfigCompatibleWithStandardLibrary
 
@@ -16,4 +20,12 @@ func Unmarshal(data []byte, v interface{}) error {
 }
 func UnmarshalFromString(str string, v interface{}) error {
 	return API.UnmarshalFromString(str, v)
+}
+
+func NewDecoder(reader io.Reader) *jsoniter.Decoder {
+	return API.NewDecoder(reader)
+}
+
+func NewEncoder(writer io.Writer) *jsoniter.Encoder {
+	return API.NewEncoder(writer)
 }
