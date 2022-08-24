@@ -80,30 +80,6 @@ func (app *appImpl) doInvokes() error {
 	return nil
 }
 
-// func (app *appImpl) watchSignal() {
-// 	sigch := make(chan os.Signal, 1)
-// 	signal.Notify(sigch,
-// 		syscall.SIGHUP,  // 用户终端连接(正常或非正常)结束时发出, 通常是在终端的控制进程结束时, 通知同一session内的各个作业, 这时它们与控制终端不再关联。
-// 		syscall.SIGINT,  // 程序终止(interrupt)信号, 在用户键入INTR字符(通常是Ctrl-C)时发出，用于通知前台进程组终止进程
-// 		syscall.SIGTERM, // 程序结束(terminate)信号, 与SIGKILL不同的是该信号可以被阻塞和处理。通常用来要求程序自己正常退出，shell命令kill缺省产生这个信号
-// 		syscall.SIGQUIT, // 和SIGINT类似, 但由QUIT字符(通常是Ctrl-\)来控制. 进程在因收到SIGQUIT退出时会产生core文件, 在这个意义上类似于一个程序错误信号
-// 	)
-// 	interruptCount := 0
-// FOR:
-// 	for sig := range sigch {
-// 		switch sig {
-// 		case syscall.SIGINT:
-// 			interruptCount++
-// 			if interruptCount > 1 {
-// 				fmt.Println("强制退出")
-// 				os.Exit(1)
-// 			}
-// 		default:
-// 			break FOR
-// 		}
-// 	}
-// }
-
 type provideOption struct {
 	constructor interface{}
 	opts        []ProvideOption
@@ -191,10 +167,6 @@ func (app *appImpl) Wait() error {
 
 	hookrs := []*hookr{}
 
-	// var prevCtx context.Context
-	// var prevCancel context.CancelFunc
-	// var nextCtx context.Context
-	// var nextCancel context.CancelFunc
 	var hookCtx context.Context
 	var hookCancel context.CancelFunc
 	for i, hook := range builder {
@@ -307,12 +279,6 @@ func New() Application {
 
 type hookBuilder []*Hook
 
-// func (hooks *hookBuilder) Append(hook Hook) {
-// 	fmt.Println("Append")
-// 	arr := []*Hook(*hooks)
-// 	target := hookBuilder(append(arr, &hook))
-// 	*hooks = target
-// }
 func (hooks *hookBuilder) Append(fn func(context.Context)) {
 	arr := []*Hook(*hooks)
 	target := hookBuilder(append(arr, &Hook{
@@ -333,49 +299,25 @@ func (hooks *hookBuilder) AppendServing(fn ServingHookFunc) {
 // 跟踪中断信号。
 func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 	if len(sig) == 0 {
-		// systemd restart terminated , syscall.SIGTERM 子进程?
 		sig = []os.Signal{os.Interrupt, syscall.SIGHUP}
 	}
 	ch := make(chan os.Signal, 1)
 	return func(life Lifecycle) {
-		// life.Append(Hook{
-		// 	Serving: true,
-		// 	OnStart: func(ctx context.Context) {
-		// 		signal.Notify(ch, sig...)
-		// 		b := <-ch
-		// 		// TODO 临时检测具体信号
-		// 		fmt.Println("runtime/WatchInterrupt: 收到信号", b)
-		// 		go func() {
-		// 			for sig := range ch {
-		// 				if sig == os.Interrupt {
-		// 					break
-		// 				}
-		// 			}
-		// 			fmt.Println("force quit")
-		// 			os.Exit(1)
-		// 		}()
-		// 	},
-		// 	OnStop: func(ctx context.Context) {
-		// 		ch <- syscall.SIGPIPE // 自定义退出
-		// 	},
-		// })
+
 		life.Append(func(ctx context.Context) {
-			// go func() {
-			// 	running()
-			// 	<-ctx.Done()
-			// 	ch <- syscall.SIGPIPE // 自定义退出
-			// }()
+
 			signal.Notify(ch, sig...)
 			// running()
 			var b os.Signal
 			select {
 			case b = <-ch:
 			case <-ctx.Done():
-				b = syscall.SIGPIPE // TODO
+				b = syscall.SIGPIPE // TODO 自定义退出
 			}
 
 			// TODO 临时检测具体信号
-			fmt.Println("runtime/WatchInterrupt: 收到信号", b)
+			fmt.Println("runtime/WatchInterrupt: caught signal: ", b)
+			fmt.Println("runtime/WatchInterrupt: shutting down")
 			go func() {
 				for sig := range ch {
 					if sig == os.Interrupt {
