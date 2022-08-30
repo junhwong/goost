@@ -67,6 +67,7 @@ type appImpl struct {
 }
 
 func (app *appImpl) doInvokes() error {
+	// fmt.Println("runtime: all invokes", len(app.provides)+len(app.invokes))
 	for _, it := range app.provides {
 		if err := app.container.Provide(it.constructor, it.opts...); err != nil {
 			return err
@@ -153,6 +154,7 @@ func (app *appImpl) Wait() error {
 		// TODO return err
 		return dig.RootCause(err)
 	}
+	// fmt.Println("runtime: all hooks", len(builder))
 
 	var wg sync.WaitGroup
 	root, cancel := context.WithCancel(context.Background())
@@ -245,7 +247,7 @@ func (app *appImpl) Wait() error {
 		hookrs[i].ctx = hookrsCopy[i].ctx
 		hookrs[i].cancel = hookrsCopy[i].cancel
 	}
-
+	// fmt.Printf("hookrs: %v\n", hookrs)
 	if len(hookrs) > 0 {
 		go run(0, hookrs[0])
 	}

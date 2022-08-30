@@ -37,6 +37,37 @@ func cutstr(v interface{}, l int) string {
 	return s
 }
 
+var (
+	supportColor = false
+)
+
+func getColor(lvl level.Level) (start, end string) {
+
+	// https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
+	// https://juejin.cn/post/6920241597846126599
+	switch lvl {
+	case level.Debug:
+		start = "\033[1;30;49m" // 34
+		end = "\033[0m"
+	case level.Info:
+		start = "\033[1;32;49m"
+		end = "\033[0m"
+	case level.Warn:
+		start = "\033[1;33;49m"
+		end = "\033[0m"
+	case level.Error:
+		start = "\033[1;31;49m"
+		end = "\033[0m"
+	case level.Fatal:
+		start = "\033[1;91;49m"
+		end = "\033[0m"
+	default:
+	}
+	if supportColor {
+		return
+	}
+	return "", ""
+}
 func (jf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	writeByte := func(c byte) {
 		if err != nil {
@@ -50,8 +81,16 @@ func (jf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		}
 		_, err = fmt.Fprintf(dest, format, a...)
 	}
-
-	fprintf(`%s`, level.Short(GetLevel(entry)))
+	lvl := GetLevel(entry)
+	cp, cs := getColor(lvl)
+	fprintf(`%s%s%s`, cp, level.Short(lvl), "")
+	start := strings.ReplaceAll(cp, "1;", "") //"\033[1;31;40m"
+	// end := ""   //"\033[0m"
+	if !supportColor {
+		start = ""
+		// end = ""
+	}
+	fprintf(`%s`, start)
 
 	if val := entry.Get(TimeKey); val != nil {
 		t, err := cast.ToTimeE(val)
@@ -66,7 +105,10 @@ func (jf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	fprintf(`%s`, entry.Get(TracebackPathKey))
 	fprintf(`:%v`, entry.Get(TracebackLineNoKey))
 	// writeByte(']')
+
+	fprintf(`%s`, cs)
 	writeByte('\n')
+
 	if val := entry.Get(MessageKey); val != nil {
 		fprintf(`%s`, val)
 	}
@@ -111,8 +153,15 @@ func (jf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		}
 		fs = append(fs, fmt.Sprintf("%q:%s", name, data))
 	}
+
 	if len(fs) > 0 {
-		fprintf(" {\n%s\n}", strings.Join(fs, ",\n"))
+		start := "\033[2m"
+		end := "\033[0m"
+		if !supportColor {
+			start = ""
+			end = ""
+		}
+		fprintf(" %s{\n%s\n}%s", start, strings.Join(fs, ",\n"), end)
 	}
 	writeByte('\n')
 	return

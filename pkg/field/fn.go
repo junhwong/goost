@@ -32,7 +32,7 @@ func (fn fnField) Unwrap() (Key, interface{}) {
 }
 
 // 构造一个动态字段
-func Dynamic(name string, checkKey ...bool) (Key, func(v interface{}) Field) {
+func Dynamic(name string, v any, checkKey ...bool) Field {
 	check := false
 	for _, b := range checkKey {
 		check = b
@@ -47,9 +47,7 @@ func Dynamic(name string, checkKey ...bool) (Key, func(v interface{}) Field) {
 		k = &key{name: name, kind: DynamicKind}
 	}
 
-	return k, func(v interface{}) Field {
-		return makeField(k, v, v != nil && v != "")
-	}
+	return makeField(k, v, v != nil && v != "")
 }
 
 func String(name string) (Key, func(string, ...interface{}) Field) {
