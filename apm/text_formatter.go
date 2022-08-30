@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -40,6 +41,12 @@ func cutstr(v interface{}, l int) string {
 var (
 	supportColor = false
 )
+
+func init() {
+	if os.Getenv("GOOST_APM_CONSOLE_COLOR") == "1" {
+		supportColor = true
+	}
+}
 
 func getColor(lvl level.Level) (start, end string) {
 
