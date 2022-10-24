@@ -13,6 +13,8 @@ import (
 )
 
 type Hook struct {
+	*hookCtx
+	once    sync.Once
 	serving bool // 如果true,OnStart 结束, 则退出 整个app
 	// OnStart     func(ctx context.Context) // app开始时触发
 	// OnStop      func(ctx context.Context) // app结束时触发
@@ -22,10 +24,27 @@ type Hook struct {
 	servingHook ServingHookFunc
 	// ctx         context.Context
 }
+type hookCtx struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func()) {
+	h.once.Do(func() {
+		defer h.cancel()
+		if h.servingHook != nil {
+			defer wg.Done()
+			defer stop()
+			h.servingHook(h.ctx, next)
+			return
+		}
+		h.hook(h.ctx)
+		next()
+	})
+}
 
 type ServingHookFunc func(ctx context.Context, onStarted func())
 
-//
 type Lifecycle interface {
 	Append(func(ctx context.Context))
 	AppendServing(ServingHookFunc)
@@ -144,6 +163,49 @@ type hookr struct {
 }
 
 func (app *appImpl) Wait() error {
+	builder := hookBuilder{}
+	_ = app.container.Provide(func() Lifecycle {
+		return &builder
+	})
+
+	err := app.doInvokes()
+	if err != nil {
+		// TODO return err
+		return dig.RootCause(err)
+	}
+	// fmt.Println("runtime: all hooks", len(builder))
+
+	var wg sync.WaitGroup
+	// root, cancel := context.WithCancel(context.Background())
+	// app.cancel = cancel
+
+	startCtx, startCancel := context.WithCancel(context.Background())
+	defer startCancel()
+	next := builder.build(startCtx, &wg, stop(startCancel))
+	next()
+
+	wg.Wait()
+	return nil
+}
+
+func stop(startCancel context.CancelFunc) func() {
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			defer startCancel()
+			go func() {
+				timer := time.NewTimer(time.Minute * 5)
+				defer timer.Stop()
+
+				<-timer.C
+				fmt.Println("terminating timeout was forced to quit")
+				os.Exit(1)
+			}()
+		})
+	}
+}
+
+func (app *appImpl) WaitOld() error {
 	builder := hookBuilder{}
 	_ = app.container.Provide(func() Lifecycle {
 		return &builder
@@ -298,6 +360,46 @@ func (hooks *hookBuilder) AppendServing(fn ServingHookFunc) {
 	*hooks = target
 }
 
+func (hooks *hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop func()) (next func()) {
+	contexts := []*hookCtx{}
+	builder := *hooks
+	for range builder {
+		next, cancel := context.WithCancel(ctx)
+		contexts = append(contexts, &hookCtx{
+			ctx:    next,
+			cancel: cancel,
+		})
+	}
+	n := len(contexts) - 1
+	// fmt.Printf("n: %v\n", n)
+	for i, h := range builder {
+		h.hookCtx = contexts[n-i]
+		if h.serving {
+			wg.Add(1)
+		}
+	}
+
+	var i = 0
+	var mu sync.Mutex
+
+	next = func() {
+		mu.Lock()
+		// fmt.Printf("i: %v\n", i)
+		if i > n {
+			mu.Unlock()
+			return
+		}
+
+		h := builder[i]
+		i++
+		mu.Unlock()
+
+		go h.doRun(wg, next, stop)
+
+	}
+	return
+}
+
 // 跟踪中断信号。
 func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 	if len(sig) == 0 {
@@ -305,11 +407,9 @@ func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 	}
 	ch := make(chan os.Signal, 1)
 	return func(life Lifecycle) {
-
-		life.Append(func(ctx context.Context) {
-
-			signal.Notify(ch, sig...)
-			// running()
+		signal.Notify(ch, sig...)
+		life.AppendServing(func(ctx context.Context, onStarted func()) {
+			onStarted()
 			var b os.Signal
 			select {
 			case b = <-ch:
