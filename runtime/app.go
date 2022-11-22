@@ -15,14 +15,10 @@ import (
 type Hook struct {
 	*hookCtx
 	once    sync.Once
-	serving bool // 如果true,OnStart 结束, 则退出 整个app
-	// OnStart     func(ctx context.Context) // app开始时触发
-	// OnStop      func(ctx context.Context) // app结束时触发
-	// Run         func(ctx context.Context, running func())
-	// OnRuning    func()
+	serving bool
+
 	hook        func(ctx context.Context)
 	servingHook ServingHookFunc
-	// ctx         context.Context
 }
 type hookCtx struct {
 	ctx    context.Context
@@ -54,8 +50,7 @@ type Lifecycle interface {
 type Application interface {
 	Provide(constructor interface{}, opts ...ProvideOption) // 注册一个依赖构造器
 	Run(constructor interface{}, opts ...InvokeOption)      // 注册一个任务
-	// AwaitTermination(ctx context.Context) error
-	Wait() error // 阻塞到所有任务完成.
+	Wait() error                                            // 阻塞到所有任务完成.
 }
 
 // 别名, 不要直接调用 dig
@@ -75,18 +70,12 @@ var (
 
 type appImpl struct {
 	container *dig.Container
-
-	mu sync.Mutex
-	// running  bool
-	// hooks    []*Hook
-	provides []provideOption
-	invokes  []invokeOption
-	// r        atomic.Value
-	cancel context.CancelFunc
+	mu        sync.Mutex
+	provides  []provideOption
+	invokes   []invokeOption
 }
 
 func (app *appImpl) doInvokes() error {
-	// fmt.Println("runtime: all invokes", len(app.provides)+len(app.invokes))
 	for _, it := range app.provides {
 		if err := app.container.Provide(it.constructor, it.opts...); err != nil {
 			return err
@@ -128,40 +117,6 @@ func (app *appImpl) Run(constructor interface{}, opts ...InvokeOption) {
 	})
 }
 
-// func (app *appImpl) doExit(ctx context.Context, wg *sync.WaitGroup, builder hookBuilder) {
-// 	<-ctx.Done()
-// 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second*120)
-// 	defer stopCancel()
-// 	go func() {
-// 		<-stopCtx.Done()
-// 		if errors.Is(stopCtx.Err(), context.DeadlineExceeded) {
-// 			fmt.Println("terminating timeout was forced to quit")
-// 			os.Exit(1)
-// 		}
-// 	}()
-
-// 	for _, hook := range builder {
-// 		if hook.OnStop == nil {
-// 			continue
-// 		}
-// 		wg.Add(1)
-// 		go func(hook *Hook) {
-// 			defer wg.Done()
-// 			hook.OnStop(stopCtx)
-// 		}(hook)
-// 	}
-// 	wg.Wait()
-// }
-
-type hookr struct {
-	// run    func(int, *hookr)
-	ctx    context.Context
-	cancel context.CancelFunc
-	// next   *hookr
-	index int
-	hook  *Hook
-}
-
 func (app *appImpl) Wait() error {
 	builder := hookBuilder{}
 	_ = app.container.Provide(func() Lifecycle {
@@ -173,11 +128,8 @@ func (app *appImpl) Wait() error {
 		// TODO return err
 		return dig.RootCause(err)
 	}
-	// fmt.Println("runtime: all hooks", len(builder))
 
 	var wg sync.WaitGroup
-	// root, cancel := context.WithCancel(context.Background())
-	// app.cancel = cancel
 
 	startCtx, startCancel := context.WithCancel(context.Background())
 	defer startCancel()
@@ -203,135 +155,6 @@ func stop(startCancel context.CancelFunc) func() {
 			}()
 		})
 	}
-}
-
-func (app *appImpl) WaitOld() error {
-	builder := hookBuilder{}
-	_ = app.container.Provide(func() Lifecycle {
-		return &builder
-	})
-
-	err := app.doInvokes()
-	if err != nil {
-		// TODO return err
-		return dig.RootCause(err)
-	}
-	// fmt.Println("runtime: all hooks", len(builder))
-
-	var wg sync.WaitGroup
-	root, cancel := context.WithCancel(context.Background())
-	app.cancel = cancel
-
-	startCtx, startCancel := context.WithCancel(root)
-	defer startCancel()
-
-	var startCancelOnce sync.Once
-
-	// go app.doExit(startCtx, &wg, builder)
-
-	hookrs := []*hookr{}
-
-	var hookCtx context.Context
-	var hookCancel context.CancelFunc
-	for i, hook := range builder {
-		if hook.serving {
-			wg.Add(1)
-		}
-		if i == 0 {
-			hookCtx, hookCancel = context.WithCancel(startCtx)
-		} else {
-			hookCtx, hookCancel = context.WithCancel(hookCtx)
-		}
-		hr := &hookr{
-			ctx:    hookCtx,
-			cancel: hookCancel,
-			index:  i,
-			hook:   hook,
-		}
-		hookrs = append(hookrs, hr)
-	}
-
-	var run func(i int, crt *hookr)
-	run = func(i int, crt *hookr) {
-		time.Sleep(time.Microsecond) // 稍稍延迟, 以尽量保持执行顺序
-		var next *hookr
-		if crt.index+1 < len(hookrs) {
-			next = hookrs[crt.index+1]
-		}
-		ctx := crt.ctx
-		cancel := crt.cancel
-		// if next != nil {
-		// 	ctx = next.ctx
-		// 	cancel = next.cancel
-		// }
-		serving := crt.hook.serving
-		defer cancel()
-		defer func() {
-			if serving {
-				wg.Done()
-				startCancel()
-				startCancelOnce.Do(func() {
-					go func() {
-						timer := time.NewTimer(time.Minute * 5)
-						defer timer.Stop()
-
-						<-timer.C
-						fmt.Println("terminating timeout was forced to quit")
-						os.Exit(1)
-					}()
-				})
-			}
-		}()
-
-		defer hookCancel()
-		defer HandleCrash()
-
-		if serving {
-			crt.hook.servingHook(ctx, func() {
-				if next == nil {
-					return
-				}
-				go run(i+1, next)
-			})
-		} else {
-			if next != nil {
-				go run(i+1, next)
-			}
-			crt.hook.hook(ctx)
-
-		}
-	}
-	hookrsCopy := make([]*hookr, 0)
-	for n := len(hookrs) - 1; n >= 0; n-- {
-		hookrsCopy = append(hookrsCopy, hookrs[n])
-	}
-	for i := range hookrs {
-		hookrs[i].ctx = hookrsCopy[i].ctx
-		hookrs[i].cancel = hookrsCopy[i].cancel
-	}
-	// fmt.Printf("hookrs: %v\n", hookrs)
-	if len(hookrs) > 0 {
-		go run(0, hookrs[0])
-	}
-
-	// for _, hook := range builder {
-	// 	if hook.OnStart == nil {
-	// 		continue
-	// 	}
-	// 	wg.Add(1)
-	// 	go func(hook *Hook) {
-	// 		defer wg.Done()
-	// 		defer func() {
-	// 			if hook.Serving {
-	// 				startCancel()
-	// 			}
-	// 		}()
-	// 		defer HandleCrash()
-	// 		hook.OnStart(startCtx)
-	// 	}(hook)
-	// }
-	wg.Wait()
-	return nil
 }
 
 func New() Application {
@@ -430,5 +253,18 @@ func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
 				os.Exit(1)
 			}()
 		})
+	}
+}
+
+func rootCancel(ctx context.Context, cancel context.CancelFunc) {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	select {
+	case <-ctx.Done():
+		close(ch)
+		return
+	case <-ch:
+		cancel()
+		return
 	}
 }
