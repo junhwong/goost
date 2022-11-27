@@ -125,7 +125,7 @@ func (app *appImpl) Wait() error {
 
 	err := app.doInvokes()
 	if err != nil {
-		// TODO return err
+		return err
 		return dig.RootCause(err)
 	}
 
@@ -183,9 +183,10 @@ func (hooks *hookBuilder) AppendServing(fn ServingHookFunc) {
 	*hooks = target
 }
 
-func (hooks *hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop func()) (next func()) {
+func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop func()) (next func()) {
+	builder := hooks
+
 	contexts := []*hookCtx{}
-	builder := *hooks
 	for range builder {
 		next, cancel := context.WithCancel(ctx)
 		contexts = append(contexts, &hookCtx{
