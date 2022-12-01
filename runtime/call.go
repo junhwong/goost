@@ -105,16 +105,17 @@ func WrapCallStacktrace(err error, depth int) error {
 	if err == nil {
 		return nil
 	}
+	ci := Caller(depth + 1)
 
-	var ex *wrappedCallStackError
-	if !errors.As(err, &ex) {
-		ex = &wrappedCallStackError{
-			Err:   err,
-			Stack: []CallerInfo{},
-		}
+	if ex, _ := err.(*wrappedCallStackError); ex != nil {
+		ex.Stack = append(ex.Stack, ci)
+		return ex
 	}
-	ex.Stack = append(ex.Stack, Caller(depth+1))
-	return ex
+
+	return &wrappedCallStackError{
+		Err:   err,
+		Stack: []CallerInfo{ci},
+	}
 }
 
 func GetCallStackFromError(err error) (info []CallerInfo, ok bool) {

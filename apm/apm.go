@@ -16,6 +16,7 @@ func init() {
 	f := NewTextFormatter() // NewJsonFormatter() //
 	std = &DefaultLogger{
 		queue:    make(chan Entry, 1024),
+		inqueue:  make(chan Entry, 1024),
 		handlers: []Handler{&ConsoleHandler{Formatter: f}},
 		cancel:   cancel,
 	}
@@ -25,6 +26,9 @@ func init() {
 
 func Done() {
 	std.Close()
+}
+func Flush() {
+	std.Flush()
 }
 
 // 适配接口
@@ -50,13 +54,16 @@ func Default() Interface {
 func AddHandlers(handlers ...Handler) {
 	std.mu.Lock()
 	defer std.mu.Unlock()
+
+	old := std.gethandlers()
 	for _, it := range handlers {
 		if it == nil {
 			continue
 		}
-		std.handlers = append(std.handlers, it)
+		old = append(old, it)
 	}
-	std.handlers.Sort()
+	old.Sort()
+	std.handlers = old
 }
 
 // type appendFields struct {

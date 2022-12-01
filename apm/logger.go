@@ -39,70 +39,77 @@ type Logger interface {
 }
 
 type DefaultLogger struct {
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	wg       sync.WaitGroup
 	queue    chan Entry
+	inqueue  chan Entry
 	cancel   context.CancelFunc
 	handlers handlerSlice
 }
 
-func (logger *DefaultLogger) handle(entry Entry) {
-	std.mu.Lock()
-	handlers := logger.handlers
-	std.mu.Unlock()
-
-	size := handlers.Len()
-	crt := 0
-	var next func()
-	next = func() {
-		if crt >= size {
-			return
-		}
-		h := handlers[crt]
-		crt++
-		h.Handle(entry, next)
-	}
-	next()
+func (logger *DefaultLogger) gethandlers() handlerSlice {
+	handlers := make(handlerSlice, logger.handlers.Len())
+	copy(handlers, logger.handlers)
+	return handlers
 }
 
-func (logger *DefaultLogger) flush() {
-	for {
-		select {
-		case entry := <-logger.queue:
-			logger.handle(entry)
-		default:
-			return
-		}
-	}
+func (logger *DefaultLogger) handle(entry Entry) {
+	// std.mu.Lock()
+	handlers := logger.handlers
+	// std.mu.Unlock()
+
+	handlers.handle(entry)
+}
+
+func (logger *DefaultLogger) Flush() {
+	// std.mu.Lock()
+	// defer std.mu.Unlock()
+
+	// handlers := logger.handlers
+	// for entry := range logger.inqueue {
+	// 	handlers.handle(entry)
+	// 	logger.wg.Done()
+	// }
 }
 
 func (logger *DefaultLogger) Run(stopCh <-chan struct{}) {
 	for {
 		select {
-		case entry := <-logger.queue:
+		case entry, ok := <-logger.queue:
+			if !ok {
+				continue
+			}
+
+			logger.wg.Add(1)
+			logger.inqueue <- entry
+		case entry, ok := <-logger.inqueue:
+			if !ok {
+				return
+			}
+
 			logger.handle(entry)
+			logger.wg.Done()
 		case <-stopCh:
 			goto END
 		}
 	}
 
 END:
-	logger.flush()
+	logger.Flush()
 }
 
 func (logger *DefaultLogger) Close() error {
-	logger.cancel()
 	time.Sleep(time.Millisecond) // 给协程一点时间启动
+	logger.cancel()
+	go logger.Flush()
+	close(logger.queue)
 	logger.wg.Wait()
+	close(logger.inqueue)
 	return nil
 }
 
 func (logger *DefaultLogger) NewSpan(ctx context.Context, calldepth int, options ...SpanOption) (context.Context, Span) {
 	return newSpan(ctx, logger, calldepth+1, options)
-}
-
-type _GetCallLastInfo interface {
-	GetCallLastInfo() runtime.CallerInfo
 }
 
 func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level.Level, format string, args []interface{}) {
@@ -186,7 +193,9 @@ func (entry *DefaultLogger) Logf(ctx context.Context, calldepth int, level level
 		fs.Set(Time(time.Now()))
 	}
 
-	entry.queue <- Entry(fs)
+	// TODO 异步
+	// entry.queue <- Entry(fs)
+	entry.handlers.handle(Entry(fs))
 }
 
 func (entry *DefaultLogger) Log(ctx context.Context, calldepth int, level level.Level, args []interface{}) {
@@ -201,17 +210,17 @@ type logEntry struct {
 	Fields  field.Fields
 }
 
-func (entry *DefaultLogger) Write(lvl level.Level, ts time.Time, msg string, caller runtime.CallerInfo) {
-	ent := logEntry{}
-	ent.Caller = caller
-	ent.Level = lvl
-	ent.Message = msg
-	ent.Time = ts
+// func (entry *DefaultLogger) Write(lvl level.Level, ts time.Time, msg string, caller runtime.CallerInfo) {
+// 	ent := logEntry{}
+// 	ent.Caller = caller
+// 	ent.Level = lvl
+// 	ent.Message = msg
+// 	ent.Time = ts
 
-	for _, v := range entry.handlers {
-		v.Handle(nil, nil)
-	}
-}
+// 	for _, v := range entry.handlers {
+// 		v.Handle(nil, nil)
+// 	}
+// }
 
 // ==================== EntryInterface ====================
 type entryLog struct {

@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"log"
 	"testing"
-	"time"
 
 	"github.com/junhwong/goost/apm/level"
 	"github.com/junhwong/goost/errors"
-	"github.com/junhwong/goost/runtime"
 )
 
 // func TestLog(t *testing.T) {
@@ -98,7 +96,7 @@ func BenchmarkAccumulatedContext(b *testing.B) {
 			for pb.Next() {
 				// logger.Info("getMessage(0)", field.Dynamic("")(""))
 
-				std.Write(level.Debug, time.Now(), "", runtime.Caller(0))
+				// std.Write(level.Debug, time.Now(), "", runtime.Caller(0))
 			}
 		})
 	})

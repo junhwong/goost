@@ -159,8 +159,12 @@ func stop(startCancel context.CancelFunc) func() {
 
 func New() Application {
 	//dig.DeferAcyclicVerification()
-	app := &appImpl{container: dig.New()}
-
+	app := &appImpl{
+		container: dig.New(),
+		provides:  []provideOption{},
+		invokes:   []invokeOption{},
+	}
+	app.Run(WatchInterrupt()) // todo options
 	return app
 }
 
