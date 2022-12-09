@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/junhwong/goost/apm/field"
 	"github.com/junhwong/goost/errors"
-	"github.com/junhwong/goost/pkg/field"
 	"github.com/junhwong/goost/runtime"
 )
 

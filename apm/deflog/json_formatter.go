@@ -1,4 +1,4 @@
-package apm
+package deflog
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/junhwong/goost/apm/level"
+	"github.com/junhwong/goost/apm"
 	"github.com/spf13/cast"
 )
 
@@ -21,14 +21,14 @@ func NewJsonFormatter(timeLayout ...string) *JsonFormatter {
 	return f
 }
 
-var _ Formatter = (*JsonFormatter)(nil)
+var _ apm.Formatter = (*JsonFormatter)(nil)
 
 // JSON 格式
 type JsonFormatter struct {
 	timeLayout string
 }
 
-func (jf *JsonFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
+func (jf *JsonFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error) {
 	writeByte := func(c byte) {
 		if err != nil {
 			return
@@ -44,9 +44,9 @@ func (jf *JsonFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 
 	writeByte('{')
 
-	fprintf(`"level":%q`, level.String(GetLevel(entry)))
-
-	if val := entry.Get(TimeKey); val != nil {
+	fprintf(`"level":%q`, entry.GetLevel().String())
+	fs := entry.GetFields()
+	if val := fs.Get(apm.TimeKey); val != nil {
 		t, err := cast.ToTimeE(val)
 		if err == nil && !t.IsZero() {
 			// TODO: 时区
@@ -54,24 +54,26 @@ func (jf *JsonFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		}
 	}
 
-	if val := entry.Get(MessageKey); val != nil {
+	if val := fs.Get(apm.MessageKey); val != nil {
 		fprintf(`,"message":%q`, val)
 	}
 
-	for key, val := range entry {
+	// TODO 折叠map
+	for _, f := range fs {
+		key, val := f.Unwrap()
 		if key == nil || val == nil {
 			continue
 		}
-		if key == TimeKey || key == MessageKey || key == LevelKey {
+		if key == apm.TimeKey || key == apm.MessageKey || key == apm.LevelKey {
 			continue
 		}
 
-		if key == TracebackPathKey || key == TracebackLineNoKey {
+		if key == apm.TracebackPathKey || key == apm.TracebackLineNoKey {
 			continue
 		}
 
-		if key == TracebackCallerKey {
-			val = fmt.Sprintf("%s:%v", val, entry.Get(TracebackLineNoKey, 0))
+		if key == apm.TracebackCallerKey {
+			val = fmt.Sprintf("%s:%v", val, fs.Get(apm.TracebackLineNoKey, 0))
 		}
 
 		var data []byte
@@ -82,10 +84,9 @@ func (jf *JsonFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 
 		name := key.Name() // TrimFieldNamePrefix(it.Key.Name())
 
-		// if len(name) == 0 {
-		// 	fmt.Println("apm: skip entry: name") // TODO devop log
-		// 	continue
-		// }
+		if len(name) == 0 {
+			panic(fmt.Sprintln("apm: entry key name is required"))
+		}
 
 		switch name {
 		case "level", "time", "message":

@@ -5,14 +5,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/junhwong/goost/apm/level"
-	"github.com/junhwong/goost/pkg/field"
+	"github.com/junhwong/goost/apm/field"
 	"github.com/junhwong/goost/runtime"
 )
 
-type SpanInterface interface {
-	NewSpan(ctx context.Context, calldepth int, options ...SpanOption) (context.Context, Span)
+type SpanFactory interface {
+	NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span)
 }
+
 type Span interface {
 	Logger
 	End(options ...EndSpanOption)                                   // 结束该Span。
@@ -23,7 +23,50 @@ type Span interface {
 	SetAttributes(attrs ...field.Field)                             //
 	Context() SpanContext                                           // 返回与该span关联的上下文
 }
-type SpanContext struct {
+
+type SpanContext interface {
+	IsFirst() bool
+	GetTranceID() string
+	GetSpanID() string
+	GetSpanParentID() string
+}
+
+type SpanStatus string
+
+const (
+	SpanStatusUnset SpanStatus = "Unset"
+	SpanStatusError SpanStatus = "Error"
+	SpanStatusOk    SpanStatus = "Ok"
+)
+
+//////
+
+type traceOption struct {
+	trimFieldPrefix []string
+	name            string
+	attrs           []field.Field
+	delegate        func(*traceOption)
+	getName         func() string
+	calldepth       int
+	endCalls        []func(Span)
+}
+
+func (opt *traceOption) SetNameGetter(a func() string) { opt.getName = a }
+func (opt *traceOption) SetAttributes(a []field.Field) { opt.attrs = a }
+func (opt *traceOption) SetCalldepth(a int)            { opt.calldepth = a }
+func (opt *traceOption) SetEndCalls(a []func(Span))    { opt.endCalls = a }
+
+var _ Span = (*spanImpl)(nil)
+
+type spanImpl struct {
+	logImpl
+	spanContext
+	failed    bool
+	startTime time.Time
+	option    traceOption
+}
+
+type spanContext struct {
 	TranceID     string
 	SpanID       string
 	SpanParentID string
@@ -32,28 +75,19 @@ type SpanContext struct {
 	first bool
 }
 
-func (ctx *SpanContext) IsFirst() bool {
+func (ctx *spanContext) IsFirst() bool {
 	return ctx.first
 }
+func (ctx *spanContext) GetTranceID() string     { return ctx.TranceID }
+func (ctx *spanContext) GetSpanID() string       { return ctx.SpanID }
+func (ctx *spanContext) GetSpanParentID() string { return ctx.SpanParentID }
 
-const (
-	spanInContextKey = "$apm.spanInContextKey"
-)
-
-var _ Span = (*spanImpl)(nil)
-
-type spanImpl struct {
-	entryLog
-	SpanContext
-	failed    bool
-	startTime time.Time
-	option    traceOption
-}
-
-func newSpan(ctx context.Context, logger *DefaultLogger, calldepth int, options []SpanOption) (context.Context, *spanImpl) {
-	if logger == nil {
-		panic("apm: logger cannot be nil")
-	}
+func (log *loggerImpl) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
+	// , logger LoggerInterface, calldepth int
+	// if logger == nil {
+	// 	panic("apm: logger cannot be nil")
+	// }
+	calldepth := 0
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -65,15 +99,14 @@ func newSpan(ctx context.Context, logger *DefaultLogger, calldepth int, options 
 		if opt == nil {
 			continue
 		}
-		opt.applySpanOption(&option)
+		opt.Apply(&option)
 	}
 
 	span := &spanImpl{
 		option:    option,
 		startTime: time.Now(),
-		SpanContext: SpanContext{
-			SpanID: newSpanId(),
-			name:   option.name,
+		spanContext: spanContext{
+			SpanID: NewSpanId(),
 		},
 	}
 
@@ -82,9 +115,9 @@ func newSpan(ctx context.Context, logger *DefaultLogger, calldepth int, options 
 		span.SpanParentID = prent.SpanID
 	} else {
 		span.first = true
-		span.TranceID, _ = getTraceID(ctx) // TODO 上级ID
-		if span.TranceID == "" {
-			span.TranceID = newTraceId()
+		span.TranceID, _ = GetTraceID(ctx) // TODO 上级ID
+		if len(span.TranceID) == 0 {
+			span.TranceID = NewTraceId()
 		}
 	}
 
@@ -94,19 +127,20 @@ func newSpan(ctx context.Context, logger *DefaultLogger, calldepth int, options 
 	}); ok {
 		setter.Set(spanInContextKey, span)
 	} else {
-		ctx = context.WithValue(ctx, spanInContextKey, span) // nolint
+		ctx = context.WithValue(ctx, spanInContextKey, span)
 	}
 	span.option = option
-	span.logger = logger
+	span.dispatcher = log.dispatcher
 	span.ctx = ctx
 	span.calldepth = option.calldepth // entrylog
+
 	return ctx, span
 }
 
 func (span *spanImpl) End(options ...EndSpanOption) {
 	for _, option := range options {
 		if option != nil {
-			option.applyEndOption(&span.option)
+			option.Apply(&span.option)
 		}
 	}
 	name := span.name
@@ -140,7 +174,7 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	fs = append(fs, SpanID(span.SpanID))
 	fs = append(fs, SpanParentID(span.SpanParentID))
 	fs = append(fs, Duration(time.Since(span.startTime))) // Latency
-
+	fs = append(fs, TraceID(span.TranceID))
 	for _, fn := range span.option.endCalls {
 		fn(span)
 	}
@@ -148,12 +182,17 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	if span.failed {
 		fs = append(fs, TraceError(span.failed))
 	}
-	span.calldepth = span.option.calldepth
-	span.logger.Log(span.ctx, span.calldepth, level.Trace, fs) // TODO: calldepth 不能获取到 defer 位置
-	span.logger = nil                                          // 移除关联,
+	if span.option.calldepth > 0 {
+		span.calldepth = span.option.calldepth
+	} else {
+		span.calldepth++
+	}
+
+	span.Log(Trace, fs)   //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
+	span.dispatcher = nil // 移除关联,
 }
 
-func (span *spanImpl) Context() SpanContext { return span.SpanContext }
+func (span *spanImpl) Context() SpanContext { return span }
 
 // 标记失败
 func (span *spanImpl) Fail() {
@@ -176,16 +215,8 @@ func (span *spanImpl) PanicIf(err error) {
 	panic(err) // TODO 错误包装
 }
 
-type SpanStatus string
-
-const (
-	SpanStatusUnset SpanStatus = "Unset"
-	SpanStatusError SpanStatus = "Error"
-	SpanStatusOk    SpanStatus = "Ok"
-)
-
 func (span *spanImpl) SetStatus(code SpanStatus, description string, failure ...bool) {
-	span.SetAttributes(spanStatusCode(string(code)), spanStatusDescription(description))
+	span.SetAttributes(SpanStatusCode(string(code)), SpanStatusDescription(description))
 	for _, v := range failure {
 		if v {
 			span.failed = true
@@ -196,5 +227,3 @@ func (span *spanImpl) SetStatus(code SpanStatus, description string, failure ...
 func (span *spanImpl) SetAttributes(attrs ...field.Field) {
 	span.option.attrs = append(span.option.attrs, attrs...)
 }
-
-//failure

@@ -1,19 +1,22 @@
 package apm
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"runtime/debug"
+	"strings"
 	"sync"
 
-	"github.com/junhwong/goost/pkg/field"
-	"github.com/junhwong/goost/runtime"
+	"github.com/junhwong/goost/apm/field"
+	"github.com/spf13/cast"
 )
 
 // 标准错误
 type CodeError struct {
 	code   string // 固定的全局系统唯一的错误码, 如: NOTFOUND
 	msg    string // 固定安全的错误消息, 用于对外部系统暂时. 如: 密码或账号不正确
-	status int    // 用于如 HTTP/GRPC 等接口返回的状态码, -1 表示未定义
+	status int    // 用于如 HTTP/RPC 等接口返回的状态码, -1 表示未定义
 }
 
 func (err *CodeError) Code() string    { return err.code }
@@ -112,12 +115,102 @@ func WrapFields(err error, fs ...field.Field) error {
 	return &fieldsError{Err: err, Fields: fs}
 }
 
-// Deprecated: use WrapCallStack
-func WrapCallLast(err error, forceWrap ...bool) error {
-	return runtime.WrapCallLast(err, 1, forceWrap...)
+func WrapCallStack(err error) error {
+	if err == nil {
+		return nil
+	}
+	var ex *StacktraceError
+	if errors.Is(err, ex) {
+		return err
+	}
+
+	return &StacktraceError{
+		Err:   err,
+		Stack: debug.Stack(),
+	}
 }
 
-//
-func WrapCallStack(err error) error {
-	return runtime.WrapCallStacktrace(err, 1)
+type StacktraceError struct {
+	Stack []byte
+	Err   error
+}
+
+func (err *StacktraceError) Unwrap() error {
+	return err.Err
+}
+
+func (err *StacktraceError) Error() string {
+	return err.Err.Error()
+}
+
+func StackToCallerInfo(stack []byte) []CallerInfo {
+	lines := bytes.Split(stack, []byte{'\n'})
+	// fmt.Printf("stack: %s\n", stack)
+	start := false
+	var dst []CallerInfo
+	for i := 0; i < len(lines); i++ {
+		l := lines[i]
+		if !start {
+			if bytes.Equal(l, []byte("runtime/debug.Stack()")) {
+				start = true
+				i++
+			}
+			continue
+		}
+		if bytes.Contains(l, []byte("apm.WrapCallStack({")) {
+			i++
+			continue
+		}
+		if bytes.Contains(l, []byte("testing.tRunner(")) {
+			i++
+			continue
+		}
+		if bytes.HasPrefix(l, []byte("created by ")) {
+			break
+		}
+		// fmt.Printf("l: %s\n", l)
+		i++
+		arr := bytes.Split(bytes.Trim(lines[i], "\t"), []byte{' '})
+		ci := CallerInfo{
+			Method: string(bytes.SplitN(l, []byte{'('}, 2)[0]),
+			File:   string(arr[0]),
+		}
+		{
+			i := strings.LastIndex(ci.Method, "/")
+			if i > 1 {
+				ci.Package = ci.Method[:i]
+				ci.Method = ci.Method[i+1:]
+			}
+		}
+		{
+			i := strings.LastIndex(ci.File, ":")
+			if i > 1 {
+				ci.Line = cast.ToInt(ci.File[i+1:])
+				ci.File = ci.File[:i]
+			}
+
+			// i = strings.LastIndex(ci.File, "/")
+			// if i > 1 {
+			// 	ci.Path = ci.File[:i]
+			// 	ci.File = ci.File[i+1:]
+			// } else {
+			// 	i = strings.LastIndex(ci.File, "\\")
+			// 	if i > 1 {
+			// 		ci.Path = ci.File[:i]
+			// 		ci.File = ci.File[i+1:]
+			// 	}
+			// }
+		}
+		dst = append(dst, ci)
+		// fmt.Printf("ci: %+v\n", ci)
+
+	}
+	return dst
+}
+func getSplitLast(s string, substr string) string {
+	i := strings.LastIndex(s, substr)
+	if i > 0 {
+		s = s[i+1:]
+	}
+	return s
 }

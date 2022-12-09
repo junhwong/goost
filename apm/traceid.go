@@ -30,7 +30,7 @@ func NewTraceID() TraceID2 {
 
 // randomTimestamped can generate 128 bit time sortable traceid's compatible
 // with AWS X-Ray and 64 bit spanid's.
-func newTraceId() string {
+func NewTraceId() string {
 	id := TraceID2{
 		High: int64(time.Now().Unix()<<32) + int64(seededIDGen.Int31()),
 		Low:  int64(seededIDGen.Int63()),
@@ -38,7 +38,7 @@ func newTraceId() string {
 	return id.String()
 }
 
-func newSpanId() string {
+func NewSpanId() string {
 	id := TraceID2{
 		High: 0,
 		Low:  int64(seededIDGen.Int63()),
@@ -46,12 +46,16 @@ func newSpanId() string {
 	return id.String()
 }
 
-func getTraceID(ctx context.Context) (traceID, spanID string) {
+const (
+	spanInContextKey = "$apm.spanInContextKey"
+)
+
+func GetTraceID(ctx context.Context) (traceID, spanID string) {
 	if ctx == nil {
 		return "", ""
 	}
-	if prent, ok := ctx.Value(spanInContextKey).(*spanImpl); ok && prent != nil {
-		return prent.TranceID, prent.SpanID
+	if prent, ok := ctx.Value(spanInContextKey).(SpanContext); ok && prent != nil {
+		return prent.GetTranceID(), prent.GetSpanID()
 	}
 	// https://opentelemetry.io/docs/reference/specification/sdk-environment-variables/
 	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#id21

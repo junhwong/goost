@@ -2,6 +2,7 @@ package field
 
 // Field 表示一个标准字段。
 type Field interface {
+	Key() Key
 	Unwrap() (Key, interface{}) // 获取字段的键和值。返回 nil表示该字段无效
 }
 
@@ -13,55 +14,62 @@ type Field interface {
 //
 // [ecs](https://github.com/elastic/ecs)
 type structField struct {
-	Key           Key         `json:"key"`
-	Value         interface{} `json:"value"`
-	valid         bool        // 防止自定义
-	sliceDataType KeyKind
+	KeyField Key         `json:"key"`
+	Value    interface{} `json:"value"`
+	valid    bool        // 防止自定义
+
+	// sliceDataType KeyKind
+	// Int   int64
+	// Uint  uint64
+	// Float float64
+	// Time  time.Time
+	// Bool  bool
 }
 
 func (f *structField) Valid() bool {
-	return f != nil && f.valid && f.Key != nil
+	return f != nil && f.valid && f.KeyField.Kind() != InvalidKind
 }
 
 // 获取字段数据类型
 func (f *structField) Kind() (k KeyKind) {
-	if f.Valid() {
-		return f.Key.Kind()
-	}
-	return InvalidKind
+	return f.KeyField.Kind()
+}
+func (f structField) Key() Key {
+	return f.KeyField
 }
 
 // 获取字段的键名
 func (f *structField) Name() string {
-	return f.Key.Name()
+	return f.KeyField.Name()
 }
 
 // 获取字段的键和值。返回 nil表示该字段无效
 func (f *structField) Unwrap() (Key, interface{}) {
-	if f == nil || !f.valid {
+	if !f.Valid() {
 		return nil, nil
 	}
-	return f.Key, f.Value
+	return f.KeyField, f.Value
 }
 
 // Fields 表示一个标签集合。
-type Fields map[Key]interface{}
+type Fields map[Key]Field
 
 func (fs Fields) Set(f Field) {
 	if f == nil {
 		return
 	}
-	k, v := f.Unwrap()
-	if k == nil || v == nil {
-		return
-	}
-	fs[k] = v
+	fs[f.Key()] = f
 }
 func (fs Fields) Get(k Key, or ...interface{}) interface{} {
-	v := fs[k]
-	if v != nil {
-		return v
+	// var v interface{}
+	if k != nil {
+		f := fs[k]
+		if f != nil {
+			_, v := f.Unwrap()
+			return v
+		}
 	}
+
 	l := len(or)
 	if l == 0 {
 		return nil
@@ -69,18 +77,25 @@ func (fs Fields) Get(k Key, or ...interface{}) interface{} {
 	return or[l-1]
 }
 func (fs Fields) Del(k Key) interface{} {
-	v, ok := fs[k]
+	f, ok := fs[k]
 	if !ok {
 		return nil
 	}
 	delete(fs, k)
-	return v
+	if f != nil {
+		_, v := f.Unwrap()
+		return v
+	}
+	return nil
 }
 
 func (fs Fields) Keys() Keys {
-	keys := make(Keys, 0, len(fs))
-	for k := range fs {
-		keys = append(keys, k)
+	keys := make(Keys, 0)
+	for _, f := range fs {
+		k := f.Key()
+		if k != nil {
+			keys = append(keys, k)
+		}
 	}
 	keys.Sort()
 	return keys

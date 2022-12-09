@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/junhwong/goost/pkg/field"
+	"github.com/junhwong/goost/apm/field"
 )
 
 var (

@@ -6,12 +6,12 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.9.0
 	github.com/gbrlsnchs/jwt/v3 v3.0.1
 	github.com/gin-gonic/gin v1.8.1
-	github.com/go-playground/validator/v10 v10.11.0
+	github.com/go-playground/validator/v10 v10.11.1
 	github.com/json-iterator/go v1.1.12
 	github.com/spf13/cast v1.5.0
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/dig v1.15.0
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
+	golang.org/x/crypto v0.4.0
 )
 
 require (
@@ -34,9 +34,9 @@ require (
 	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/net v0.0.0-20220421235706-1d1ef9303861 // indirect
-	golang.org/x/sys v0.0.0-20220422013727-9388b58f7150 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/net v0.3.0 // indirect
+	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/text v0.5.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

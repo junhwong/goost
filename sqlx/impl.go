@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/junhwong/goost/apm"
-	"github.com/junhwong/goost/pkg/field"
+	"github.com/junhwong/goost/apm/field"
 )
 
 type Config struct {
@@ -66,13 +66,14 @@ func prepareContext(ctx context.Context, meta connMeta, raw sqlPrepare, query st
 	// if id == "" {
 	// 	id = "sql"
 	// }
+	panic("todo")
 	ctx, span := apm.Start(ctx,
-		apm.WithFields(
-			dbType("sql"),
-			dbStage("prepare"),
-			dbInstance(meta.getInstance()),
-			dbStmt(query),
-		),
+		// apm.WithFields(
+		// 	dbType("sql"),
+		// 	dbStage("prepare"),
+		// 	dbInstance(meta.getInstance()),
+		// 	dbStmt(query),
+		// ),
 		apm.WithCallDepth(3),
 		// , apm.WithName(id), apm.WithCallDepth(3)
 	)
@@ -85,7 +86,7 @@ func prepareContext(ctx context.Context, meta connMeta, raw sqlPrepare, query st
 		return nil, err
 	}
 
-	return &stmtWrap{stmt: stmt, prepareid: span.Context().SpanID}, nil
+	return &stmtWrap{stmt: stmt, prepareid: span.Context().GetSpanID()}, nil
 }
 
 type stmtWrap struct {
@@ -94,13 +95,14 @@ type stmtWrap struct {
 }
 
 func (stmt *stmtWrap) Exec(ctx context.Context, args ...interface{}) (ExecutedResult, error) {
+	panic("todo")
 	ctx, span := apm.Start(ctx,
-		apm.WithFields(
-			dbType("sql"),
-			dbStage("exec"),
-			dbPrepareID(stmt.prepareid),
-			dbArgs(argSlim(args)...),
-		),
+		// apm.WithFields(
+		// 	dbType("sql"),
+		// 	dbStage("exec"),
+		// 	dbPrepareID(stmt.prepareid),
+		// 	dbArgs(argSlim(args)...),
+		// ),
 		apm.WithCallDepth(3),
 	)
 	defer span.End()
@@ -109,28 +111,28 @@ func (stmt *stmtWrap) Exec(ctx context.Context, args ...interface{}) (ExecutedRe
 }
 
 func (stmt *stmtWrap) Query(ctx context.Context, args ...interface{}) (Rows, error) {
-	ctx, span := apm.Start(ctx,
-		apm.WithFields(
-			dbType("sql"),
-			dbStage("query"),
-			dbPrepareID(stmt.prepareid),
-			dbArgs(argSlim(args)...),
-		),
-	)
+	panic("todo")
+	ctx, span := apm.Start(ctx) // apm.WithFields(
+	// 	dbType("sql"),
+	// 	dbStage("query"),
+	// 	dbPrepareID(stmt.prepareid),
+	// 	dbArgs(argSlim(args)...),
+	// ),
+
 	defer span.End()
 
 	return stmt.stmt.QueryContext(ctx, args...)
 }
 
 func (stmt *stmtWrap) QueryRow(ctx context.Context, args ...interface{}) (*sql.Row, error) {
-	ctx, span := apm.Start(ctx,
-		apm.WithFields(
-			dbType("sql"),
-			dbStage("query"),
-			dbPrepareID(stmt.prepareid),
-			dbArgs(argSlim(args)...),
-		),
-	)
+	panic("todo")
+	ctx, span := apm.Start(ctx) // apm.WithFields(
+	// 	dbType("sql"),
+	// 	dbStage("query"),
+	// 	dbPrepareID(stmt.prepareid),
+	// 	dbArgs(argSlim(args)...),
+	// ),
+
 	defer span.End()
 
 	row := stmt.stmt.QueryRowContext(ctx, args...)

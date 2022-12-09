@@ -116,13 +116,15 @@ func (r *ginRouter) enterHandler(ctx Context) {
 	// TODO request-id  https://www.kancloud.cn/linimbus/envoyproxy/498765
 	//c.Writer.Size()
 	// "os.arch":"x86_64","os.platform":"linux","os.release":"ubuntu","os.version":"8.0"
+
+	panic("todo")
 	_, span := apm.Start(ctx,
 		apm.WithName(method+" "+path),
-		apm.WithTrimFieldPrefix("__web."),
-		apm.WithFields(
-			clientIP(ctx.ClientIP()),
-			httpMethod(method),
-		),
+		// apm.WithTrimFieldPrefix("__web."),
+		// apm.WithFields(
+		// 	clientIP(ctx.ClientIP()),
+		// 	httpMethod(method),
+		// ),
 	)
 	defer func() {
 		span.End(
@@ -131,9 +133,9 @@ func (r *ginRouter) enterHandler(ctx Context) {
 				s, _ = ctx.Value(_traceNameInContextKey).(string)
 				return
 			}),
-			apm.WithFields(
-				httpStatus(ctx.Writer.Status()),
-			),
+			// apm.WithFields(
+			// 	httpStatus(ctx.Writer.Status()),
+			// ),
 		)
 	}()
 

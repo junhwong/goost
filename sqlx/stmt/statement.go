@@ -96,7 +96,6 @@ func (s *Statement) Query(ctx context.Context, raw sqlx.Conn, getter sqlx.Parame
 
 func (s *Statement) Exec(ctx context.Context, raw sqlx.Conn, getter sqlx.ParameterGetter) (sqlx.ExecutedResult, error) {
 	ctx, span := apm.Start(ctx,
-		apm.WithFields(),
 		apm.WithCallDepth(2),
 	)
 	defer span.End()
@@ -174,7 +173,6 @@ func (s *PrepareStatement) Exec(ctx context.Context,
 	}
 
 	ctx, span := apm.Start(ctx,
-		apm.WithFields(),
 		apm.WithCallDepth(2),
 	)
 	defer span.End()

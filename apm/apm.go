@@ -2,103 +2,110 @@ package apm
 
 import (
 	"context"
-
-	"github.com/junhwong/goost/pkg/field"
 )
 
 var (
-	std  *DefaultLogger
-	defi Interface
+	std *loggerImpl
+	// defi Interface
+	// asyncD Dispatcher
 )
 
 func init() {
-	ctx, cancel := context.WithCancel(context.Background())
-	f := NewTextFormatter() // NewJsonFormatter() //
-	std = &DefaultLogger{
-		queue:    make(chan Entry, 1024),
-		inqueue:  make(chan Entry, 1024),
-		handlers: []Handler{&ConsoleHandler{Formatter: f}},
-		cancel:   cancel,
-	}
-	go std.Run(ctx.Done())
-	defi = New(context.Background())
+	// ctx, cancel := context.WithCancel(context.Background())
+	// f := NewTextFormatter() // NewJsonFormatter() //
+	// std = &DefaultLogger{
+	// 	queue:    make(chan Entry, 1024),
+	// 	inqueue:  make(chan Entry, 1024),
+	// 	handlers: []Handler{&ConsoleHandler{Formatter: f}},
+	// 	cancel:   cancel,
+	// }
+	// go std.Run(ctx.Done())
+	// defi = New(context.Background())
+
+	std = &loggerImpl{logImpl: logImpl{ctx: context.TODO(), dispatcher: &syncDispatcher{}, calldepth: 1}}
+	// asyncD = &asyncDispatcher{}
+	// defi = New(context.Background())
 }
 
 func Done() {
-	std.Close()
+	// std.Close()
 }
 func Flush() {
-	std.Flush()
+	std.dispatcher.Flush()
 }
 
 // 适配接口
 type Adapter interface {
-	LoggerInterface
-	SpanInterface
+	Dispatch(Entry)
 }
 
 // 同一接口
 type Interface interface {
 	Logger
-	SpanInterface
+	SpanFactory
 }
 
 func GetAdapter() Adapter {
-	return std
+	return std.dispatcher
+}
+func SetDispatcher(a Dispatcher) {
+	old := std.dispatcher
+	defer old.Close()
+
+	handlers := std.dispatcher.GetHandlers()
+	a.AddHandlers(handlers...)
+	std.dispatcher = a
+}
+
+func UseAsyncDispatcher() {
+	d := &asyncDispatcher{queue: make(chan Entry, 1024)}
+	SetDispatcher(d)
+	go d.loop()
+}
+
+func SetDefault(writer LoggerInterface) Adapter {
+	// std = writer
+	// defi = New(context.Background())
+	// return defi
+	return nil
 }
 
 func Default() Interface {
-	return defi
+	return std
 }
 
 func AddHandlers(handlers ...Handler) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
-
-	old := std.gethandlers()
-	for _, it := range handlers {
-		if it == nil {
-			continue
-		}
-		old = append(old, it)
-	}
-	old.Sort()
-	std.handlers = old
-}
-
-// type appendFields struct {
-// 	fields []field.Field
-// }
-
-type appendFields func() []field.Field
-
-func (fn appendFields) applyInterface(impl *stdImpl) {
-	fs := fn()
-	impl.fields = append(impl.fields, fs...)
+	std.dispatcher.AddHandlers(handlers...)
 }
 
 type Option interface {
-	applyInterface(*stdImpl)
+	applyInterface(*loggerImpl)
 }
 
-func WithFields(fs ...field.Field) appendFields {
-	return func() []field.Field {
-		return fs
-	}
-}
+// func WithFields(fs ...field.Field) appendFields {
+// 	return func() []field.Field {
+// 		return fs
+// 	}
+// }
 
-func New(ctx context.Context, options ...Option) Interface {
-	r := &stdImpl{entryLog: entryLog{ctx: ctx, logger: std, calldepth: 1}}
-	r.spi = std
-	return r
-}
+// func New(ctx context.Context, options ...Option) Interface {
+// 	r := &loggerImpl{logImpl: logImpl{ctx: ctx, dispatcher: std, calldepth: 1}}
+// 	return r
+// }
 
-type stdImpl struct {
-	entryLog
-	fields []field.Field
-	spi    SpanInterface
-}
+// type Provider interface {
+// 	Out(Entry)
+// 	NewLogger() Logger
+// 	NewSpan() Span
+// }
 
-func (log *stdImpl) NewSpan(ctx context.Context, calldepth int, options ...SpanOption) (context.Context, Span) {
-	return log.spi.NewSpan(ctx, calldepth+1, options...)
-}
+// type Outer interface {
+// 	Out(Entry)
+// }
+
+// type syncOuter struct {
+// }
+
+// func (syncOuter) Out(Entry) {
+
+// }
