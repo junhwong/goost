@@ -149,6 +149,9 @@ func (jf *TextFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error)
 		if data, err = json.Marshal(val); err != nil {
 			return
 		}
+		if bytes.Equal(data, []byte{'{', '}'}) {
+			continue
+		}
 
 		name := key.Name() // TrimFieldNamePrefix(it.Key.Name())
 

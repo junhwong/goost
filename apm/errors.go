@@ -146,6 +146,18 @@ func (err *StacktraceError) Error() string {
 func StackToCallerInfo(stack []byte) []CallerInfo {
 	lines := bytes.Split(stack, []byte{'\n'})
 	// fmt.Printf("stack: %s\n", stack)
+
+	// runtime: goroutine stack exceeds 1000000000-byte limit
+	// runtime: sp=0xc020d50348 stack=[0xc020d50000, 0xc040d50000]
+	// fatal error: stack overflow
+	//
+	// runtime stack:
+	// ...
+	// goroutine 218 [running]:
+	// goroutine 4 [GC scavenge wait]:
+	// goroutine 5 [finalizer wait]:
+	// ...
+	// goroutine 34 [GC worker (idle), 1 minutes]:
 	start := false
 	var dst []CallerInfo
 	for i := 0; i < len(lines); i++ {

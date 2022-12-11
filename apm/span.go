@@ -87,12 +87,11 @@ func (log *loggerImpl) NewSpan(ctx context.Context, options ...SpanOption) (cont
 	// if logger == nil {
 	// 	panic("apm: logger cannot be nil")
 	// }
-	calldepth := 0
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	option := traceOption{
-		calldepth: calldepth,
+		calldepth: log.calldepth,
 		attrs:     make([]field.Field, 0),
 	}
 	for _, opt := range options {
@@ -178,16 +177,9 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	for _, fn := range span.option.endCalls {
 		fn(span)
 	}
-
 	if span.failed {
 		fs = append(fs, TraceError(span.failed))
 	}
-	if span.option.calldepth > 0 {
-		span.calldepth = span.option.calldepth
-	} else {
-		span.calldepth++
-	}
-
 	span.Log(Trace, fs)   //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
 	span.dispatcher = nil // 移除关联,
 }

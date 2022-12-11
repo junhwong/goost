@@ -27,9 +27,9 @@ func (h *ConsoleHandler) Handle(entry apm.Entry, next func()) {
 	lvl := entry.GetLevel()
 
 	// TODO: 临时开发
-	// if lvl == Trace {
-	// 	return
-	// }
+	if lvl < h.Level {
+		return
+	}
 
 	var out io.Writer = h.Out
 	if lvl >= apm.Error && lvl < apm.Trace {

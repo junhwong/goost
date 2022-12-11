@@ -63,9 +63,12 @@ type (
 
 // 别名, 不要直接调用 dig
 var (
-	Name  = dig.Name
-	Group = dig.Group
-	As    = dig.As
+	Name            = dig.Name
+	Group           = dig.Group
+	As              = dig.As
+	Export          = dig.Export
+	FillProvideInfo = dig.FillProvideInfo
+	LocationForPC   = dig.LocationForPC
 )
 
 type appImpl struct {
@@ -116,7 +119,9 @@ func (app *appImpl) Run(constructor interface{}, opts ...InvokeOption) {
 		opts:        opts,
 	})
 }
-
+func RootCause(err error) error {
+	return dig.RootCause(err)
+}
 func (app *appImpl) Wait() error {
 	builder := hookBuilder{}
 	_ = app.container.Provide(func() Lifecycle {
@@ -126,7 +131,6 @@ func (app *appImpl) Wait() error {
 	err := app.doInvokes()
 	if err != nil {
 		return err
-		return dig.RootCause(err)
 	}
 
 	var wg sync.WaitGroup
