@@ -27,9 +27,10 @@ type hookCtx struct {
 
 func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func()) {
 	h.once.Do(func() {
+		defer wg.Done()
 		defer h.cancel()
 		if h.servingHook != nil {
-			defer wg.Done()
+
 			defer stop()
 			h.servingHook(h.ctx, next)
 			return
@@ -196,9 +197,9 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 
 	contexts := []*hookCtx{}
 	for range builder {
-		next, cancel := context.WithCancel(ctx)
+		nextCtx, cancel := context.WithCancel(ctx)
 		contexts = append(contexts, &hookCtx{
-			ctx:    next,
+			ctx:    nextCtx,
 			cancel: cancel,
 		})
 	}
@@ -207,7 +208,7 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 	for i, h := range builder {
 		h.hookCtx = contexts[n-i]
 		if h.serving {
-			wg.Add(1)
+			// wg.Add(1)
 		}
 	}
 
@@ -224,11 +225,13 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 
 		h := builder[i]
 		i++
+		wg.Add(1)
 		mu.Unlock()
 
 		go h.doRun(wg, next, stop)
 
 	}
+
 	return
 }
 
