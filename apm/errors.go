@@ -162,6 +162,10 @@ func StackToCallerInfo(stack []byte) []CallerInfo {
 	var dst []CallerInfo
 	for i := 0; i < len(lines); i++ {
 		l := lines[i]
+		if bytes.Contains(l, []byte("goroutine ")) {
+			i++
+			continue
+		}
 		if !start {
 			if bytes.Equal(l, []byte("runtime/debug.Stack()")) {
 				start = true
@@ -180,8 +184,13 @@ func StackToCallerInfo(stack []byte) []CallerInfo {
 		if bytes.HasPrefix(l, []byte("created by ")) {
 			break
 		}
-		// fmt.Printf("l: %s\n", l)
+
 		i++
+		if i >= len(lines) {
+			fmt.Printf("例外的行: %v\n", i)
+			fmt.Printf("%s\n", stack)
+			break
+		}
 		arr := bytes.Split(bytes.Trim(lines[i], "\t"), []byte{' '})
 		ci := CallerInfo{
 			Method: string(bytes.SplitN(l, []byte{'('}, 2)[0]),

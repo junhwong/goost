@@ -30,7 +30,6 @@ func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func()) {
 		defer wg.Done()
 		defer h.cancel()
 		if h.servingHook != nil {
-
 			defer stop()
 			h.servingHook(h.ctx, next)
 			return
@@ -124,11 +123,15 @@ func RootCause(err error) error {
 	return dig.RootCause(err)
 }
 func (app *appImpl) Wait() error {
+	startCtx, startCancel := context.WithCancel(context.Background())
+	cancel := startCancel //stop(startCancel)
+	defer cancel()
+
 	builder := hookBuilder{}
 	_ = app.container.Provide(func() Lifecycle {
 		return &builder
 	})
-
+	go watchInterrupt(startCtx, cancel)
 	err := app.doInvokes()
 	if err != nil {
 		return err
@@ -136,31 +139,28 @@ func (app *appImpl) Wait() error {
 
 	var wg sync.WaitGroup
 
-	startCtx, startCancel := context.WithCancel(context.Background())
-	defer startCancel()
-	next := builder.build(startCtx, &wg, stop(startCancel))
+	next := builder.build(startCtx, &wg, cancel)
 	next()
-
 	wg.Wait()
 	return nil
 }
 
-func stop(startCancel context.CancelFunc) func() {
-	var once sync.Once
-	return func() {
-		once.Do(func() {
-			defer startCancel()
-			go func() {
-				timer := time.NewTimer(time.Minute * 5)
-				defer timer.Stop()
+// func stop(startCancel context.CancelFunc) func() {
+// 	var once sync.Once
+// 	return func() {
+// 		once.Do(func() {
+// 			defer startCancel()
+// 			go func() {
+// 				timer := time.NewTimer(time.Minute * 5)
+// 				defer timer.Stop()
 
-				<-timer.C
-				fmt.Println("terminating timeout was forced to quit")
-				os.Exit(1)
-			}()
-		})
-	}
-}
+// 				<-timer.C
+// 				fmt.Println("terminating timeout was forced to quit")
+// 				os.Exit(1)
+// 			}()
+// 		})
+// 	}
+// }
 
 func New() Application {
 	//dig.DeferAcyclicVerification()
@@ -169,7 +169,7 @@ func New() Application {
 		provides:  []provideOption{},
 		invokes:   []invokeOption{},
 	}
-	app.Run(WatchInterrupt()) // todo options
+	// app.Run(WatchInterrupt()) // todo options
 	return app
 }
 
@@ -218,7 +218,16 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 	next = func() {
 		mu.Lock()
 		// fmt.Printf("i: %v\n", i)
-		if i > n {
+		done := i > n
+		select {
+		case <-ctx.Done():
+			done = true
+		default:
+		}
+		if ctx.Err() != nil {
+			done = true
+		}
+		if done {
 			mu.Unlock()
 			return
 		}
@@ -235,48 +244,75 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 	return
 }
 
-// 跟踪中断信号。
-func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
+func watchInterrupt(ctx context.Context, cancel func(), sig ...os.Signal) {
 	if len(sig) == 0 {
 		sig = []os.Signal{os.Interrupt, syscall.SIGHUP}
 	}
 	ch := make(chan os.Signal, 1)
-	return func(life Lifecycle) {
-		signal.Notify(ch, sig...)
-		life.AppendServing(func(ctx context.Context, onStarted func()) {
-			onStarted()
-			var b os.Signal
-			select {
-			case b = <-ch:
-			case <-ctx.Done():
-				b = syscall.SIGPIPE // TODO 自定义退出
-			}
+	signal.Notify(ch, sig...)
 
-			// TODO 临时检测具体信号
-			fmt.Println("runtime/WatchInterrupt: caught signal: ", b)
-			fmt.Println("runtime/WatchInterrupt: shutting down")
-			go func() {
-				for sig := range ch {
-					if sig == os.Interrupt {
-						break
-					}
-				}
-				fmt.Println("force quit")
-				os.Exit(1)
-			}()
-		})
-	}
-}
-
-func rootCancel(ctx context.Context, cancel context.CancelFunc) {
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
+	var b os.Signal
 	select {
+	case b = <-ch:
 	case <-ctx.Done():
-		close(ch)
-		return
-	case <-ch:
-		cancel()
-		return
+		b = syscall.SIGPIPE // TODO 自定义退出
 	}
+	cancel()
+	// TODO 临时检测具体信号
+	fmt.Println("runtime/WatchInterrupt: caught signal: ", b)
+	fmt.Println("runtime/WatchInterrupt: shutting down")
+
+	select {
+	case <-ch:
+		fmt.Println("\nforce quit")
+	case <-time.After(time.Minute * 5):
+		fmt.Println("terminating timeout 5m force quit")
+	}
+	os.Exit(1)
 }
+
+// // 跟踪中断信号。
+// func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
+// 	if len(sig) == 0 {
+// 		sig = []os.Signal{os.Interrupt, syscall.SIGHUP}
+// 	}
+// 	ch := make(chan os.Signal, 1)
+// 	return func(life Lifecycle) {
+// 		signal.Notify(ch, sig...)
+// 		life.AppendServing(func(ctx context.Context, onStarted func()) {
+// 			onStarted()
+// 			var b os.Signal
+// 			select {
+// 			case b = <-ch:
+// 			case <-ctx.Done():
+// 				b = syscall.SIGPIPE // TODO 自定义退出
+// 			}
+
+// 			// TODO 临时检测具体信号
+// 			fmt.Println("runtime/WatchInterrupt: caught signal: ", b)
+// 			fmt.Println("runtime/WatchInterrupt: shutting down")
+// 			go func() {
+// 				for sig := range ch {
+// 					if sig == os.Interrupt {
+// 						break
+// 					}
+// 				}
+// 				fmt.Println("force quit")
+// 				os.Exit(1)
+// 			}()
+// 		})
+// 	}
+// }
+
+// func rootCancel(ctx context.Context, cancel context.CancelFunc) {
+// 	ch := make(chan os.Signal, 1)
+// 	signal.Notify(ch, os.Interrupt)
+// 	select {
+// 	case <-ctx.Done():
+// 		close(ch)
+// 		return
+// 	case <-ch:
+// 		cancel()
+// 		return
+// 	}
+// }
