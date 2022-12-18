@@ -22,7 +22,9 @@ var kindNames = map[KeyKind]string{
 	IntKind:     "int",
 	UintKind:    "uint",
 	FloatKind:   "float",
+	BoolKind:    "bool",
 	TimeKind:    "time",
 	SliceKind:   "slice",
 	MapKind:     "map",
+	DynamicKind: "dynamic",
 }

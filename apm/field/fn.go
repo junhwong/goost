@@ -191,7 +191,6 @@ func infer(v any, trem KeyKind) (val any, kind KeyKind, b bool, err error) {
 func Dynamic(name string, v any) Field {
 	val, k, valid, _ := infer(v, DynamicKind)
 	if !valid || k == InvalidKind {
-		// fmt.Printf("name: %v\n", name)
 		return &structField{KeyField: key{name: name, kind: k}, Value: v, valid: valid}
 	}
 	key := makeOrGetKey(name, k)

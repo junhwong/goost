@@ -19,8 +19,8 @@ type Key interface {
 type key struct {
 	name   string
 	kind   KeyKind
-	sec    KeyKind // 子类型, 仅 kind=slice 有效
 	reason string
+	// sec    KeyKind // 子类型, 仅 kind=slice 有效
 }
 
 func (k key) Name() string {
@@ -33,7 +33,14 @@ func (k key) Kind() KeyKind {
 	return k.kind
 }
 func (k key) String() string {
-	return fmt.Sprintf("field.Key(%s: %s)", k.name, kindNames[k.kind])
+	r := kindNames[k.kind]
+	if len(r) == 0 {
+		r = "<invalid>"
+	}
+	if r == "<invalid>" && len(k.reason) > 0 {
+		r += "" + k.reason
+	}
+	return fmt.Sprintf("field.Key(%s: %s)", k.name, r)
 }
 
 var (
@@ -41,7 +48,7 @@ var (
 	// IsValidKeyName 判断给定的名称是否是合法的。
 	//
 	// `Key name` 主要参考主流的存储设备来定义，如：ES
-	IsValidKeyName = regexp.MustCompilePOSIX(`^[a-zA-Z_][a-zA-Z0-9_\-]{0,}(\.[a-zA-Z][a-zA-Z0-9_\-]{0,}){0,}$`).MatchString
+	IsValidKeyName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_\-]*(\.[a-zA-Z][a-zA-Z0-9_\-]*)*$`).MatchString
 )
 
 func GetKey(name string) Key {

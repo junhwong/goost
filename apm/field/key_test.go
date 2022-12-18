@@ -16,8 +16,16 @@ func TestIsValidKeyName(t *testing.T) {
 			pass: true,
 		},
 		{
+			name: "rootDir",
+			pass: true,
+		},
+		{
 			name: "foo.bar0",
 			pass: true,
+		},
+		{
+			name: "foo.bar.",
+			pass: false,
 		},
 		{
 			name: "foo..bar0",
