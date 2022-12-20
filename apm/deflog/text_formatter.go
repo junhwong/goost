@@ -128,7 +128,9 @@ func (jf *TextFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error)
 	fsv := []string{}
 	for _, f := range fs {
 		key, val := f.Unwrap()
+		// fmt.Printf("key: %v\n", key)
 		if key == nil || val == nil {
+			fmt.Printf("skipped field key: %s\n", f)
 			continue
 		}
 		if skipFields[key.Name()] {
@@ -143,6 +145,26 @@ func (jf *TextFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error)
 		case apm.TracebackCallerKey, apm.ErrorStackTraceKey, apm.TracebackPathKey, apm.TracebackLineNoKey: // TODO: 调用者选项
 			continue
 		}
+		name := key.Name()
+
+		// if name == "error.method" {
+		// 	if s, _ := val.(string); len(s) > 0 {
+
+		// 		var tmp []string
+		// 		arr := strings.Split(s, ",")
+		// 		i:=len(arr)-1
+		// 		for i>-1{
+		// 			s:=arr[i]
+		// 			if strings.HasPrefix(s,"cobra@"){
+		// 				continue
+		// 			}
+		// 			if strings.HasPrefix(s,"dig@"){
+		// 				continue
+		// 			}
+		// 		}
+
+		// 	}
+		// }
 
 		var data []byte
 
@@ -153,7 +175,7 @@ func (jf *TextFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error)
 			continue
 		}
 
-		name := key.Name() // TrimFieldNamePrefix(it.Key.Name())
+		// TrimFieldNamePrefix(it.Key.Name())
 
 		// if len(name) == 0 {
 		// 	fmt.Println("apm: skip entry: name") // TODO devop log

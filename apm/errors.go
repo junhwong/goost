@@ -162,8 +162,10 @@ func StackToCallerInfo(stack []byte) []CallerInfo {
 	var dst []CallerInfo
 	for i := 0; i < len(lines); i++ {
 		l := lines[i]
+		if len(l) == 0 {
+			continue
+		}
 		if bytes.Contains(l, []byte("goroutine ")) {
-			i++
 			continue
 		}
 		if !start {
@@ -187,22 +189,29 @@ func StackToCallerInfo(stack []byte) []CallerInfo {
 
 		i++
 		if i >= len(lines) {
+			fmt.Printf("l: %s\n", l)
 			fmt.Printf("例外的行: %v\n", i)
 			fmt.Printf("%s\n", stack)
 			break
 		}
+		li := bytes.LastIndex(l, []byte{'('})
 		arr := bytes.Split(bytes.Trim(lines[i], "\t"), []byte{' '})
 		ci := CallerInfo{
-			Method: string(bytes.SplitN(l, []byte{'('}, 2)[0]),
-			File:   string(arr[0]),
+			// Method: string(l), //bytes.SplitN(l, []byte{'('}, 2)[0]
+			File: string(arr[0]),
 		}
-		{
-			i := strings.LastIndex(ci.Method, "/")
-			if i > 1 {
-				ci.Package = ci.Method[:i]
-				ci.Method = ci.Method[i+1:]
-			}
+		if li > 0 {
+			ci.Method = string(l[:li])
+		} else {
+			ci.Method = string(l)
 		}
+		// {
+		// 	i := strings.LastIndex(ci.Method, "/")
+		// 	if i > 1 {
+		// 		// ci.Package = ci.Method[:i]
+		// 		ci.Method = ci.Method[i+1:]
+		// 	}
+		// }
 		{
 			i := strings.LastIndex(ci.File, ":")
 			if i > 1 {
@@ -224,8 +233,59 @@ func StackToCallerInfo(stack []byte) []CallerInfo {
 		}
 		dst = append(dst, ci)
 		// fmt.Printf("ci: %+v\n", ci)
-
 	}
+
+	var tmp []CallerInfo
+	// 剔除di相关
+	i := len(dst) - 1
+	begin := false
+	// begref := false
+	for i > -1 {
+		ci := dst[i]
+		i--
+		// fmt.Printf("ci.Method: %v\n", ci.Method)
+		switch {
+		case strings.HasPrefix(ci.Method, "reflect.Value."):
+			continue
+		case strings.HasPrefix(ci.Method, "github.com/spf13/cobra."):
+			continue
+		case strings.Contains(ci.Method, "runtime.(*appImpl).Wait"):
+			begin = true
+			continue
+		}
+
+		if begin {
+
+			switch {
+			case strings.Contains(ci.Method, "runtime.(*appImpl)."):
+				continue
+			case strings.HasPrefix(ci.Method, "go.uber.org/dig.defaultInvoker"):
+				begin = false
+				// begref = true
+				continue
+			case strings.HasPrefix(ci.Method, "go.uber.org/dig."):
+				continue
+			}
+		}
+		//  else if begref {
+		// 	switch {
+		// 	case strings.HasPrefix(ci.Method, "reflect.Value.Call"):
+		// 		continue
+		// 	default:
+		// 		begref = false
+		// 	}
+		// }
+		tmp = append(tmp, ci)
+	}
+	dst = []CallerInfo{}
+	i = len(tmp) - 1
+	for i > -1 {
+		ci := tmp[i]
+		i--
+		dst = append(dst, ci)
+		// fmt.Printf("ci.Method: %v\n", ci.Method)
+	}
+
 	return dst
 }
 func getSplitLast(s string, substr string) string {

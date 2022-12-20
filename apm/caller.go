@@ -14,7 +14,8 @@ func Caller(depth int) (info CallerInfo) {
 	info.pc, info.File, info.Line, info.ok = runtime.Caller(info.depth)
 
 	if info.ok {
-		info.Method, info.Package = split(runtime.FuncForPC(info.pc).Name())
+		info.Method = runtime.FuncForPC(info.pc).Name()
+		// info.Method, info.Package = split(runtime.FuncForPC(info.pc).Name())
 	}
 	// info.File, info.Path = split(info.File)
 	return
@@ -30,10 +31,10 @@ func split(s string) (string, string) {
 // 函数调用的名称等简单信息
 type CallerInfo struct {
 	// Path    string
-	File    string
-	Package string
-	Method  string
-	Line    int
+	File string
+	// Package string
+	Method string
+	Line   int
 
 	depth int
 	pc    uintptr

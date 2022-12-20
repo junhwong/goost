@@ -91,6 +91,8 @@ func (log *logImpl) Log(level LogLevel, args []interface{}) {
 			if n := len(arr); n > 0 && arr[n-1] == caller {
 				arr = arr[:n-1]
 			}
+			// fmt.Printf("stack: %s\n", serr.Stack)
+			// fmt.Printf("arr: %v\n", arr)
 			if len(arr) > 0 {
 				fs.Set(ErrorMethod(strings.Join(arr, ",")))
 			}
