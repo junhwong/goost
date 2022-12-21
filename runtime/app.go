@@ -12,6 +12,13 @@ import (
 	"go.uber.org/dig"
 )
 
+var (
+	// Debugf = func(format string, a ...any) { fmt.Printf(format+"\n", a...) }
+	Debug = func(a ...any) { fmt.Println(a...) }
+)
+
+func Debugf(format string, a ...any) { Debug(fmt.Sprintf(format+"\n", a...)) }
+
 type Hook struct {
 	*hookCtx
 	once    sync.Once
@@ -259,14 +266,14 @@ func watchInterrupt(ctx context.Context, cancel func(), sig ...os.Signal) {
 	}
 	cancel()
 	// TODO 临时检测具体信号
-	fmt.Println("runtime/WatchInterrupt: caught signal: ", b)
-	fmt.Println("runtime/WatchInterrupt: shutting down")
+	Debug("runtime/WatchInterrupt: caught signal: ", b)
+	Debug("runtime/WatchInterrupt: shutting down")
 
 	select {
 	case <-ch:
-		fmt.Println("\nforce quit")
+		Debug("\nforce quit")
 	case <-time.After(time.Minute * 5):
-		fmt.Println("terminating timeout 5m force quit")
+		Debug("terminating timeout 5m force quit")
 	}
 	os.Exit(1)
 }

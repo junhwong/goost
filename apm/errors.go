@@ -119,8 +119,9 @@ func WrapCallStack(err error) error {
 	if err == nil {
 		return nil
 	}
-	var ex *StacktraceError
-	if errors.Is(err, ex) {
+	var ex *StacktraceError // = &StacktraceError{}
+	// TODO:  errors.Is 有bug?
+	if errors.As(err, &ex) {
 		return err
 	}
 
@@ -239,7 +240,7 @@ func StackToCallerInfo(stack []byte) []CallerInfo {
 	// 剔除di相关
 	i := len(dst) - 1
 	begin := false
-	// begref := false
+	begref := false
 	for i > -1 {
 		ci := dst[i]
 		i--
@@ -247,26 +248,25 @@ func StackToCallerInfo(stack []byte) []CallerInfo {
 		switch {
 		case strings.HasPrefix(ci.Method, "reflect.Value."):
 			continue
+		case strings.HasPrefix(ci.Method, "sync.(*Once)."):
+			continue
 		case strings.HasPrefix(ci.Method, "github.com/spf13/cobra."):
 			continue
-		case strings.Contains(ci.Method, "runtime.(*appImpl).Wait"):
+		case !begin && strings.Contains(ci.Method, "runtime.(*appImpl).Wait"):
 			begin = true
+			continue
+		case strings.Contains(ci.Method, "runtime.(*Hook)."):
+			continue
+		case begin && strings.Contains(ci.Method, "runtime.(*appImpl)."):
+			continue
+		case begin && !begref && strings.HasPrefix(ci.Method, "go.uber.org/dig.defaultInvoker"):
+			begin = false
+			begref = true
+			continue
+		case begin && strings.HasPrefix(ci.Method, "go.uber.org/dig."):
 			continue
 		}
 
-		if begin {
-
-			switch {
-			case strings.Contains(ci.Method, "runtime.(*appImpl)."):
-				continue
-			case strings.HasPrefix(ci.Method, "go.uber.org/dig.defaultInvoker"):
-				begin = false
-				// begref = true
-				continue
-			case strings.HasPrefix(ci.Method, "go.uber.org/dig."):
-				continue
-			}
-		}
 		//  else if begref {
 		// 	switch {
 		// 	case strings.HasPrefix(ci.Method, "reflect.Value.Call"):
