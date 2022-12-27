@@ -1,5 +1,7 @@
 package field
 
+import "fmt"
+
 // Field 表示一个标准字段。
 type Field interface {
 	Key() Key
@@ -26,6 +28,10 @@ type structField struct {
 	// Bool  bool
 }
 
+func (f *structField) String() string {
+	return fmt.Sprintf("structField{%v, Value=%v, valid=%v}", f.Key(), f.Value, f.Valid())
+}
+
 func (f *structField) Valid() bool {
 	return f != nil && f.valid && f.KeyField.Kind() != InvalidKind
 }
@@ -46,7 +52,7 @@ func (f *structField) Name() string {
 // 获取字段的键和值。返回 nil表示该字段无效
 func (f *structField) Unwrap() (Key, interface{}) {
 	if !f.Valid() {
-		return nil, nil
+		return f.KeyField, nil
 	}
 	return f.KeyField, f.Value
 }

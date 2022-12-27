@@ -130,7 +130,7 @@ func (jf *TextFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error)
 		key, val := f.Unwrap()
 		// fmt.Printf("key: %v\n", key)
 		if key == nil || val == nil {
-			fmt.Printf("skipped field key: %s\n", f)
+			fmt.Printf("skipped field key: %v\n", f)
 			continue
 		}
 		if skipFields[key.Name()] {
