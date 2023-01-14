@@ -66,7 +66,7 @@ func (h SimpleHandler) Priority() int {
 }
 
 func (h SimpleHandler) Handle(entry Entry, next func()) {
-	defer next()
+	// defer next()
 	lvl := entry.GetLevel()
 
 	// TODO: 临时开发

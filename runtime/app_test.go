@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -71,11 +73,25 @@ func TestBuilder(t *testing.T) {
 	//
 	start := context.TODO()
 	var wg sync.WaitGroup
-	next := builder.build(start, &wg, func() {})
+	next := builder.build(start, &wg, func(s string) {})
 	next()
 
 	wg.Wait()
 	fmt.Println("wg all done")
 	time.Sleep(time.Second)
 
+}
+
+func TestRef(t *testing.T) {
+	var f any
+
+	// tv := reflect.TypeOf(f)
+	f = struct{}{}
+	f = func() {}
+	rv := reflect.ValueOf(f)
+	if !rv.IsValid() || rv.Kind() != reflect.Func {
+		return
+	}
+	fn := runtime.FuncForPC(rv.Pointer()).Name()
+	fmt.Printf("fn: %v\n", fn)
 }

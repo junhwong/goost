@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"reflect"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -32,12 +34,12 @@ type hookCtx struct {
 	cancel context.CancelFunc
 }
 
-func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func()) {
+func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string)) {
 	h.once.Do(func() {
 		defer wg.Done()
 		defer h.cancel()
 		if h.servingHook != nil {
-			defer stop()
+			defer stop(funcName(h.servingHook))
 			h.servingHook(h.ctx, next)
 			return
 		}
@@ -133,12 +135,19 @@ func (app *appImpl) Wait() error {
 	startCtx, startCancel := context.WithCancel(context.Background())
 	cancel := startCancel //stop(startCancel)
 	defer cancel()
+	var once sync.Once
+	stop := func(s string) {
+		once.Do(func() {
+			cancel()
+			Debugf("runtime: terminating caused by %s", s)
+		})
+	}
 
 	builder := hookBuilder{}
 	_ = app.container.Provide(func() Lifecycle {
 		return &builder
 	})
-	go watchInterrupt(startCtx, cancel)
+	go watchInterrupt(startCtx, stop)
 	err := app.doInvokes()
 	if err != nil {
 		return err
@@ -146,7 +155,7 @@ func (app *appImpl) Wait() error {
 
 	var wg sync.WaitGroup
 
-	next := builder.build(startCtx, &wg, cancel)
+	next := builder.build(startCtx, &wg, stop)
 	next()
 	wg.Wait()
 	return nil
@@ -199,7 +208,7 @@ func (hooks *hookBuilder) AppendServing(fn ServingHookFunc) {
 	*hooks = target
 }
 
-func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop func()) (next func()) {
+func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop func(s string)) (next func()) {
 	builder := hooks
 
 	contexts := []*hookCtx{}
@@ -216,6 +225,7 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 		h.hookCtx = contexts[n-i]
 		if h.serving {
 			// wg.Add(1)
+			h.hookCtx.ctx = context.WithValue(h.hookCtx.ctx, "hookName", funcName(h.servingHook))
 		}
 	}
 
@@ -240,6 +250,7 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 		}
 
 		h := builder[i]
+		//fn:=funcName(h.servingHook)
 		i++
 		wg.Add(1)
 		mu.Unlock()
@@ -251,7 +262,7 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 	return
 }
 
-func watchInterrupt(ctx context.Context, cancel func(), sig ...os.Signal) {
+func watchInterrupt(ctx context.Context, cancel func(s string), sig ...os.Signal) {
 	if len(sig) == 0 {
 		sig = []os.Signal{os.Interrupt, syscall.SIGHUP}
 	}
@@ -264,7 +275,7 @@ func watchInterrupt(ctx context.Context, cancel func(), sig ...os.Signal) {
 	case <-ctx.Done():
 		b = syscall.SIGPIPE // TODO 自定义退出
 	}
-	cancel()
+	cancel(fmt.Sprintf("signal: %v", b))
 	// TODO 临时检测具体信号
 	Debug("runtime/WatchInterrupt: caught signal: ", b)
 	Debug("runtime/WatchInterrupt: shutting down")
@@ -323,3 +334,11 @@ func watchInterrupt(ctx context.Context, cancel func(), sig ...os.Signal) {
 // 		return
 // 	}
 // }
+
+func funcName(f any) string {
+	rv := reflect.ValueOf(f)
+	if !rv.IsValid() || rv.Kind() != reflect.Func {
+		return ""
+	}
+	return runtime.FuncForPC(rv.Pointer()).Name()
+}
