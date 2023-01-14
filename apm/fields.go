@@ -3,7 +3,7 @@ package apm
 import "github.com/junhwong/goost/apm/field"
 
 var (
-	LevelKey, Level                                 = field.Int("level")
+	LevelKey, LevelField                            = field.Int("level")
 	MessageKey, Message                             = field.String("message")
 	TimeKey, Time                                   = field.Time("time")
 	DurationKey, Duration                           = field.Duration("duration") // 执行的持续时间。微秒

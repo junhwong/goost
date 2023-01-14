@@ -1,4 +1,4 @@
-package deflog
+package apm
 
 import (
 	"bytes"
@@ -6,29 +6,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/junhwong/goost/apm"
-	"github.com/spf13/cast"
+	"github.com/junhwong/duzee-go/pkg/sets"
 )
 
-func NewJsonFormatter(timeLayout ...string) *JsonFormatter {
-	f := &JsonFormatter{}
-	for _, v := range timeLayout {
-		f.timeLayout = v
-	}
-	if f.timeLayout == "" {
-		f.timeLayout = time.RFC3339Nano
-	}
-	return f
-}
-
-var _ apm.Formatter = (*JsonFormatter)(nil)
+var _ Formatter = (*JsonFormatter)(nil)
 
 // JSON 格式
 type JsonFormatter struct {
-	timeLayout string
+	TimeLayout string
+	SkipFields []string
 }
 
-func (jf *JsonFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error) {
+func (f *JsonFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	writeByte := func(c byte) {
 		if err != nil {
 			return
@@ -41,40 +30,46 @@ func (jf *JsonFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error)
 		}
 		_, err = fmt.Fprintf(dest, format, a...)
 	}
+	skipFields := sets.NewString(TimeKey.Name(), MessageKey.Name(), LevelKey.Name())
+	for _, v := range f.SkipFields {
+		skipFields.Insert(v)
+	}
 
 	writeByte('{')
 
 	fprintf(`"level":%q`, entry.GetLevel().String())
-	fs := entry.GetFields()
-	if val := fs.Get(apm.TimeKey); val != nil {
-		t, err := cast.ToTimeE(val)
-		if err == nil && !t.IsZero() {
-			// TODO: 时区
-			fprintf(`,"time":%q`, t.Format(jf.timeLayout))
+
+	if t := entry.GetTime(); !t.IsZero() {
+		// TODO: 时区
+		layout := f.TimeLayout
+		if layout == "" {
+			layout = time.RFC3339Nano
 		}
+		fprintf(`,"time":%q`, t.Format(layout))
 	}
 
-	if val := fs.Get(apm.MessageKey); val != nil {
+	if val := entry.GetMessage(); val != "" {
 		fprintf(`,"message":%q`, val)
 	}
 
 	// TODO 折叠map
+	fs := entry.GetFields()
 	for _, f := range fs {
 		key, val := f.Unwrap()
 		if key == nil || val == nil {
 			continue
 		}
-		if key == apm.TimeKey || key == apm.MessageKey || key == apm.LevelKey {
+		if skipFields.Has(key.Name()) {
 			continue
 		}
 
-		if key == apm.TracebackPathKey || key == apm.TracebackLineNoKey {
+		if key == TracebackPathKey || key == TracebackLineNoKey {
 			continue
 		}
 
-		if key == apm.TracebackCallerKey {
-			val = fmt.Sprintf("%s:%v", val, fs.Get(apm.TracebackLineNoKey, 0))
-		}
+		// if key == TracebackCallerKey {
+		// 	val = fmt.Sprintf("%s:%v", val, fs.Get(TracebackLineNoKey, 0))
+		// }
 
 		var data []byte
 

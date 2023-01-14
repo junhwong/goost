@@ -1,6 +1,8 @@
 package field
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Field 表示一个标准字段。
 type Field interface {
@@ -60,11 +62,24 @@ func (f *structField) Unwrap() (Key, interface{}) {
 // Fields 表示一个标签集合。
 type Fields map[Key]Field
 
-func (fs Fields) Set(f Field) {
-	if f == nil {
-		return
+func (fs Fields) Copy() Fields {
+	fieldsCopy := make(Fields, len(fs))
+	for k, v := range fs {
+		fieldsCopy[k] = v
 	}
-	fs[f.Key()] = f
+	return fieldsCopy
+}
+func (fs Fields) List() []Field {
+	var arr []Field
+	for _, v := range fs {
+		arr = append(arr, v)
+	}
+	return arr
+}
+func (fs Fields) Set(f ...Field) {
+	for _, it := range f {
+		fs[it.Key()] = it
+	}
 }
 func (fs Fields) Get(k Key, or ...interface{}) interface{} {
 	// var v interface{}

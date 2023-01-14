@@ -11,24 +11,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func f() {
-
-	l, err := zap.NewDevelopment()
-	if err != nil {
-		fmt.Printf("err: %v\n", err)
-		return
-	}
-
-	zap.Bools("", nil)
-	l.Debug("hello")
-	err = l.Sync()
-	if err != nil {
-		fmt.Printf("err: %v\n", err)
-		return
-	}
-	zap.CombineWriteSyncers()
-}
-
 func New(adapter apm.Adapter) *zap.Logger {
 	log := zap.New(&ioCore{
 		log:    adapter,
@@ -109,26 +91,33 @@ type Entry struct {
 	c      *ioCore
 }
 
-func (e Entry) GetLevel() (lvl apm.LogLevel) {
-	apmLvl := apm.Debug
+func (e Entry) GetLevel() (lvl apm.Level) {
+	apmLvl := apm.LevelDebug
 	switch e.ent.Level {
 	case zapcore.InfoLevel:
-		apmLvl = apm.Info
+		apmLvl = apm.LevelInfo
 	case zapcore.WarnLevel:
-		apmLvl = apm.Warn
+		apmLvl = apm.LevelWarn
 	case zapcore.ErrorLevel:
-		apmLvl = apm.Error
+		apmLvl = apm.LevelError
 	case zapcore.DPanicLevel:
-		apmLvl = apm.Warn
+		apmLvl = apm.LevelWarn
 	case zapcore.PanicLevel:
-		apmLvl = apm.Error
+		apmLvl = apm.LevelError
 	case zapcore.FatalLevel:
-		apmLvl = apm.Fatal
+		apmLvl = apm.LevelFatal
 	}
 	return apmLvl
 }
+func (e Entry) GetTime() (v time.Time) {
+	return e.ent.Time
+}
+func (e Entry) GetMessage() (v string) {
+	return e.ent.Message
+}
 
-func transform(fields []zapcore.Field, fs field.Fields) {
+func transform(fields []zapcore.Field) (fs apm.Fields) {
+
 	for _, f := range fields {
 		// if f.Key == "start time" || f.Key == "time spent" || f.Key == "response type" {
 		// 	fmt.Printf("skip: %v\n", f)
@@ -146,62 +135,61 @@ func transform(fields []zapcore.Field, fs field.Fields) {
 			}
 		case zapcore.ObjectMarshalerType:
 		case zapcore.BinaryType:
-			fs.Set(field.Dynamic(f.Key, string(f.Interface.([]byte))))
+			fs = append(fs, field.Dynamic(f.Key, string(f.Interface.([]byte))))
 		case zapcore.BoolType:
-			fs.Set(field.Dynamic(f.Key, f.Integer == 1))
+			fs = append(fs, field.Dynamic(f.Key, f.Integer == 1))
 		case zapcore.ByteStringType:
-			fs.Set(field.Dynamic(f.Key, string(f.Interface.([]byte))))
+			fs = append(fs, field.Dynamic(f.Key, string(f.Interface.([]byte))))
 		case zapcore.Complex128Type:
-			fs.Set(field.Dynamic(f.Key, f.Interface))
+			fs = append(fs, field.Dynamic(f.Key, f.Interface))
 		case zapcore.Complex64Type:
-			fs.Set(field.Dynamic(f.Key, f.Interface))
+			fs = append(fs, field.Dynamic(f.Key, f.Interface))
 		case zapcore.DurationType:
-			fs.Set(field.Dynamic(f.Key, time.Duration(f.Integer)))
+			fs = append(fs, field.Dynamic(f.Key, time.Duration(f.Integer)))
 		case zapcore.Float64Type:
-			fs.Set(field.Dynamic(f.Key, math.Float64frombits(uint64(f.Integer))))
+			fs = append(fs, field.Dynamic(f.Key, math.Float64frombits(uint64(f.Integer))))
 		case zapcore.Float32Type:
-			fs.Set(field.Dynamic(f.Key, math.Float32frombits(uint32(f.Integer))))
+			fs = append(fs, field.Dynamic(f.Key, math.Float32frombits(uint32(f.Integer))))
 		case zapcore.Int64Type:
-			fs.Set(field.Dynamic(f.Key, f.Integer))
+			fs = append(fs, field.Dynamic(f.Key, f.Integer))
 		case zapcore.Int32Type:
-			fs.Set(field.Dynamic(f.Key, f.Integer))
+			fs = append(fs, field.Dynamic(f.Key, f.Integer))
 		case zapcore.Int16Type:
-			fs.Set(field.Dynamic(f.Key, f.Integer))
+			fs = append(fs, field.Dynamic(f.Key, f.Integer))
 		case zapcore.Int8Type:
-			fs.Set(field.Dynamic(f.Key, f.Integer))
+			fs = append(fs, field.Dynamic(f.Key, f.Integer))
 		case zapcore.StringType:
-			fs.Set(field.Dynamic(f.Key, f.String))
+			fs = append(fs, field.Dynamic(f.Key, f.String))
 		case zapcore.TimeType:
 			t := time.UnixMicro(f.Integer / 1e3)
 			t = t.Local().In(f.Interface.(*time.Location))
-			fs.Set(field.Dynamic(f.Key, t))
+			fs = append(fs, field.Dynamic(f.Key, t))
 		case zapcore.TimeFullType:
 		case zapcore.Uint64Type:
-			fs.Set(field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
 		case zapcore.Uint32Type:
-			fs.Set(field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
 		case zapcore.Uint16Type:
-			fs.Set(field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
 		case zapcore.Uint8Type:
-			fs.Set(field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
 		case zapcore.UintptrType:
-			fs.Set(field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
 		case zapcore.ReflectType:
 		case zapcore.NamespaceType:
 		case zapcore.StringerType:
-			fs.Set(field.Dynamic(f.Key, f.Interface.(fmt.Stringer).String()))
+			fs = append(fs, field.Dynamic(f.Key, f.Interface.(fmt.Stringer).String()))
 		case zapcore.ErrorType:
-			fs.Set(field.Dynamic(f.Key, f.Interface))
+			fs = append(fs, field.Dynamic(f.Key, f.Interface))
 		case zapcore.SkipType:
 		case zapcore.InlineMarshalerType:
 		}
 	}
+	return
 }
 
 func (e Entry) GetFields() apm.Fields {
-	fs := apm.Fields{}
-	fs.Set(apm.Message(e.ent.Message))
-	fs.Set(apm.Time(e.ent.Time))
+
 	info := apm.CallerInfo{
 		File:   e.ent.Caller.File,
 		Line:   e.ent.Caller.Line,
@@ -211,9 +199,10 @@ func (e Entry) GetFields() apm.Fields {
 	// fmt.Printf("e.ent.Caller: %+v\n", e.ent.Caller.PC)
 	// fmt.Printf("e.ent.Caller.File: %v\n", e.ent.Caller.File)
 	// fmt.Printf("====caller: %v\n", caller)
-	fs.Set(apm.TracebackCaller(caller))
-	transform(e.c.fields, fs)
-	transform(e.fields, fs)
+	fs := apm.Fields{apm.TracebackCaller(caller)}
+
+	fs = append(fs, transform(e.c.fields)...)
+	fs = append(fs, transform(e.fields)...)
 
 	return fs
 }

@@ -1,6 +1,12 @@
 package apm
 
-import "sort"
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+	"sort"
+)
 
 // 日志项处理器
 type Handler interface {
@@ -31,4 +37,64 @@ func (x handlerSlice) handle(entry Entry) {
 		h.Handle(entry, next)
 	}
 	next()
+}
+
+var _ Handler = (*SimpleHandler)(nil)
+
+func Console() *SimpleHandler {
+	text := &TextFormatter{}
+	if os.Getenv("GOOST_APM_CONSOLE_COLOR") == "1" {
+		text.Color = true
+	}
+	return &SimpleHandler{
+		Out:             os.Stdout,
+		Formatter:       text,
+		HandlerPriority: -9999,
+	}
+}
+
+// 控制台
+type SimpleHandler struct {
+	Out             io.Writer
+	Formatter       Formatter
+	Level           Level
+	HandlerPriority int
+}
+
+func (h SimpleHandler) Priority() int {
+	return h.HandlerPriority
+}
+
+func (h SimpleHandler) Handle(entry Entry, next func()) {
+	defer next()
+	lvl := entry.GetLevel()
+
+	// TODO: 临时开发
+	if lvl < h.Level {
+		return
+	}
+
+	var out io.Writer = h.Out
+	if lvl >= LevelError && lvl < LevelTrace {
+		out = os.Stderr
+	}
+	if out == nil {
+		out = os.Stdout
+	}
+
+	err := UseBuffer(func(buf *bytes.Buffer) error {
+		if err := h.Formatter.Format(entry, buf); err != nil {
+			return err
+		}
+
+		// TODO 检查是否全部写入？
+		if _, err := buf.WriteTo(out); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "apm: Failed to handle, %v: %+v\n", err, entry)
+	}
 }

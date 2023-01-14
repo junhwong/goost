@@ -7,7 +7,7 @@ type Dispatcher interface {
 	GetHandlers() []Handler
 	Dispatch(e Entry)
 	Flush() error
-	Close() error
+	// Close() error
 }
 
 type syncDispatcher struct {

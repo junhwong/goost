@@ -1,33 +1,22 @@
-package deflog
+package apm
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
-	"github.com/junhwong/goost/apm"
+	"github.com/junhwong/duzee-go/pkg/sets"
 	"github.com/spf13/cast"
 )
 
-func NewTextFormatter(timeLayout ...string) *TextFormatter {
-	f := &TextFormatter{}
-	for _, v := range timeLayout {
-		f.timeLayout = v
-	}
-	if f.timeLayout == "" {
-		f.timeLayout = "15:04:05.000" // 20060102 15:04:05.000
-	}
-	return f
-}
-
-var _ apm.Formatter = (*TextFormatter)(nil)
+var _ Formatter = (*TextFormatter)(nil)
 
 // JSON 格式
 type TextFormatter struct {
-	timeLayout string
+	TimeLayout string
 	SkipFields []string
+	Color      bool // 是否打印颜色
 }
 
 func cutstr(v interface{}, l int) string {
@@ -38,44 +27,34 @@ func cutstr(v interface{}, l int) string {
 	return s
 }
 
-var (
-	supportColor = false
-)
-
-func init() {
-	if os.Getenv("GOOST_APM_CONSOLE_COLOR") == "1" {
-		supportColor = true
-	}
-}
-
-func getColor(lvl apm.LogLevel) (start, end string) {
-
+func getColor(lvl Level, supportColor bool) (start, end string) {
 	// https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
 	// https://juejin.cn/post/6920241597846126599
 	switch lvl {
-	case apm.Debug:
+	case LevelDebug:
 		start = "\033[1;30;49m" // 34
 		end = "\033[0m"
-	case apm.Info:
+	case LevelInfo:
 		start = "\033[1;32;49m"
 		end = "\033[0m"
-	case apm.Warn:
+	case LevelWarn:
 		start = "\033[1;33;49m"
 		end = "\033[0m"
-	case apm.Error:
+	case LevelError:
 		start = "\033[1;31;49m"
 		end = "\033[0m"
-	case apm.Fatal:
+	case LevelFatal:
 		start = "\033[1;91;49m"
 		end = "\033[0m"
 	default:
 	}
+
 	if supportColor {
 		return
 	}
 	return "", ""
 }
-func (jf *TextFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error) {
+func (f *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	writeByte := func(c byte) {
 		if err != nil {
 			return
@@ -88,12 +67,14 @@ func (jf *TextFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error)
 		}
 		_, err = fmt.Fprintf(dest, format, a...)
 	}
-	skipFields := map[string]bool{}
-	for _, v := range jf.SkipFields {
-		skipFields[v] = true
+	skipFields := sets.NewString(TimeKey.Name(), MessageKey.Name(), LevelKey.Name())
+	for _, v := range f.SkipFields {
+		skipFields.Insert(v)
 	}
+	supportColor := f.Color
+
 	lvl := entry.GetLevel()
-	cp, cs := getColor(lvl)
+	cp, cs := getColor(lvl, supportColor)
 	fprintf(`%s%s%s`, cp, lvl.Short(), "")
 	start := strings.ReplaceAll(cp, "1;", "") //"\033[1;31;40m"
 	// end := ""   //"\033[0m"
@@ -102,25 +83,34 @@ func (jf *TextFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error)
 		// end = ""
 	}
 	fprintf(`%s`, start)
-	fs := entry.GetFields()
-	if val := fs.Get(apm.TimeKey); val != nil {
-		t, err := cast.ToTimeE(val)
-		if err == nil && !t.IsZero() {
-			// TODO: 时区
-			// v := float64(t.UnixMilli()) / 1000
-			// fprintf(`%0.6f`, v)
-			fprintf(`%s`, t.Format(jf.timeLayout))
+
+	if t := entry.GetTime(); !t.IsZero() {
+		// TODO: 时区
+		layout := f.TimeLayout
+		if layout == "" {
+			layout = "15:04:05.000" // 20060102 15:04:05.000
 		}
+
+		fprintf(`%s`, t.Format(layout))
 	}
 	// writeByte('|')
 	writeByte(' ')
-	fprintf(`%s`, fs.Get(apm.TracebackCallerKey))
+	fs := entry.GetFields()
+FOR:
+	for _, f := range fs {
+		switch f.Key() {
+		case TracebackCallerKey:
+			_, v := f.Unwrap()
+			fprintf(`%s`, v)
+			break FOR
+		}
+	}
 
 	fprintf(`%s`, cs)
 	// writeByte('\n')
 	writeByte(' ')
 
-	if val := fs.Get(apm.MessageKey); val != nil {
+	if val := entry.GetMessage(); val != "" {
 		fprintf(`%s`, val)
 	}
 
@@ -133,16 +123,14 @@ func (jf *TextFormatter) Format(entry apm.Entry, dest *bytes.Buffer) (err error)
 			fmt.Printf("skipped field key: %v\n", f)
 			continue
 		}
-		if skipFields[key.Name()] {
+		if skipFields.Has(key.Name()) {
 			continue
 		}
 
 		switch key {
-		case apm.TimeKey, apm.MessageKey, apm.LevelKey: // 已经处理
-			continue
 		// case TraceIDKey: // TODO: 开发者选项
 		// 	continue
-		case apm.TracebackCallerKey, apm.ErrorStackTraceKey, apm.TracebackPathKey, apm.TracebackLineNoKey: // TODO: 调用者选项
+		case TracebackCallerKey, ErrorStackTraceKey, TracebackPathKey, TracebackLineNoKey: // TODO: 调用者选项
 			continue
 		}
 		name := key.Name()

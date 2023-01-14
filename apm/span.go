@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
-	"github.com/junhwong/goost/runtime"
 )
 
 type SpanFactory interface {
@@ -34,37 +33,10 @@ type SpanContext interface {
 type SpanStatus string
 
 const (
-	SpanStatusUnset SpanStatus = "Unset"
+	SpanStatusUnset SpanStatus = ""
 	SpanStatusError SpanStatus = "Error"
 	SpanStatusOk    SpanStatus = "Ok"
 )
-
-//////
-
-type traceOption struct {
-	trimFieldPrefix []string
-	name            string
-	attrs           []field.Field
-	delegate        func(*traceOption)
-	getName         func() string
-	calldepth       int
-	endCalls        []func(Span)
-}
-
-func (opt *traceOption) SetNameGetter(a func() string) { opt.getName = a }
-func (opt *traceOption) SetAttributes(a []field.Field) { opt.attrs = a }
-func (opt *traceOption) SetCalldepth(a int)            { opt.calldepth = a }
-func (opt *traceOption) SetEndCalls(a []func(Span))    { opt.endCalls = a }
-
-var _ Span = (*spanImpl)(nil)
-
-type spanImpl struct {
-	logImpl
-	spanContext
-	failed    bool
-	startTime time.Time
-	option    traceOption
-}
 
 type spanContext struct {
 	TranceID     string
@@ -75,38 +47,49 @@ type spanContext struct {
 	first bool
 }
 
-func (ctx *spanContext) IsFirst() bool {
-	return ctx.first
-}
+func (ctx *spanContext) IsFirst() bool           { return ctx.first }
 func (ctx *spanContext) GetTranceID() string     { return ctx.TranceID }
 func (ctx *spanContext) GetSpanID() string       { return ctx.SpanID }
 func (ctx *spanContext) GetSpanParentID() string { return ctx.SpanParentID }
 
-func (log *loggerImpl) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
-	// , logger LoggerInterface, calldepth int
-	// if logger == nil {
-	// 	panic("apm: logger cannot be nil")
-	// }
+var _ Span = (*spanImpl)(nil)
+
+type spanImpl struct {
+	*logImpl
+	spanContext
+	failed    bool
+	startTime time.Time
+	// option    traceOption
+
+	trimFieldPrefix []string
+	name            string
+	attrs           Fields
+	// delegate        func(*traceOption)
+	getName  func() string
+	endCalls []func(Span)
+}
+
+func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
+
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	option := traceOption{
-		calldepth: log.calldepth,
-		attrs:     make([]field.Field, 0),
+
+	span := &spanImpl{
+		// option:    option,
+		logImpl: log.clone(),
+		attrs:   make(Fields, 0),
+
+		startTime: time.Now(),
+		spanContext: spanContext{
+			SpanID: NewSpanId(),
+		},
 	}
 	for _, opt := range options {
 		if opt == nil {
 			continue
 		}
-		opt.Apply(&option)
-	}
-
-	span := &spanImpl{
-		option:    option,
-		startTime: time.Now(),
-		spanContext: spanContext{
-			SpanID: NewSpanId(),
-		},
+		opt.Apply(span)
 	}
 
 	if prent, ok := ctx.Value(spanInContextKey).(*spanImpl); ok && prent != nil {
@@ -128,10 +111,8 @@ func (log *loggerImpl) NewSpan(ctx context.Context, options ...SpanOption) (cont
 	} else {
 		ctx = context.WithValue(ctx, spanInContextKey, span)
 	}
-	span.option = option
-	span.dispatcher = log.dispatcher
 	span.ctx = ctx
-	span.calldepth = option.calldepth // entrylog
+	// span.calldepth = option.calldepth // entrylog
 
 	return ctx, span
 }
@@ -139,17 +120,17 @@ func (log *loggerImpl) NewSpan(ctx context.Context, options ...SpanOption) (cont
 func (span *spanImpl) End(options ...EndSpanOption) {
 	for _, option := range options {
 		if option != nil {
-			option.Apply(&span.option)
+			option.Apply(span)
 		}
 	}
 	name := span.name
-	if span.option.getName != nil {
-		name = span.option.getName()
+	if span.getName != nil {
+		name = span.getName()
 	}
 	if len(name) == 0 {
 		name = span.name
 		if len(name) == 0 {
-			s := runtime.Caller(span.calldepth).Method
+			s := Caller(span.calldepth).Method
 			i := strings.LastIndex(s, ".")
 			if i > 0 {
 				name = strings.Trim(s[i+1:], ".")
@@ -164,24 +145,23 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 		}
 	}
 
-	fs := []interface{}{}
-	for _, it := range span.option.attrs {
-		fs = append(fs, it)
-	}
+	var fs Fields
+	fs = append(fs, span.attrs...)
 	fs = append(fs, SpanName(name))
 	fs = append(fs, Time(span.startTime))
 	fs = append(fs, SpanID(span.SpanID))
 	fs = append(fs, SpanParentID(span.SpanParentID))
 	fs = append(fs, Duration(time.Since(span.startTime))) // Latency
 	fs = append(fs, TraceID(span.TranceID))
-	for _, fn := range span.option.endCalls {
+	for _, fn := range span.endCalls {
 		fn(span)
 	}
 	if span.failed {
 		fs = append(fs, TraceError(span.failed))
 	}
-	span.Log(Trace, fs)   //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
-	span.dispatcher = nil // 移除关联,
+	fs = append(fs, LevelField(LevelTrace))
+	span.LogFS(nil, fs...) //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
+	span.dispatcher = nil  // 移除关联,
 }
 
 func (span *spanImpl) Context() SpanContext { return span }
@@ -215,7 +195,6 @@ func (span *spanImpl) SetStatus(code SpanStatus, description string, failure ...
 		}
 	}
 }
-
-func (span *spanImpl) SetAttributes(attrs ...field.Field) {
-	span.option.attrs = append(span.option.attrs, attrs...)
-}
+func (s *spanImpl) SetAttributes(a ...field.Field) { s.attrs = append(s.attrs, a...) }
+func (s *spanImpl) SetNameGetter(a func() string)  { s.getName = a }
+func (s *spanImpl) SetEndCalls(a []func(Span))     { s.endCalls = a }

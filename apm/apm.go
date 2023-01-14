@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	std *loggerImpl
+	std *logImpl
 	// defi Interface
 	// asyncD Dispatcher
 )
@@ -22,7 +22,13 @@ func init() {
 	// go std.Run(ctx.Done())
 	// defi = New(context.Background())
 
-	std = &loggerImpl{logImpl: logImpl{ctx: context.TODO(), dispatcher: &syncDispatcher{}, calldepth: 1}}
+	provider := &syncDispatcher{}
+	provider.AddHandlers(Console())
+	std = &logImpl{
+		ctx:        context.TODO(),
+		dispatcher: provider,
+		calldepth:  1,
+	}
 	// asyncD = &asyncDispatcher{}
 	// defi = New(context.Background())
 }
@@ -42,6 +48,7 @@ type Adapter interface {
 // 同一接口
 type Interface interface {
 	Logger
+	WithFields(fs ...Field) Interface
 	SpanFactory
 }
 
@@ -50,7 +57,7 @@ func GetAdapter() Adapter {
 }
 func SetDispatcher(a Dispatcher) {
 	old := std.dispatcher
-	defer old.Close()
+	defer old.Flush()
 
 	handlers := std.dispatcher.GetHandlers()
 	a.AddHandlers(handlers...)
@@ -70,42 +77,23 @@ func SetDefault(writer LoggerInterface) Adapter {
 	return nil
 }
 
-func Default() Interface {
-	return std
-}
-
 func AddHandlers(handlers ...Handler) {
 	std.dispatcher.AddHandlers(handlers...)
 }
 
 type Option interface {
-	applyInterface(*loggerImpl)
+	applyInterface(*logImpl)
+}
+type FieldsAppender interface {
+	AppendFields(fs Fields)
 }
 
-// func WithFields(fs ...field.Field) appendFields {
-// 	return func() []field.Field {
-// 		return fs
-// 	}
-// }
+func WithFields(fs ...Field) any {
+	return func(appender FieldsAppender) {
+		appender.AppendFields(fs)
+	}
+}
 
-// func New(ctx context.Context, options ...Option) Interface {
-// 	r := &loggerImpl{logImpl: logImpl{ctx: ctx, dispatcher: std, calldepth: 1}}
-// 	return r
-// }
-
-// type Provider interface {
-// 	Out(Entry)
-// 	NewLogger() Logger
-// 	NewSpan() Span
-// }
-
-// type Outer interface {
-// 	Out(Entry)
-// }
-
-// type syncOuter struct {
-// }
-
-// func (syncOuter) Out(Entry) {
-
-// }
+func Default() Interface {
+	return std
+}

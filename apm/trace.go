@@ -8,12 +8,12 @@ import (
 
 type SpanOptionSetter interface {
 	SetNameGetter(a func() string)
-	SetAttributes(a []field.Field)
+	SetAttributes(a ...field.Field)
 	SetCalldepth(a int)
 }
 type EndSpanOptionSetter interface {
 	SetNameGetter(a func() string)
-	SetAttributes(a []field.Field)
+	SetAttributes(a ...field.Field)
 	SetEndCalls(a []func(Span))
 }
 
