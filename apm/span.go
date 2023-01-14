@@ -159,7 +159,7 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	if span.failed {
 		fs = append(fs, TraceError(span.failed))
 	}
-	fs = append(fs, LevelField(LevelTrace))
+	fs = append(fs, LevelField(int(LevelTrace)))
 	span.LogFS(nil, fs...) //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
 	span.dispatcher = nil  // 移除关联,
 }

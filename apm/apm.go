@@ -23,7 +23,8 @@ func init() {
 	// defi = New(context.Background())
 
 	provider := &syncDispatcher{}
-	provider.AddHandlers(Console())
+	handler, _ := Console()
+	provider.AddHandlers(handler)
 	std = &logImpl{
 		ctx:        context.TODO(),
 		dispatcher: provider,

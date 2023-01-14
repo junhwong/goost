@@ -41,7 +41,7 @@ func (x handlerSlice) handle(entry Entry) {
 
 var _ Handler = (*SimpleHandler)(nil)
 
-func Console() *SimpleHandler {
+func Console() (*SimpleHandler, *TextFormatter) {
 	text := &TextFormatter{}
 	if os.Getenv("GOOST_APM_CONSOLE_COLOR") == "1" {
 		text.Color = true
@@ -50,7 +50,7 @@ func Console() *SimpleHandler {
 		Out:             os.Stdout,
 		Formatter:       text,
 		HandlerPriority: -9999,
-	}
+	}, text
 }
 
 // 控制台

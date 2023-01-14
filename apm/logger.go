@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
+	"github.com/spf13/cast"
 )
 
 // LoggerInterface 日志记录接口
@@ -67,6 +68,17 @@ func (l logImpl) LogFS(args []interface{}, fs ...Field) {
 	entry := make(field.Fields, 5)
 	entry.Set(l.fields...)
 	entry.Set(fs...)
+	var lvl int
+	if v := entry.Get(LevelKey); v == nil {
+		// 没有级别
+		return
+	} else {
+		lvl = cast.ToInt(v)
+		if lvl < 0 {
+			return
+		}
+	}
+
 	// var err error
 	a := []interface{}{}
 	ctxs := []context.Context{}
@@ -139,7 +151,7 @@ func (l logImpl) LogFS(args []interface{}, fs ...Field) {
 	if _, ok := entry[TimeKey]; !ok {
 		entry.Set(Time(time.Now()))
 	}
-
+	entry.Set(LevelField(lvl))
 	l.dispatcher.Dispatch(FieldsEntry(entry))
 }
 
