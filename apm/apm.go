@@ -1,13 +1,10 @@
 package apm
 
-import (
-	"context"
-)
-
 var (
 	std *logImpl
 	// defi Interface
 	// asyncD Dispatcher
+	dispatcher Dispatcher = &syncDispatcher{}
 )
 
 func init() {
@@ -22,14 +19,9 @@ func init() {
 	// go std.Run(ctx.Done())
 	// defi = New(context.Background())
 
-	provider := &syncDispatcher{}
 	handler, _ := Console()
-	provider.AddHandlers(handler)
-	std = &logImpl{
-		ctx:        context.TODO(),
-		dispatcher: provider,
-		calldepth:  1,
-	}
+	dispatcher.AddHandlers(handler)
+	std = &logImpl{calldepth: 1}
 	// asyncD = &asyncDispatcher{}
 	// defi = New(context.Background())
 }
@@ -38,7 +30,7 @@ func Done() {
 	// std.Close()
 }
 func Flush() {
-	std.dispatcher.Flush()
+	dispatcher.Flush()
 }
 
 // 适配接口
@@ -54,15 +46,15 @@ type Interface interface {
 }
 
 func GetAdapter() Adapter {
-	return std.dispatcher
+	return dispatcher
 }
 func SetDispatcher(a Dispatcher) {
-	old := std.dispatcher
+	old := dispatcher
 	defer old.Flush()
 
-	handlers := std.dispatcher.GetHandlers()
+	handlers := dispatcher.GetHandlers()
 	a.AddHandlers(handlers...)
-	std.dispatcher = a
+	dispatcher = a
 }
 
 func UseAsyncDispatcher() {
@@ -79,7 +71,7 @@ func SetDefault(writer LoggerInterface) Adapter {
 }
 
 func AddHandlers(handlers ...Handler) {
-	std.dispatcher.AddHandlers(handlers...)
+	dispatcher.AddHandlers(handlers...)
 }
 
 type Option interface {

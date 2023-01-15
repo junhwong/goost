@@ -36,10 +36,9 @@ type FormatLogger interface {
 
 // ==================== EntryInterface ====================
 type logImpl struct {
-	calldepth  int // 1
-	fields     Fields
-	dispatcher Dispatcher
-	ctx        context.Context
+	calldepth int // 1
+	fields    Fields
+	ctx       context.Context
 }
 
 func (l *logImpl) SetCalldepth(a int) { l.calldepth = a }
@@ -53,9 +52,8 @@ func (l *logImpl) clone() *logImpl {
 	copy(fieldsCopy, l.fields)
 
 	return &logImpl{
-		calldepth:  l.calldepth,
-		dispatcher: l.dispatcher,
-		fields:     fieldsCopy,
+		calldepth: l.calldepth,
+		fields:    fieldsCopy,
 	}
 }
 
@@ -152,7 +150,7 @@ func (l logImpl) LogFS(args []interface{}, fs ...Field) {
 		entry.Set(Time(time.Now()))
 	}
 	entry.Set(LevelField(lvl))
-	l.dispatcher.Dispatch(FieldsEntry(entry))
+	dispatcher.Dispatch(FieldsEntry(entry))
 }
 
 func (l *logImpl) Debug(a ...interface{}) { l.Log(LevelDebug, a) }

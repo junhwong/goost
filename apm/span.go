@@ -89,7 +89,7 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 		if opt == nil {
 			continue
 		}
-		opt.Apply(span)
+		opt.applySpanOption(span)
 	}
 
 	if prent, ok := ctx.Value(spanInContextKey).(*spanImpl); ok && prent != nil {
@@ -118,9 +118,12 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 }
 
 func (span *spanImpl) End(options ...EndSpanOption) {
+	if span == nil || span.logImpl == nil {
+		return
+	}
 	for _, option := range options {
 		if option != nil {
-			option.Apply(span)
+			option.applyEndSpanOption(span)
 		}
 	}
 	name := span.name
@@ -161,7 +164,7 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	}
 	fs = append(fs, LevelField(int(LevelTrace)))
 	span.LogFS(nil, fs...) //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
-	span.dispatcher = nil  // 移除关联,
+	span.logImpl = nil
 }
 
 func (span *spanImpl) Context() SpanContext { return span }

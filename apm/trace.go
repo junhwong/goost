@@ -18,19 +18,19 @@ type EndSpanOptionSetter interface {
 }
 
 type SpanOption interface {
-	Apply(target SpanOptionSetter)
+	applySpanOption(target SpanOptionSetter)
 }
 
 //	type StartSpanOption interface {
 //		applyStartSpanOption(*traceOption)
 //	}
 type EndSpanOption interface {
-	Apply(target EndSpanOptionSetter)
+	applyEndSpanOption(target EndSpanOptionSetter)
 }
 
 type funcSpanOption func(SpanOptionSetter)
 
-func (f funcSpanOption) Apply(target SpanOptionSetter) {
+func (f funcSpanOption) applySpanOption(target SpanOptionSetter) {
 	f(target)
 }
 
@@ -51,12 +51,12 @@ func WithCallDepth(depth int) SpanOption {
 
 type funcEndSpanOption func(EndSpanOptionSetter)
 
-func (f funcEndSpanOption) Apply(target EndSpanOptionSetter) {
+func (f funcEndSpanOption) applyEndSpanOption(target EndSpanOptionSetter) {
 	f(target)
 }
 
 // 替换SpanName
-func WithReplaceSpanName(getName func() string) EndSpanOption {
+func WithReplaceSpanName(getName func() string) funcEndSpanOption {
 	if getName == nil {
 		panic("apm: getName cannot be nil")
 	}
@@ -66,7 +66,7 @@ func WithReplaceSpanName(getName func() string) EndSpanOption {
 }
 
 // 调整日志堆栈记录深度
-func WithEndCall(fn func(Span)) EndSpanOption {
+func WithEndCall(fn func(Span)) funcEndSpanOption {
 	return funcEndSpanOption(func(target EndSpanOptionSetter) {
 		target.SetEndCalls([]func(Span){fn})
 	})
