@@ -20,4 +20,6 @@ var (
 	TracebackCallerKey, TracebackCaller             = field.String("traceback.caller")
 	TracebackPathKey, TracebackPath                 = field.String("traceback.path")
 	TracebackLineNoKey, TracebackLineNo             = field.Int("traceback.lineno")
+	LogAdapterKey, LogAdapter                       = field.String("log.adapter")
+	LogComponentKey, LogComponent                   = field.String("log.component")
 )

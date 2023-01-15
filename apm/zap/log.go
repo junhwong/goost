@@ -14,7 +14,7 @@ import (
 func New(adapter apm.Adapter) *zap.Logger {
 	log := zap.New(&ioCore{
 		log:    adapter,
-		fields: []zapcore.Field{zap.String("log_adapter", "zap")},
+		fields: []zapcore.Field{zap.String(apm.LogAdapterKey.Name(), "zap")},
 	}, zap.AddCaller())
 	return log
 }

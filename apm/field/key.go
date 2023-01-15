@@ -11,6 +11,10 @@ import (
 // 如：
 //
 //	entry={message=logmessage, os.name=linux, os.type=amd64, trace.error=true}
+//
+// see:
+// - https://opentelemetry.io/docs/reference/specification/common/attribute-naming/
+// - https://www.w3.org/TR/trace-context/#key
 type Key interface {
 	Name() string
 	Kind() KeyKind
