@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	// Debugf = func(format string, a ...any) { fmt.Printf(format+"\n", a...) }
 	Debug = func(a ...any) { fmt.Println(a...) }
 )
 
@@ -27,19 +26,22 @@ type Hook struct {
 	serving bool
 
 	hook        func(ctx context.Context)
-	servingHook ServingHookFunc
+	servingHook func(ctx context.Context, onStarted func())
 }
 type hookCtx struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string)) {
+func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string), m *sync.Map) {
 	h.once.Do(func() {
 		defer wg.Done()
 		defer h.cancel()
 		if h.servingHook != nil {
-			defer stop(funcName(h.servingHook))
+			fn := funcName(h.servingHook)
+			m.Store(fn, true)
+			defer stop(fn)
+			defer func() { m.Delete(fn) }()
 			h.servingHook(h.ctx, next)
 			return
 		}
@@ -48,11 +50,9 @@ func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string)) {
 	})
 }
 
-type ServingHookFunc func(ctx context.Context, onStarted func())
-
 type Lifecycle interface {
 	Append(func(ctx context.Context))
-	AppendServing(ServingHookFunc)
+	AppendServing(func(ctx context.Context, onStarted func()))
 }
 
 // Application 定义的 DI 容器
@@ -147,36 +147,19 @@ func (app *appImpl) Wait() error {
 	_ = app.container.Provide(func() Lifecycle {
 		return &builder
 	})
-	go watchInterrupt(startCtx, stop)
+
 	err := app.doInvokes()
 	if err != nil {
 		return err
 	}
 
 	var wg sync.WaitGroup
-
-	next := builder.build(startCtx, &wg, stop)
-	next()
+	var m sync.Map
+	go watchInterrupt(startCtx, stop, &m)
+	builder.build(startCtx, &wg, stop, &m)()
 	wg.Wait()
 	return nil
 }
-
-// func stop(startCancel context.CancelFunc) func() {
-// 	var once sync.Once
-// 	return func() {
-// 		once.Do(func() {
-// 			defer startCancel()
-// 			go func() {
-// 				timer := time.NewTimer(time.Minute * 5)
-// 				defer timer.Stop()
-
-// 				<-timer.C
-// 				fmt.Println("terminating timeout was forced to quit")
-// 				os.Exit(1)
-// 			}()
-// 		})
-// 	}
-// }
 
 func New() Application {
 	//dig.DeferAcyclicVerification()
@@ -199,7 +182,7 @@ func (hooks *hookBuilder) Append(fn func(context.Context)) {
 	}))
 	*hooks = target
 }
-func (hooks *hookBuilder) AppendServing(fn ServingHookFunc) {
+func (hooks *hookBuilder) AppendServing(fn func(ctx context.Context, onStarted func())) {
 	arr := []*Hook(*hooks)
 	target := hookBuilder(append(arr, &Hook{
 		serving:     true,
@@ -208,7 +191,7 @@ func (hooks *hookBuilder) AppendServing(fn ServingHookFunc) {
 	*hooks = target
 }
 
-func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop func(s string)) (next func()) {
+func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop func(s string), m *sync.Map) (next func()) {
 	builder := hooks
 
 	contexts := []*hookCtx{}
@@ -223,10 +206,10 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 	// fmt.Printf("n: %v\n", n)
 	for i, h := range builder {
 		h.hookCtx = contexts[n-i]
-		if h.serving {
-			// wg.Add(1)
-			h.hookCtx.ctx = context.WithValue(h.hookCtx.ctx, "hookName", funcName(h.servingHook))
-		}
+		// if h.serving {
+		// 	// wg.Add(1)
+		// 	// h.hookCtx.ctx = context.WithValue(h.hookCtx.ctx, "hookName", funcName(h.servingHook))
+		// }
 	}
 
 	var i = 0
@@ -255,14 +238,14 @@ func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop fun
 		wg.Add(1)
 		mu.Unlock()
 
-		go h.doRun(wg, next, stop)
+		go h.doRun(wg, next, stop, m)
 
 	}
 
 	return
 }
 
-func watchInterrupt(ctx context.Context, cancel func(s string), sig ...os.Signal) {
+func watchInterrupt(ctx context.Context, cancel func(s string), m *sync.Map, sig ...os.Signal) {
 	if len(sig) == 0 {
 		sig = []os.Signal{os.Interrupt, syscall.SIGHUP}
 	}
@@ -276,64 +259,19 @@ func watchInterrupt(ctx context.Context, cancel func(s string), sig ...os.Signal
 		b = syscall.SIGPIPE // TODO 自定义退出
 	}
 	cancel(fmt.Sprintf("signal: %v", b))
-	// TODO 临时检测具体信号
-	Debug("runtime/WatchInterrupt: caught signal: ", b)
-	Debug("runtime/WatchInterrupt: shutting down")
 
 	select {
 	case <-ch:
 		Debug("\nforce quit")
-	case <-time.After(time.Minute * 5):
+	case <-time.After(time.Minute * 1):
 		Debug("terminating timeout 5m force quit")
+		m.Range(func(key, value any) bool {
+			Debugf("blocking terminated hook: %v", key)
+			return false
+		})
 	}
 	os.Exit(1)
 }
-
-// // 跟踪中断信号。
-// func WatchInterrupt(sig ...os.Signal) func(Lifecycle) {
-// 	if len(sig) == 0 {
-// 		sig = []os.Signal{os.Interrupt, syscall.SIGHUP}
-// 	}
-// 	ch := make(chan os.Signal, 1)
-// 	return func(life Lifecycle) {
-// 		signal.Notify(ch, sig...)
-// 		life.AppendServing(func(ctx context.Context, onStarted func()) {
-// 			onStarted()
-// 			var b os.Signal
-// 			select {
-// 			case b = <-ch:
-// 			case <-ctx.Done():
-// 				b = syscall.SIGPIPE // TODO 自定义退出
-// 			}
-
-// 			// TODO 临时检测具体信号
-// 			fmt.Println("runtime/WatchInterrupt: caught signal: ", b)
-// 			fmt.Println("runtime/WatchInterrupt: shutting down")
-// 			go func() {
-// 				for sig := range ch {
-// 					if sig == os.Interrupt {
-// 						break
-// 					}
-// 				}
-// 				fmt.Println("force quit")
-// 				os.Exit(1)
-// 			}()
-// 		})
-// 	}
-// }
-
-// func rootCancel(ctx context.Context, cancel context.CancelFunc) {
-// 	ch := make(chan os.Signal, 1)
-// 	signal.Notify(ch, os.Interrupt)
-// 	select {
-// 	case <-ctx.Done():
-// 		close(ch)
-// 		return
-// 	case <-ch:
-// 		cancel()
-// 		return
-// 	}
-// }
 
 func funcName(f any) string {
 	rv := reflect.ValueOf(f)

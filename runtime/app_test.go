@@ -73,7 +73,8 @@ func TestBuilder(t *testing.T) {
 	//
 	start := context.TODO()
 	var wg sync.WaitGroup
-	next := builder.build(start, &wg, func(s string) {})
+	var m sync.Map
+	next := builder.build(start, &wg, func(s string) {}, &m)
 	next()
 
 	wg.Wait()
