@@ -1,10 +1,15 @@
 package apm
 
+import (
+	"sync"
+)
+
 var (
 	std *logImpl
 	// defi Interface
 	// asyncD Dispatcher
 	dispatcher Dispatcher = &syncDispatcher{}
+	initOnce   sync.Once
 )
 
 func init() {
@@ -19,9 +24,12 @@ func init() {
 	// go std.Run(ctx.Done())
 	// defi = New(context.Background())
 
-	handler, _ := Console()
-	dispatcher.AddHandlers(handler)
-	std = &logImpl{calldepth: 1}
+	initOnce.Do(func() {
+		handler, _ := Console()
+		dispatcher.AddHandlers(handler)
+		std = &logImpl{calldepth: 1}
+	})
+
 	// asyncD = &asyncDispatcher{}
 	// defi = New(context.Background())
 }
@@ -61,13 +69,6 @@ func UseAsyncDispatcher() {
 	d := &asyncDispatcher{queue: make(chan Entry, 1024)}
 	SetDispatcher(d)
 	go d.loop()
-}
-
-func SetDefault(writer LoggerInterface) Adapter {
-	// std = writer
-	// defi = New(context.Background())
-	// return defi
-	return nil
 }
 
 func AddHandlers(handlers ...Handler) {

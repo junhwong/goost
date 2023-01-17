@@ -44,7 +44,7 @@ func Now() Unixtime {
 			time.Sleep(time.Nanosecond * time.Duration(offs<<1)) // 时间偏差大小小于5ms，则等待两倍时间
 			ut = NowWithoutLock()
 		}
-		fmt.Println("======", offs, ut, last)
+		fmt.Println("", offs, ut, last)
 		// 时间回归后继续验证
 		if ut <= last {
 			panic(fmt.Errorf("clock is moving backwards. rejecting requests until %v.", last)) // 机器时钟发生回拨

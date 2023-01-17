@@ -45,7 +45,7 @@ func (l *logImpl) SetCalldepth(a int) { l.calldepth = a }
 func (l *logImpl) WithFields(fs ...Field) Interface {
 	cl := l.clone()
 	cl.fields = append(cl.fields, fs...)
-	return l
+	return cl
 }
 func (l *logImpl) clone() *logImpl {
 	fieldsCopy := make([]field.Field, len(l.fields))

@@ -10,8 +10,8 @@ import (
 func TestLog(t *testing.T) {
 	t.Cleanup(apm.Flush)
 
-	apm.UseAsyncDispatcher()
+	// apm.UseAsyncDispatcher()
 
-	apm.Default().Debug("hello")
+	apm.Default().WithFields(apm.LogComponent("test")).Debug("hello")
 	apm.Default().Debug(apm.WrapCallStack(errors.New("hhh")))
 }

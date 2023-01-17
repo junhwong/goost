@@ -1,6 +1,8 @@
 package apm
 
-import "sync"
+import (
+	"sync"
+)
 
 type Dispatcher interface {
 	AddHandlers(handlers ...Handler)
@@ -15,21 +17,29 @@ type syncDispatcher struct {
 	handlers handlerSlice
 }
 
-func (logger *syncDispatcher) AddHandlers(handlers ...Handler) {
-	logger.mu.Lock()
-	old := logger.gethandlers()
-	logger.mu.Unlock()
-
-	for _, it := range handlers {
-		if it == nil {
-			continue
-		}
-		old = append(old, it)
+func (d *syncDispatcher) AddHandlers(handlers ...Handler) {
+	if len(handlers) == 0 {
+		panic("apm: handlers cannot empty")
 	}
+
+	// d.mu.Lock()
+	// old := d.gethandlers()
+	// d.mu.Unlock()
+
+	// for _, it := range handlers {
+	// 	if it == nil {
+	// 		continue
+	// 	}
+	// 	old = append(old, it)
+	// }
+	handlersCopy := make([]Handler, len(handlers))
+	copy(handlersCopy, handlers)
+	old := handlerSlice(handlersCopy)
 	old.Sort()
-	logger.mu.Lock()
-	logger.handlers = old
-	logger.mu.Unlock()
+
+	d.mu.Lock()
+	d.handlers = old
+	d.mu.Unlock()
 }
 
 func (logger *syncDispatcher) gethandlers() handlerSlice {
