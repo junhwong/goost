@@ -53,6 +53,7 @@ func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string), m *sy
 type Lifecycle interface {
 	Append(func(ctx context.Context))
 	AppendServing(func(ctx context.Context, onStarted func()))
+	WaitTerminateWithTimeout(time.Duration, func())
 }
 
 // Application 定义的 DI 容器
@@ -133,17 +134,18 @@ func RootCause(err error) error {
 }
 func (app *appImpl) Wait() error {
 	startCtx, startCancel := context.WithCancel(context.Background())
-	cancel := startCancel //stop(startCancel)
-	defer cancel()
+	defer startCancel()
+	stopCtx, stopCancel := context.WithCancel(context.Background())
+	defer stopCancel()
 	var once sync.Once
 	stop := func(s string) {
 		once.Do(func() {
-			cancel()
+			startCancel()
 			Debugf("runtime: terminating caused by %s", s)
 		})
 	}
 
-	builder := hookBuilder{}
+	builder := lifecycle{ctx: stopCtx}
 	_ = app.container.Provide(func() Lifecycle {
 		return &builder
 	})
@@ -158,6 +160,9 @@ func (app *appImpl) Wait() error {
 	go watchInterrupt(startCtx, stop, &m)
 	builder.build(startCtx, &wg, stop, &m)()
 	wg.Wait()
+	stopCancel()
+	builder.wgStop.Wait()
+
 	return nil
 }
 
@@ -172,27 +177,38 @@ func New() Application {
 	return app
 }
 
-type hookBuilder []*Hook
+type lifecycle struct {
+	hooks  []*Hook
+	ctx    context.Context
+	wgStop sync.WaitGroup
+}
 
-func (hooks *hookBuilder) Append(fn func(context.Context)) {
-	arr := []*Hook(*hooks)
-	target := hookBuilder(append(arr, &Hook{
+func (l *lifecycle) Append(fn func(context.Context)) {
+	l.hooks = append(l.hooks, &Hook{
 		serving: false,
 		hook:    fn,
-	}))
-	*hooks = target
+	})
 }
-func (hooks *hookBuilder) AppendServing(fn func(ctx context.Context, onStarted func())) {
-	arr := []*Hook(*hooks)
-	target := hookBuilder(append(arr, &Hook{
+func (l *lifecycle) AppendServing(fn func(ctx context.Context, onStarted func())) {
+	l.hooks = append(l.hooks, &Hook{
 		serving:     true,
 		servingHook: fn,
-	}))
-	*hooks = target
+	})
+}
+func (l *lifecycle) WaitTerminateWithTimeout(t time.Duration, task func()) {
+	l.wgStop.Add(1)
+	ctx, cancel := context.WithTimeout(l.ctx, t)
+	go func() {
+		defer cancel()
+		defer l.wgStop.Done()
+
+		<-ctx.Done()
+		task()
+	}()
 }
 
-func (hooks hookBuilder) build(ctx context.Context, wg *sync.WaitGroup, stop func(s string), m *sync.Map) (next func()) {
-	builder := hooks
+func (l *lifecycle) build(ctx context.Context, wg *sync.WaitGroup, stop func(s string), m *sync.Map) (next func()) {
+	builder := l.hooks
 
 	contexts := []*hookCtx{}
 	for range builder {

@@ -11,7 +11,7 @@ import (
 )
 
 func TestBuilder(t *testing.T) {
-	builder := hookBuilder{}
+	builder := lifecycle{}
 	builder.Append(func(ctx context.Context) {
 		time.Sleep(time.Microsecond * 5)
 		fmt.Println("Append 1")
