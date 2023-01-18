@@ -119,8 +119,11 @@ FOR:
 	for _, f := range fs {
 		key, val := f.Unwrap()
 		// fmt.Printf("key: %v\n", key)
-		if key == nil || val == nil {
+		if key == nil {
 			fmt.Printf("skipped field key: %v\n", f)
+			continue
+		}
+		if val == nil {
 			continue
 		}
 		if skipFields.Has(key.Name()) {
