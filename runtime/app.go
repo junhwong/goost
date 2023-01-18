@@ -38,7 +38,7 @@ func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string), m *sy
 		defer wg.Done()
 		defer h.cancel()
 		if h.servingHook != nil {
-			fn := funcName(h.servingHook)
+			fn := FuncName(h.servingHook)
 			m.Store(fn, true)
 			defer stop(fn)
 			defer func() { m.Delete(fn) }()
@@ -289,7 +289,7 @@ func watchInterrupt(ctx context.Context, cancel func(s string), m *sync.Map, sig
 	os.Exit(1)
 }
 
-func funcName(f any) string {
+func FuncName(f any) string {
 	rv := reflect.ValueOf(f)
 	if !rv.IsValid() || rv.Kind() != reflect.Func {
 		return ""
