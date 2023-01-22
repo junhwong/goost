@@ -34,9 +34,6 @@ func init() {
 	// defi = New(context.Background())
 }
 
-func Done() {
-	// std.Close()
-}
 func Flush() {
 	dispatcher.Flush()
 }

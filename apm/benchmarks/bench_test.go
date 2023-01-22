@@ -18,6 +18,6 @@ func BenchmarkAccumulatedContext(b *testing.B) {
 				logger.Info(getMessage(0))
 			}
 		})
-		b.Cleanup(apm.Done)
+		b.Cleanup(apm.Flush)
 	})
 }
