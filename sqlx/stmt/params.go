@@ -16,7 +16,7 @@ type structedParams struct {
 }
 
 var (
-	ParameterInvalidErr, newParameterInvalidErr = apm.NewErrorf("sqlx_param_invalid", 500,
+	newParameterInvalidErr, ParameterInvalidErr = apm.NewErrorf("sqlx_param_invalid", 500,
 		"Parameter is missing or invalid")
 )
 

@@ -57,30 +57,56 @@ func loadOrStoreCodeErr(code string, status int, msg []string) (err *CodeError) 
 
 // }
 
-func NewError(code string, status int, desc ...string) (error, func(...interface{}) error) {
+func NewError(code string, status int, desc ...string) (func(...interface{}) error, error) {
 	err := loadOrStoreCodeErr(code, status, desc)
-	return err, func(a ...interface{}) error {
+	return func(a ...interface{}) error {
 		if len(a) == 0 {
 			return err
 		}
-		return fmt.Errorf("%w: %s", err, fmt.Sprint(a...))
-	}
+		errs := []error{err}
+		args := []any{}
+		for _, v := range a {
+			if ex, ok := v.(error); ok {
+				errs = append(errs, ex)
+			} else {
+				args = append(args, v)
+			}
+		}
+		if len(args) > 0 {
+			errs = append(errs, errors.New(fmt.Sprint(a...)))
+		}
+		return errors.Join(errs...)
+	}, err
 }
-func NewErrorf(code string, status int, desc ...string) (error, func(string, ...interface{}) error) {
+func NewErrorf(code string, status int, desc ...string) (func(string, ...interface{}) error, error) {
 	err := loadOrStoreCodeErr(code, status, desc)
-	return err, func(f string, a ...interface{}) error {
+	return func(f string, a ...interface{}) error {
+		errs := []error{err}
 		switch {
 		case f != "" && len(a) != 0:
-			f = fmt.Sprintf(f, a...)
+			errs = append(errs, fmt.Errorf(f, a...))
+			f = ""
 		case f != "":
 		case len(a) != 0:
-			f = fmt.Sprint(a...)
+			args := []any{}
+			for _, v := range a {
+				if ex, ok := v.(error); ok {
+					errs = append(errs, ex)
+				} else {
+					args = append(args, v)
+				}
+			}
+			if len(args) > 0 {
+				f = fmt.Sprint(a...)
+			}
 		default:
 			return err
 		}
-
-		return fmt.Errorf("%w: %s", err, f)
-	}
+		if len(f) > 0 {
+			errs = append(errs, errors.New(f))
+		}
+		return errors.Join(errs...)
+	}, err
 }
 
 type fieldsError struct {

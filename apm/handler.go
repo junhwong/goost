@@ -50,6 +50,7 @@ func Console() (*SimpleHandler, *TextFormatter) {
 		Out:             os.Stdout,
 		Formatter:       text,
 		HandlerPriority: -9999,
+		Filter:          func(l Level) bool { return l >= LevelDebug },
 	}, text
 }
 
@@ -57,7 +58,7 @@ func Console() (*SimpleHandler, *TextFormatter) {
 type SimpleHandler struct {
 	Out             io.Writer
 	Formatter       Formatter
-	Level           Level
+	Filter          func(Level) bool
 	HandlerPriority int
 }
 
@@ -66,20 +67,20 @@ func (h SimpleHandler) Priority() int {
 }
 
 func (h SimpleHandler) Handle(entry Entry, next func()) {
-	// defer next()
+	defer next()
 	lvl := entry.GetLevel()
 
-	// TODO: 临时开发
-	if lvl < h.Level {
+	if filter := h.Filter; filter != nil && !filter(lvl) {
 		return
 	}
 
 	var out io.Writer = h.Out
-	if lvl >= LevelError && lvl < LevelTrace {
-		out = os.Stderr
-	}
+
 	if out == nil {
 		out = os.Stdout
+		if lvl >= LevelError && lvl < LevelTrace {
+			out = os.Stderr
+		}
 	}
 
 	err := UseBuffer(func(buf *bytes.Buffer) error {
