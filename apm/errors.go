@@ -73,9 +73,15 @@ func NewError(code string, status int, desc ...string) (func(...interface{}) err
 			}
 		}
 		if len(args) > 0 {
-			errs = append(errs, errors.New(fmt.Sprint(a...)))
+			s := fmt.Sprint(a...)
+			if len(s) > 0 {
+				errs = append(errs, errors.New(s))
+			}
 		}
-		return errors.Join(errs...)
+		if len(errs) == 1 {
+			return errs[0]
+		}
+		return joinError(errs)
 	}, err
 }
 func NewErrorf(code string, status int, desc ...string) (func(string, ...interface{}) error, error) {
@@ -105,8 +111,28 @@ func NewErrorf(code string, status int, desc ...string) (func(string, ...interfa
 		if len(f) > 0 {
 			errs = append(errs, errors.New(f))
 		}
-		return errors.Join(errs...)
+		if len(errs) == 1 {
+			return errs[0]
+		}
+		return joinError(errs)
 	}, err
+}
+
+type joinError []error
+
+func (e joinError) Error() string {
+	var b []byte
+	for i, err := range e {
+		if i > 0 {
+			b = append(b, ';')
+		}
+		b = append(b, err.Error()...)
+	}
+	return string(b)
+}
+
+func (e joinError) Unwrap() []error {
+	return e
 }
 
 type fieldsError struct {
