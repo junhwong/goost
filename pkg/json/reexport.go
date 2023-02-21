@@ -1,12 +1,16 @@
 package json
 
 import (
+	"encoding/json"
 	"io"
 
 	jsoniter "github.com/json-iterator/go"
 )
 
-var API = jsoniter.ConfigCompatibleWithStandardLibrary
+var API = jsoniter.ConfigDefault
+
+type Unmarshaler = json.Unmarshaler
+type Marshaler = json.Marshaler
 
 func Marshal(v interface{}) ([]byte, error) {
 	return API.Marshal(v)
