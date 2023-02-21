@@ -52,7 +52,7 @@ var (
 	// IsValidKeyName 判断给定的名称是否是合法的。
 	//
 	// `Key name` 主要参考主流的存储设备来定义，如：ES
-	IsValidKeyName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_\-]*(\.[a-zA-Z][a-zA-Z0-9_\-]*)*$`).MatchString
+	IsValidKeyName = regexp.MustCompile(`^[a-zA-Z][\w\-]*(\.[a-zA-Z][\w\-]*)*$`).MatchString
 )
 
 func GetKey(name string) Key {
