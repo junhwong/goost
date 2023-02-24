@@ -62,6 +62,18 @@ func (l logImpl) Log(level Level, args []interface{}) {
 	l.LogFS(args, LevelField(int(level)))
 }
 
+var callerContextKey = struct{}{}
+
+func WithCaller(ctx context.Context) context.Context {
+	info := Caller(1)
+	return context.WithValue(ctx, callerContextKey, info)
+}
+func CallerFromContext(ctx context.Context) (CallerInfo, bool) {
+	obj := ctx.Value(callerContextKey)
+	info, ok := obj.(CallerInfo)
+	return info, ok
+}
+
 func (l logImpl) LogFS(args []interface{}, fs ...Field) {
 	entry := make(field.Fields, 5)
 	entry.Set(l.fields...)
@@ -96,11 +108,23 @@ func (l logImpl) LogFS(args []interface{}, fs ...Field) {
 			a = append(a, f)
 		}
 	}
+	var callerinfo *CallerInfo
+	for _, ctx := range ctxs {
+		info, ok := CallerFromContext(ctx)
+		if !ok {
+			continue
+		}
+		callerinfo = &info
+		break
+	}
+
 	caller := ""
-	calldepth := l.calldepth
-	if calldepth > -1 {
-		info := Caller(calldepth + 1)
-		caller = info.Caller()
+	if callerinfo == nil && l.calldepth > -1 {
+		info := Caller(l.calldepth + 1)
+		callerinfo = &info
+	}
+	if callerinfo != nil {
+		caller = callerinfo.Caller()
 		entry.Set(TracebackCaller(caller))
 	}
 	if serr != nil {
