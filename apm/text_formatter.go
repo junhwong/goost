@@ -120,10 +120,11 @@ FOR:
 		key, val := f.Unwrap()
 		// fmt.Printf("key: %v\n", key)
 		if key == nil {
-			fmt.Printf("skipped field key: %v\n", f)
+			fmt.Printf("skipped field nil key: %v\n", f)
 			continue
 		}
 		if val == nil {
+			fmt.Printf("skipped field key: %v\n", f)
 			continue
 		}
 		if skipFields.Has(key.Name()) {
@@ -156,27 +157,22 @@ FOR:
 
 		// 	}
 		// }
-
-		var data []byte
-
-		if data, err = json.Marshal(val); err != nil {
-			return
+		if e, _ := val.(error); e != nil {
+			val = e.Error()
 		}
+		data, err := json.Marshal(val)
+		if err != nil {
+			return err
+		}
+
 		if bytes.Equal(data, []byte{'{', '}'}) {
 			continue
 		}
-
-		// TrimFieldNamePrefix(it.Key.Name())
-
-		// if len(name) == 0 {
-		// 	fmt.Println("apm: skip entry: name") // TODO devop log
-		// 	continue
-		// }
-
 		switch name {
 		case "level", "time", "message":
 			name = "data." + name
 		}
+
 		fsv = append(fsv, fmt.Sprintf("%q:%s", name, data))
 	}
 
