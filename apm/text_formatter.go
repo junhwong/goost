@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/junhwong/duzee-go/pkg/sets"
+	"github.com/junhwong/goost/apm/field"
 	"github.com/spf13/cast"
 )
 
@@ -17,6 +18,7 @@ type TextFormatter struct {
 	TimeLayout string
 	SkipFields []string
 	Color      bool // 是否打印颜色
+	Skipped    func(field.Field)
 }
 
 func cutstr(v interface{}, l int) string {
@@ -54,7 +56,7 @@ func getColor(lvl Level, supportColor bool) (start, end string) {
 	}
 	return "", ""
 }
-func (f *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
+func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	writeByte := func(c byte) {
 		if err != nil {
 			return
@@ -68,10 +70,10 @@ func (f *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		_, err = fmt.Fprintf(dest, format, a...)
 	}
 	skipFields := sets.NewString(TimeKey.Name(), MessageKey.Name(), LevelKey.Name())
-	for _, v := range f.SkipFields {
+	for _, v := range tf.SkipFields {
 		skipFields.Insert(v)
 	}
-	supportColor := f.Color
+	supportColor := tf.Color
 
 	lvl := entry.GetLevel()
 	cp, cs := getColor(lvl, supportColor)
@@ -86,7 +88,7 @@ func (f *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 
 	if t := entry.GetTime(); !t.IsZero() {
 		// TODO: 时区
-		layout := f.TimeLayout
+		layout := tf.TimeLayout
 		if layout == "" {
 			layout = "15:04:05.000" // 20060102 15:04:05.000
 		}
@@ -119,17 +121,23 @@ FOR:
 	for _, f := range fs {
 		key, val := f.Unwrap()
 		// fmt.Printf("key: %v\n", key)
-		if key == nil {
-			fmt.Printf("skipped field nil key: %v\n", f)
+		if key == nil || val == nil || skipFields.Has(key.Name()) {
+			if fn := tf.Skipped; fn != nil {
+				fn(f)
+			}
 			continue
 		}
-		if val == nil {
-			fmt.Printf("skipped field key: %v\n", f)
-			continue
-		}
-		if skipFields.Has(key.Name()) {
-			continue
-		}
+		// if key == nil {
+		// 	fmt.Printf("skipped field nil key: %v\n", f)
+		// 	continue
+		// }
+		// if val == nil {
+		// 	fmt.Printf("skipped field key: %v\n", f)
+		// 	continue
+		// }
+		// if skipFields.Has(key.Name()) {
+		// 	continue
+		// }
 
 		switch key {
 		// case TraceIDKey: // TODO: 开发者选项
@@ -168,6 +176,11 @@ FOR:
 		if bytes.Equal(data, []byte{'{', '}'}) {
 			continue
 		}
+
+		if len(data) > 1024 {
+			data = data[:1024]
+		}
+
 		switch name {
 		case "level", "time", "message":
 			name = "data." + name
