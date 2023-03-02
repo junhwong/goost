@@ -75,14 +75,13 @@ func AddHandlers(handlers ...Handler) {
 type Option interface {
 	applyInterface(*logImpl)
 }
-type FieldsAppender interface {
-	AppendFields(fs Fields)
-}
 
-func WithFields(fs ...Field) any {
-	return func(appender FieldsAppender) {
-		appender.AppendFields(fs)
-	}
+// type funcSpanOption func(SpanOptionSetter)
+
+func WithFields(fs ...Field) funcSpanOption {
+	return funcSpanOption(func(appender SpanOptionSetter) {
+		appender.SetAttributes(fs...)
+	})
 }
 
 func Default() Interface {

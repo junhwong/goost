@@ -64,8 +64,12 @@ func (l logImpl) Log(level Level, args []interface{}) {
 
 var callerContextKey = struct{}{}
 
-func WithCaller(ctx context.Context) context.Context {
-	info := Caller(1)
+func WithCaller(ctx context.Context, depth ...int) context.Context {
+	d := 1
+	if len(depth) > 0 {
+		d = depth[len(depth)-1]
+	}
+	info := Caller(d)
 	return context.WithValue(ctx, callerContextKey, info)
 }
 func CallerFromContext(ctx context.Context) (CallerInfo, bool) {

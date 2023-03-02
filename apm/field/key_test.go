@@ -1,7 +1,10 @@
 package field
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/spf13/cast"
 )
@@ -134,5 +137,39 @@ func BenchmarkFunc2(b *testing.B) {
 	fs := make(Fields2)
 	for i := 0; i < b.N; i++ {
 		fs.Set(f(i))
+	}
+}
+
+type ts string
+
+func TestRV(t *testing.T) {
+	testCases := []struct {
+		o any
+		k KeyKind
+	}{
+		{
+			o: "r",
+			k: StringKind,
+		},
+		{
+			o: ts("s"),
+			k: StringKind,
+		},
+		{
+			o: time.Now(),
+			k: TimeKind,
+		},
+		{
+			o: time.Second,
+			k: DurationKind,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(fmt.Sprint(tC.k, ":", tC.o), func(t *testing.T) {
+			v, k := InferPrimitiveValueByReflect(reflect.ValueOf(tC.o))
+			if tC.k != k {
+				t.Fatal(k, v)
+			}
+		})
 	}
 }

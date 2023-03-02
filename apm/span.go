@@ -59,7 +59,7 @@ type spanImpl struct {
 	spanContext
 	failed    bool
 	startTime time.Time
-	// option    traceOption
+	info      CallerInfo
 
 	trimFieldPrefix []string
 	name            string
@@ -70,7 +70,6 @@ type spanImpl struct {
 }
 
 func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
-
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -91,7 +90,12 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 		}
 		opt.applySpanOption(span)
 	}
-
+	info, ok := CallerFromContext(ctx)
+	if !ok {
+		info = Caller(span.calldepth)
+		ctx = context.WithValue(ctx, callerContextKey, info)
+	}
+	span.info = info
 	if prent, ok := ctx.Value(spanInContextKey).(*spanImpl); ok && prent != nil {
 		span.TranceID = prent.TranceID
 		span.SpanParentID = prent.SpanID
@@ -131,20 +135,20 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 		name = span.getName()
 	}
 	if len(name) == 0 {
-		name = span.name
-		if len(name) == 0 {
-			s := Caller(span.calldepth).Method
-			i := strings.LastIndex(s, ".")
-			if i > 0 {
-				name = strings.Trim(s[i+1:], ".")
-				s = s[:i]
-			}
-			s = strings.Trim(strings.SplitN(s, "(", 2)[0], ".")
-			if len(name) > 0 {
-				name = s + "." + name
-			} else {
-				name = s
-			}
+		s := span.info.Method
+		i := strings.LastIndex(s, ".")
+		if i > 0 {
+			name = strings.Trim(s[i+1:], ".")
+			s = s[:i]
+		}
+		s = strings.Trim(strings.SplitN(s, "(", 2)[0], ".")
+		if len(name) > 0 {
+			name = s + "." + name
+		} else {
+			name = s
+		}
+		if i = strings.LastIndex(name, "/"); i > 0 {
+			name = name[i+1:]
 		}
 	}
 
@@ -163,7 +167,7 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 		fs = append(fs, TraceError(span.failed))
 	}
 	fs = append(fs, LevelField(int(LevelTrace)))
-	span.LogFS(nil, fs...) //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
+	span.LogFS([]any{span.ctx}, fs...) //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
 	span.logImpl = nil
 }
 
