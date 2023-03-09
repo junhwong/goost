@@ -11,6 +11,14 @@ type Field interface {
 	Kind() KeyKind
 	Unwrap() (Key, interface{}) // 获取字段的键和值。返回 nil表示该字段无效
 	GetObject() any
+	GetString() string
+	GetBool() bool
+	GetInt() int64
+	GetUint() uint64
+	GetFloat() float64
+	GetTime() time.Time
+	GetDuration() time.Duration
+	GetSlice() []any
 }
 
 // Field 表示一个标准字段。

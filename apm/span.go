@@ -3,6 +3,7 @@ package apm
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
@@ -15,7 +16,7 @@ type SpanFactory interface {
 type Span interface {
 	Logger
 	End(options ...EndSpanOption)                                   // 结束该Span。
-	Fail()                                                          // Fail 标记该Span为失败。
+	Fail(error) error                                               // Fail 标记该Span为失败。
 	FailIf(err error) bool                                          // 如果`err`不为`nil`, 则标记失败并返回`true`，否则`false`
 	PanicIf(err error)                                              // 如果`err`不为`nil`, 则标记失败并`panic`
 	SetStatus(code SpanStatus, description string, failure ...bool) // 设置状态
@@ -55,6 +56,7 @@ func (ctx *spanContext) GetSpanParentID() string { return ctx.SpanParentID }
 var _ Span = (*spanImpl)(nil)
 
 type spanImpl struct {
+	mu sync.Mutex
 	*logImpl
 	spanContext
 	failed    bool
@@ -122,7 +124,13 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 }
 
 func (span *spanImpl) End(options ...EndSpanOption) {
-	if span == nil || span.logImpl == nil {
+	if span.logImpl == nil {
+		return
+	}
+
+	span.mu.Lock()
+	defer span.mu.Unlock()
+	if span.logImpl == nil {
 		return
 	}
 	for _, option := range options {
@@ -174,8 +182,12 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 func (span *spanImpl) Context() SpanContext { return span }
 
 // 标记失败
-func (span *spanImpl) Fail() {
+func (span *spanImpl) Fail(err error) error {
+	if err == nil {
+		return nil
+	}
 	span.failed = true
+	return err
 }
 
 func (span *spanImpl) FailIf(err error) bool {
