@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
-	"github.com/spf13/cast"
 )
 
 // LoggerInterface 日志记录接口
@@ -57,15 +56,10 @@ func (l *logImpl) clone() *logImpl {
 	}
 }
 
-func (l logImpl) Log(level Level, args []interface{}) {
-	l.calldepth++
-	l.LogFS(args, LevelField(int(level)))
-}
-
-var callerContextKey = struct{}{}
+var callerContextKey = CallerInfo{}
 
 func WithCaller(ctx context.Context, depth ...int) context.Context {
-	d := 1
+	d := 2
 	if len(depth) > 0 {
 		d = depth[len(depth)-1]
 	}
@@ -77,22 +71,15 @@ func CallerFromContext(ctx context.Context) (CallerInfo, bool) {
 	info, ok := obj.(CallerInfo)
 	return info, ok
 }
-
-func (l logImpl) LogFS(args []interface{}, fs ...Field) {
-	entry := make(field.Fields, 5)
-	entry.Set(l.fields...)
-	entry.Set(fs...)
-	var lvl int
-	if v := entry.Get(LevelKey); v == nil {
-		// 没有级别
-		return
-	} else {
-		lvl = cast.ToInt(v)
-		if lvl < 0 {
-			return
-		}
+func (l logImpl) Log(level Level, args []interface{}) {
+	l.calldepth++
+	entry := &FieldsEntry{
+		Level: level,
 	}
-
+	entry.Labels = append(entry.Labels, l.fields...)
+	l.LogFS(entry, args)
+}
+func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}, fs ...Field) {
 	// var err error
 	a := []interface{}{}
 	ctxs := []context.Context{}
@@ -100,7 +87,7 @@ func (l logImpl) LogFS(args []interface{}, fs ...Field) {
 	for _, f := range args {
 		switch f := f.(type) {
 		case Field:
-			entry.Set(f)
+			entry.Labels = append(entry.Labels, f)
 		case context.Context:
 			ctxs = append(ctxs, f)
 		case error:
@@ -112,27 +99,25 @@ func (l logImpl) LogFS(args []interface{}, fs ...Field) {
 			a = append(a, f)
 		}
 	}
-	var callerinfo *CallerInfo
-	for _, ctx := range ctxs {
-		info, ok := CallerFromContext(ctx)
-		if !ok {
-			continue
+
+	if !entry.CallerInfo.Ok {
+		for _, ctx := range ctxs {
+			info, ok := CallerFromContext(ctx)
+			if !ok {
+				continue
+			}
+			entry.CallerInfo = info
+			break
 		}
-		callerinfo = &info
-		break
 	}
 
-	caller := ""
-	if callerinfo == nil && l.calldepth > -1 {
-		info := Caller(l.calldepth + 1)
-		callerinfo = &info
+	if !entry.CallerInfo.Ok && l.calldepth > -1 {
+		doCaller(l.calldepth+1, &entry.CallerInfo)
 	}
-	if callerinfo != nil {
-		caller = callerinfo.Caller()
-		entry.Set(TracebackCaller(caller))
-	}
-	if serr != nil {
-		if _, ok := entry[ErrorMethodKey]; !ok {
+
+	if serr != nil { // todo 额外处理
+		caller := entry.CallerInfo.Caller()
+		if ls := entry.Lookup(ErrorMethodKey.Name()); len(ls) == 0 {
 			stack := StackToCallerInfo(serr.Stack)
 			arr := []string{}
 			for _, it := range stack {
@@ -147,38 +132,34 @@ func (l logImpl) LogFS(args []interface{}, fs ...Field) {
 			// fmt.Printf("stack: %s\n", serr.Stack)
 			// fmt.Printf("arr: %v\n", arr)
 			if len(arr) > 0 {
-				entry.Set(ErrorMethod(strings.Join(arr, ",")))
+				entry.Labels = append(entry.Labels, ErrorMethod(strings.Join(arr, ",")))
 			}
 		}
-		if _, ok := entry[ErrorStackTraceKey]; !ok {
-			entry.Set(ErrorStackTrace("%s", serr.Stack))
+
+		if ls := entry.Lookup(ErrorStackTraceKey.Name()); len(ls) == 0 {
+			entry.Labels = append(entry.Labels, ErrorStackTrace("%s", serr.Stack))
 		}
 	}
 
-	if _, ok := entry[TraceIDKey]; !ok {
+	if ls := entry.Lookup(TraceIDKey.Name()); len(ls) == 0 {
 		for _, ctx := range ctxs {
 			tid, sid := GetTraceID(ctx)
 			if len(tid) > 0 {
-				entry.Set(TraceID(tid))
-				if _, ok := entry[SpanIDKey]; !ok {
-					if len(sid) > 0 {
-						entry.Set(SpanID(sid))
-					}
-				}
+				entry.Labels = append(entry.Labels, TraceID(tid))
+				entry.Labels = append(entry.Labels, SpanID(sid))
 				break
 			}
 		}
 	}
 
 	if len(a) > 0 {
-		entry.Set(Message("", a...))
+		entry.Labels = append(entry.Labels, Message("", a...))
 	}
 
-	if _, ok := entry[TimeKey]; !ok {
-		entry.Set(Time(time.Now()))
+	if entry.Time.IsZero() {
+		entry.Time = time.Now()
 	}
-	entry.Set(LevelField(lvl))
-	dispatcher.Dispatch(FieldsEntry(entry))
+	dispatcher.Dispatch(entry)
 }
 
 func (l *logImpl) Debug(a ...interface{}) { l.Log(LevelDebug, a) }

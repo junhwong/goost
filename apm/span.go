@@ -56,32 +56,32 @@ func (ctx *spanContext) GetSpanParentID() string { return ctx.SpanParentID }
 var _ Span = (*spanImpl)(nil)
 
 type spanImpl struct {
+	*FieldsEntry
 	mu sync.Mutex
 	*logImpl
 	spanContext
-	failed    bool
-	startTime time.Time
-	info      CallerInfo
-
-	trimFieldPrefix []string
-	name            string
-	attrs           Fields
-	// delegate        func(*traceOption)
+	failed   bool
+	name     string
 	getName  func() string
 	endCalls []func(Span)
+
+	// trimFieldPrefix []string
+	// attrs           Fields
+	// delegate        func(*traceOption)
 }
 
 func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-
+	log = log.clone()
 	span := &spanImpl{
-		// option:    option,
-		logImpl: log.clone(),
-		attrs:   make(Fields, 0),
-
-		startTime: time.Now(),
+		FieldsEntry: &FieldsEntry{
+			Level:  LevelTrace,
+			Time:   time.Now(),
+			Labels: log.fields,
+		},
+		logImpl: log,
 		spanContext: spanContext{
 			SpanID: NewSpanId(),
 		},
@@ -92,12 +92,12 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 		}
 		opt.applySpanOption(span)
 	}
-	info, ok := CallerFromContext(ctx)
+	var ok bool
+	span.CallerInfo, ok = CallerFromContext(ctx)
 	if !ok {
-		info = Caller(span.calldepth)
-		ctx = context.WithValue(ctx, callerContextKey, info)
+		doCaller(span.calldepth, &span.CallerInfo)
+		ctx = context.WithValue(ctx, callerContextKey, span.CallerInfo)
 	}
-	span.info = info
 	if prent, ok := ctx.Value(spanInContextKey).(*spanImpl); ok && prent != nil {
 		span.TranceID = prent.TranceID
 		span.SpanParentID = prent.SpanID
@@ -143,7 +143,7 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 		name = span.getName()
 	}
 	if len(name) == 0 {
-		s := span.info.Method
+		s := span.CallerInfo.Method
 		i := strings.LastIndex(s, ".")
 		if i > 0 {
 			name = strings.Trim(s[i+1:], ".")
@@ -160,23 +160,23 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 		}
 	}
 
-	var fs Fields
-	fs = append(fs, span.attrs...)
-	fs = append(fs, SpanName(name))
-	fs = append(fs, Time(span.startTime))
-	fs = append(fs, SpanID(span.SpanID))
-	fs = append(fs, SpanParentID(span.SpanParentID))
-	fs = append(fs, Duration(time.Since(span.startTime))) // Latency
-	fs = append(fs, TraceID(span.TranceID))
+	span.Labels = append(span.Labels, SpanName(name))
+	span.Labels = append(span.Labels, SpanID(span.SpanID))
+	if len(span.SpanParentID) > 0 {
+		span.Labels = append(span.Labels, SpanParentID(span.SpanParentID))
+	}
+	span.Labels = append(span.Labels, Duration(time.Since(span.Time))) // Latency
+	span.Labels = append(span.Labels, TraceID(span.TranceID))
 	for _, fn := range span.endCalls {
 		fn(span)
 	}
 	if span.failed {
-		fs = append(fs, TraceError(span.failed))
+		span.Labels = append(span.Labels, TraceError(span.failed))
 	}
-	fs = append(fs, LevelField(int(LevelTrace)))
-	span.LogFS([]any{span.ctx}, fs...) //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
+
+	span.LogFS(span.FieldsEntry, []any{span.ctx}) //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
 	span.logImpl = nil
+	span.FieldsEntry = nil
 }
 
 func (span *spanImpl) Context() SpanContext { return span }
@@ -214,6 +214,6 @@ func (span *spanImpl) SetStatus(code SpanStatus, description string, failure ...
 		}
 	}
 }
-func (s *spanImpl) SetAttributes(a ...field.Field) { s.attrs = append(s.attrs, a...) }
+func (s *spanImpl) SetAttributes(a ...field.Field) { s.Labels = append(s.Labels, a...) }
 func (s *spanImpl) SetNameGetter(a func() string)  { s.getName = a }
 func (s *spanImpl) SetEndCalls(a []func(Span))     { s.endCalls = a }

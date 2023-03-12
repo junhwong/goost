@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"sync"
 )
 
 // 日志项处理器
@@ -14,8 +15,11 @@ type Handler interface {
 	// 优先级. 值越大越优先
 	Priority() int
 
+	// 刷新到输出
+	Flush()
+
 	// 处理日志
-	Handle(entry Entry, next func())
+	Handle(entry Entry, next, end func())
 }
 
 type handlerSlice []Handler
@@ -27,19 +31,26 @@ func (x handlerSlice) Sort()              { sort.Sort(x) }
 func (x handlerSlice) handle(entry Entry) {
 	size := x.Len()
 	crt := 0
+	var once sync.Once
+	var release = func() {
+		once.Do(func() {
+			crt += size
+			// todo 将entry释放
+		})
+	}
+
 	var next func()
 	next = func() {
 		if crt >= size {
+			release()
 			return
 		}
 		h := x[crt]
 		crt++
-		h.Handle(entry, next)
+		h.Handle(entry, next, release)
 	}
 	next()
 }
-
-var _ Handler = (*SimpleHandler)(nil)
 
 func Console() (*SimpleHandler, *TextFormatter) {
 	text := &TextFormatter{SkipFields: []string{"log.component"}}
@@ -47,38 +58,52 @@ func Console() (*SimpleHandler, *TextFormatter) {
 		text.Color = true
 	}
 	return &SimpleHandler{
-		Out:             os.Stdout,
+		IsEnd:           true,
 		Formatter:       text,
-		HandlerPriority: -9999,
-		Filter:          func(l Level) bool { return l >= LevelDebug },
+		HandlerPriority: -9000,
+		Filter: func(entry Entry) bool {
+			l := entry.GetLevel()
+			return l >= LevelDebug && l < LevelTrace
+		},
 	}, text
 }
 
-// 控制台
+var _ Handler = (*SimpleHandler)(nil)
+
 type SimpleHandler struct {
-	Out             io.Writer
+	Out             Outer // 如果未提供则输出到控制台
 	Formatter       Formatter
-	Filter          func(Level) bool
+	Filter          func(Entry) bool
 	HandlerPriority int
+	IsEnd           bool
 }
 
 func (h SimpleHandler) Priority() int {
 	return h.HandlerPriority
 }
 
-func (h SimpleHandler) Handle(entry Entry, next func()) {
-	defer next()
-	lvl := entry.GetLevel()
+type Outer interface {
+	io.Writer
+	// Sync() error
+}
 
-	if filter := h.Filter; filter != nil && !filter(lvl) {
+func (h SimpleHandler) Flush() {}
+func (h SimpleHandler) Handle(entry Entry, next, end func()) {
+	if filter := h.Filter; filter != nil && !filter(entry) {
+		if h.IsEnd {
+			end()
+			return
+		}
+		next()
 		return
 	}
+	defer end()
 
-	var out io.Writer = h.Out
+	out := h.Out
 
 	if out == nil {
 		out = os.Stdout
-		if lvl >= LevelError && lvl < LevelTrace {
+		if lvl := entry.GetLevel(); lvl >= LevelError && lvl < LevelTrace {
 			out = os.Stderr
 		}
 	}

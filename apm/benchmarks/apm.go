@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/junhwong/goost/apm/field"
 )
 
 var (
@@ -101,22 +99,22 @@ type user struct {
 // 	))
 // }
 
-func fakeFields() []field.Field {
-	_, i1 := field.Int("int")
-	_, i2 := field.Slice("ints", field.IntKind)
-	return []field.Field{
-		i1(_tenInts[0]),
-		i2(_tenInts),
-		// field.String("string", _tenStrings[0]),
-		// field.Strings("strings", _tenStrings),
-		// field.Time("time", _tenTimes[0]),
-		// field.Times("times", _tenTimes),
-		// field.Object("user1", _oneUser),
-		// field.Object("user2", _oneUser),
-		// field.Array("users", _tenUsers),
-		// field.Error(errExample),
-	}
-}
+// func fakeFields() []field.Field {
+// 	_, i1 := field.Int("int")
+// 	_, i2 := field.Slice("ints", field.IntKind)
+// 	return []field.Field{
+// 		i1(_tenInts[0]),
+// 		i2(_tenInts),
+// 		// field.String("string", _tenStrings[0]),
+// 		// field.Strings("strings", _tenStrings),
+// 		// field.Time("time", _tenTimes[0]),
+// 		// field.Times("times", _tenTimes),
+// 		// field.Object("user1", _oneUser),
+// 		// field.Object("user2", _oneUser),
+// 		// field.Array("users", _tenUsers),
+// 		// field.Error(errExample),
+// 	}
+// }
 
 func fakeSugarFields() []interface{} {
 	return []interface{}{

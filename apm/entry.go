@@ -4,62 +4,58 @@ import (
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
-	"github.com/spf13/cast"
 )
 
+type (
+	Field  = field.Field
+	Fields = []Field
+)
 type Entry interface {
 	GetLevel() (v Level)
 	GetTime() (v time.Time)
 	GetMessage() (v string)
-	GetFields() Fields
+	GetLabels() []Field
+	GetCallerInfo() *CallerInfo
+	Lookup(key string) (found []Field)
 }
 
-type (
-	Field       = field.Field
-	Fields      = []Field
-	FieldsEntry field.Fields
-)
+type FieldsEntry struct {
+	Level      Level
+	Time       time.Time
+	Labels     []Field
+	CallerInfo CallerInfo
+}
 
 func (e FieldsEntry) GetLevel() (v Level) {
-	if len(e) == 0 {
-		return
-	}
-	switch a := field.Fields(e).Get(LevelKey).(type) {
-	case int:
-		v = LevelFromInt(a)
-	default:
-		v = LevelFromInt(cast.ToInt(a))
-	}
-	return
+	return e.Level
 }
 
 func (e FieldsEntry) GetTime() (v time.Time) {
-	if len(e) == 0 {
-		return
+	return e.Time
+}
+func (e FieldsEntry) GetLabels() []Field {
+	return e.Labels
+}
+func (e FieldsEntry) GetCallerInfo() *CallerInfo {
+	if e.CallerInfo.Ok {
+		return &e.CallerInfo
 	}
-	switch a := field.Fields(e).Get(TimeKey).(type) {
-	case time.Time:
-		v = a
-	default:
-	}
-	return
+	return nil
 }
 
 func (e FieldsEntry) GetMessage() (v string) {
-	if len(e) == 0 {
-		return
-	}
-	switch a := field.Fields(e).Get(MessageKey).(type) {
-	case string:
-		v = a
-	default:
+	for _, l := range e.GetLabels() {
+		if l != nil && l.GetKey() == MessageKey.Name() {
+			return l.GetStringValue()
+		}
 	}
 	return
 }
-
-func (e FieldsEntry) GetFields() Fields {
-	if len(e) == 0 {
-		return nil
+func (e FieldsEntry) Lookup(key string) (found []Field) {
+	for _, l := range e.GetLabels() {
+		if l != nil && l.GetKey() == key && l.GetKind() != field.InvalidKind {
+			found = append(found, l)
+		}
 	}
-	return field.Fields(e).List()
+	return
 }

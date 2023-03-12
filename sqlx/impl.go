@@ -22,7 +22,7 @@ var (
 	_, dbStmt      = field.String("db.statement")
 	_, dbStage     = field.String("db.stage")
 	_, dbPrepareID = field.String("db.prepareid")
-	_, dbArgs      = field.Slice("db.arguments", field.StringKind)
+	_, dbArgs      = field.String("db.arguments")
 	StatementIDKey = struct{ name string }{"$$statement_id"}
 )
 
@@ -82,7 +82,7 @@ func prepareContext(ctx context.Context, meta connMeta, raw sqlPrepare, query st
 	// fmt.Println("sql", query)
 	stmt, err := raw.PrepareContext(ctx, query)
 	if err != nil {
-		span.Fail()
+		span.Fail(err)
 		return nil, err
 	}
 

@@ -208,11 +208,36 @@ func (e Entry) GetFields() apm.Fields {
 }
 
 func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
+	info := apm.CallerInfo{
+		File:   ent.Caller.File,
+		Line:   ent.Caller.Line,
+		Method: ent.Caller.Function,
+		Ok:     true,
+	}
+	fs := transform(c.fields)
+	fs = append(fs, transform(fields)...)
 
-	c.log.Dispatch(Entry{
-		c:      c,
-		ent:    ent,
-		fields: fields,
+	apmLvl := apm.LevelDebug
+	switch ent.Level {
+	case zapcore.InfoLevel:
+		apmLvl = apm.LevelInfo
+	case zapcore.WarnLevel:
+		apmLvl = apm.LevelWarn
+	case zapcore.ErrorLevel:
+		apmLvl = apm.LevelError
+	case zapcore.DPanicLevel:
+		apmLvl = apm.LevelWarn
+	case zapcore.PanicLevel:
+		apmLvl = apm.LevelError
+	case zapcore.FatalLevel:
+		apmLvl = apm.LevelFatal
+	}
+
+	c.log.Dispatch(&apm.FieldsEntry{
+		Time:       ent.Time,
+		Level:      apmLvl,
+		Labels:     fs,
+		CallerInfo: info,
 	})
 	// buf, err := c.enc.EncodeEntry(ent, fields)
 	// if err != nil {

@@ -10,16 +10,21 @@ import (
 
 // 对标准库 `runtime.Caller` 的封装
 func Caller(depth int) (info CallerInfo) {
+	doCaller(depth, &info)
+	return
+}
+func doCaller(depth int, info *CallerInfo) {
 	info.depth = depth + 1
-	info.pc, info.File, info.Line, info.ok = runtime.Caller(info.depth)
+	info.pc, info.File, info.Line, info.Ok = runtime.Caller(info.depth)
 
-	if info.ok {
+	if info.Ok {
 		info.Method = runtime.FuncForPC(info.pc).Name()
 		// info.Method, info.Package = split(runtime.FuncForPC(info.pc).Name())
 	}
 	// info.File, info.Path = split(info.File)
 	return
 }
+
 func split(s string) (string, string) {
 	i := strings.LastIndex(s, "/")
 	if i > 0 {
@@ -38,7 +43,7 @@ type CallerInfo struct {
 
 	depth int
 	pc    uintptr
-	ok    bool
+	Ok    bool
 }
 
 func (info CallerInfo) Caller() string {

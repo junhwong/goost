@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/junhwong/duzee-go/pkg/sets"
 	"github.com/junhwong/goost/apm/field"
 	"github.com/spf13/cast"
 )
@@ -69,9 +68,13 @@ func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		}
 		_, err = fmt.Fprintf(dest, format, a...)
 	}
-	skipFields := sets.NewString(TimeKey.Name(), MessageKey.Name(), LevelKey.Name())
+	skipFields := map[string]string{
+		TimeKey.Name():    "",
+		MessageKey.Name(): "",
+		LevelKey.Name():   "",
+	}
 	for _, v := range tf.SkipFields {
-		skipFields.Insert(v)
+		skipFields[v] = ""
 	}
 	supportColor := tf.Color
 
@@ -97,15 +100,10 @@ func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	}
 	// writeByte('|')
 	writeByte(' ')
-	fs := entry.GetFields()
-FOR:
-	for _, f := range fs {
-		switch f.Key() {
-		case TracebackCallerKey:
-			_, v := f.Unwrap()
-			fprintf(`%s`, v)
-			break FOR
-		}
+	fs := entry.GetLabels()
+
+	if ci := entry.GetCallerInfo(); ci != nil {
+		fprintf(`%s`, ci.Caller())
 	}
 
 	fprintf(`%s`, cs)
@@ -119,9 +117,10 @@ FOR:
 	// keys := fs.Keys()
 	fsv := []string{}
 	for _, f := range fs {
-		key, val := f.Unwrap()
+		// key, val := f.Unwrap()
 		// fmt.Printf("key: %v\n", key)
-		if key == nil || val == nil || skipFields.Has(key.Name()) {
+		// key == nil || val == nil ||
+		if _, ok := skipFields[f.GetKey()]; ok {
 			if fn := tf.Skipped; fn != nil {
 				fn(f)
 			}
@@ -139,13 +138,14 @@ FOR:
 		// 	continue
 		// }
 
-		switch key {
+		switch f.GetKey() {
 		// case TraceIDKey: // TODO: 开发者选项
 		// 	continue
-		case TracebackCallerKey, ErrorStackTraceKey, TracebackPathKey, TracebackLineNoKey: // TODO: 调用者选项
+		case TracebackCallerKey.Name(), ErrorStackTraceKey.Name(), TracebackPathKey.Name(),
+			TracebackLineNoKey.Name(): // TODO: 调用者选项
 			continue
 		}
-		name := key.Name()
+		name := f.GetKey()
 
 		// if name == "error.method" {
 		// 	if s, _ := val.(string); len(s) > 0 {
@@ -165,6 +165,7 @@ FOR:
 
 		// 	}
 		// }
+		val := field.GetObject(f)
 		if e, _ := val.(error); e != nil {
 			val = e.Error()
 		}

@@ -22,19 +22,19 @@ func (d *syncDispatcher) AddHandlers(handlers ...Handler) {
 		panic("apm: handlers cannot empty")
 	}
 
-	// d.mu.Lock()
-	// old := d.gethandlers()
-	// d.mu.Unlock()
+	d.mu.Lock()
+	old := d.gethandlers()
+	d.mu.Unlock()
 
-	// for _, it := range handlers {
-	// 	if it == nil {
-	// 		continue
-	// 	}
-	// 	old = append(old, it)
-	// }
-	handlersCopy := make([]Handler, len(handlers))
-	copy(handlersCopy, handlers)
-	old := handlerSlice(handlersCopy)
+	for _, it := range handlers {
+		if it == nil {
+			continue
+		}
+		old = append(old, it)
+	}
+	// handlersCopy := make([]Handler, len(handlers))
+	// copy(handlersCopy, handlers)
+	// old := handlerSlice(handlersCopy)
 	old.Sort()
 
 	d.mu.Lock()

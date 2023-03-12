@@ -125,13 +125,14 @@ func BenchmarkFunc(b *testing.B) {
 		f(i)
 	}
 }
-func BenchmarkStruct2(b *testing.B) {
-	_, f := Int("BenchmarkStruct2")
-	fs := make(Fields)
-	for i := 0; i < b.N; i++ {
-		fs.Set(f(i))
-	}
-}
+
+//	func BenchmarkStruct2(b *testing.B) {
+//		_, f := Int("BenchmarkStruct2")
+//		fs := make(Fields)
+//		for i := 0; i < b.N; i++ {
+//			fs.Set(f(i))
+//		}
+//	}
 func BenchmarkFunc2(b *testing.B) {
 	_, f := makeInt("BenchmarkFunc2")
 	fs := make(Fields2)

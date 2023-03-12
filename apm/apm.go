@@ -26,6 +26,7 @@ func init() {
 
 	initOnce.Do(func() {
 		handler, _ := Console()
+		handler.HandlerPriority -= 999
 		dispatcher.AddHandlers(handler)
 		std = &logImpl{calldepth: 1}
 	})

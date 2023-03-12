@@ -6,176 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/junhwong/goost/apm/field/pb"
 	"github.com/spf13/cast"
 )
-
-func makeField(k Key, v interface{}, valid bool, err ...error) *structField {
-	var ex error
-	for _, it := range err {
-		ex = it
-	}
-	if ex != nil {
-		valid = false
-	}
-	if !valid {
-		v = nil
-	}
-	return &structField{KeyField: k, Value: v, valid: valid}
-}
-func makeField2(k Key, err ...error) *structField {
-	var ex error
-	for _, it := range err {
-		ex = it
-	}
-	if ex != nil {
-	}
-	return &structField{KeyField: k}
-}
-func infer(v any) *structField {
-	f := &structField{kind: InvalidKind}
-	iv, k := InferPrimitiveValue(v)
-	if k != InvalidKind {
-		f.Value = iv
-		f.kind = k
-		return f
-	}
-	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Pointer {
-		rv = rv.Elem()
-	}
-	iv, k = InferPrimitiveValueByReflect(rv)
-	if k != InvalidKind {
-		f.Value = iv
-		f.kind = k
-		return f
-	}
-	switch rv.Kind() {
-	case reflect.Slice, reflect.Array:
-		var slice []*structField
-		i := rv.Len()
-		for i > -1 {
-			i--
-			iv := rv.Index(i)
-			if iv.Kind() != reflect.Invalid {
-				sf := infer(iv.Interface())
-				if sf.kind != InvalidKind {
-					slice = append(slice, sf)
-				}
-			}
-		}
-		f.Value = slice
-		f.kind = SliceKind
-		return f
-	case reflect.Struct:
-		f.Value = v
-		f.kind = DynamicKind
-		return f
-	}
-
-	return f
-	// f := &structField{kind: InvalidKind}
-	// if v == nil {
-	// 	return f
-	// }
-	// switch v := v.(type) {
-	// case int:
-	// 	f.SetInt(int64(v))
-	// case int8:
-	// 	f.SetInt(int64(v))
-	// case int16:
-	// 	f.SetInt(int64(v))
-	// case int32:
-	// 	f.SetInt(int64(v))
-	// case int64:
-	// 	f.SetInt(v)
-	// case *int:
-	// 	f.SetInt(int64(*v))
-	// case *int8:
-	// 	f.SetInt(int64(*v))
-	// case *int16:
-	// 	f.SetInt(int64(*v))
-	// case *int32:
-	// 	f.SetInt(int64(*v))
-	// case *int64:
-	// 	f.SetInt(int64(*v))
-	// case uint:
-	// 	f.SetUint(uint64(v))
-	// case uint8:
-	// 	f.SetUint(uint64(v))
-	// case uint16:
-	// 	f.SetUint(uint64(v))
-	// case uint32:
-	// 	f.SetUint(uint64(v))
-	// case uint64:
-	// 	f.SetUint(v)
-	// case *uint:
-	// 	f.SetUint(uint64(*v))
-	// case *uint8:
-	// 	f.SetUint(uint64(*v))
-	// case *uint16:
-	// 	f.SetUint(uint64(*v))
-	// case *uint32:
-	// 	f.SetUint(uint64(*v))
-	// case *uint64:
-	// 	f.SetUint(*v)
-	// case float32:
-	// 	f.SetFloat(float64(v))
-	// case float64:
-	// 	f.SetFloat(v)
-	// case *float32:
-	// 	f.SetFloat(float64(*v))
-	// case *float64:
-	// 	f.SetFloat(*v)
-	// case bool:
-	// 	f.SetBool(v)
-	// case *bool:
-	// 	f.SetBool(*v)
-	// case string:
-	// 	f.SetString(v)
-	// case *string:
-	// 	f.SetString(*v)
-	// case time.Time:
-	// 	f.SetTime(v)
-	// case *time.Time:
-	// 	f.SetTime(*v)
-	// case time.Duration:
-	// 	f.SetDuration(v)
-	// case *time.Duration:
-	// 	f.SetDuration(*v)
-	// }
-	// if f.kind != InvalidKind {
-	// 	return f
-	// }
-	// // kind = trem
-	// rv := reflect.ValueOf(v)
-	// if rv.Kind() == reflect.Pointer {
-	// 	rv = rv.Elem()
-	// }
-	// switch rv.Kind() {
-	// case reflect.Bool:
-	// case reflect.String:
-	// 	v = rv.Interface()
-	// 	if rv.Type().String() != "string" {
-	// 		v = fmt.Sprint(v)
-	// 	}
-	// 	return infer(v, trem)
-	// case reflect.Slice, reflect.Array:
-	// 	i := rv.Len()
-	// 	for i > -1 {
-	// 		i--
-	// 		iv := rv.Index(i)
-	// 		if iv.Kind() != reflect.Invalid {
-	// 			sf := infer(iv.Interface(), trem)
-	// 			if sf.kind != InvalidKind {
-	// 				f.kind = SliceKind
-	// 				f.ValueSlice = append(f.ValueSlice, sf)
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// return f
-}
 
 func InferPrimitiveValue(v any) (any, KeyKind) {
 	if v == nil {
@@ -294,8 +127,56 @@ func InferPrimitiveValueByReflect(rv reflect.Value) (any, KeyKind) {
 
 // 构造一个动态字段
 func Dynamic(name string, v any) Field {
-	f := infer(v)
-	f.KeyField = makeOrGetKey(name, f.kind)
+	f := &pb.Field{Key: name}
+	iv, k := InferPrimitiveValue(v)
+	if k == InvalidKind {
+		rv := reflect.ValueOf(v)
+		if rv.Kind() == reflect.Pointer {
+			rv = rv.Elem()
+		}
+		iv, k = InferPrimitiveValueByReflect(rv)
+	}
+	if k == InvalidKind {
+		if err, _ := v.(error); err != nil {
+			iv = err.Error()
+			k = StringKind
+		}
+	}
+	if k == InvalidKind {
+		return f
+	}
+
+	switch k {
+	case StringKind:
+		v := iv.(string)
+		f.Kind = StringKind
+		f.StringValue = &v
+	case IntKind:
+		v := iv.(int64)
+		f.Kind = IntKind
+		f.IntValue = &v
+	case UintKind:
+		v := iv.(uint64)
+		f.Kind = UintKind
+		f.UintValue = &v
+	case FloatKind:
+		v := iv.(float64)
+		f.Kind = FloatKind
+		f.FloatValue = &v
+	case BoolKind:
+		v := iv.(bool)
+		f.Kind = BoolKind
+		f.BoolValue = &v
+	case TimeKind:
+		v := iv.(time.Time).UnixNano()
+		f.Kind = TimeKind
+		f.IntValue = &v
+	case DurationKind:
+		v := int64(iv.(time.Duration))
+		f.Kind = DurationKind
+		f.IntValue = &v
+	}
+	// f.KeyField = makeOrGetKey(name, f.kind)
 	return f
 }
 
@@ -308,48 +189,47 @@ func String(name string) (Key, func(string, ...interface{}) Field) {
 		} else if len(a) > 0 {
 			v = fmt.Sprint(a...)
 		}
-		return makeField2(k).SetString(strings.TrimSpace(v))
+		v = strings.TrimSpace(v)
+		if len(v) == 0 {
+			return &pb.Field{Key: name}
+		}
+		return &pb.Field{Key: name, Kind: StringKind, StringValue: &v}
 	}
 }
 
 func Bool(name string) (Key, func(bool) Field) {
 	k := makeOrGetKey(name, BoolKind)
 	return k, func(v bool) Field {
-		return makeField2(k).SetBool(v)
+		return &pb.Field{Key: name, Kind: BoolKind, BoolValue: &v}
 	}
 }
 
 func Time(name string) (Key, func(time.Time) Field) {
 	k := makeOrGetKey(name, TimeKind)
 	return k, func(t time.Time) Field {
-		return makeField2(k).SetTime(t)
+		v := t.UnixNano()
+		return &pb.Field{Key: name, Kind: TimeKind, IntValue: &v}
 	}
 }
 
 func Int(name string) (Key, func(interface{}) Field) {
 	k := makeOrGetKey(name, IntKind)
 	return k, func(v interface{}) Field {
-		i, err := cast.ToInt64E(v)
-		if err == nil {
-			v = i
-		}
-		return makeField2(k, err).SetInt(i)
+		return Dynamic(name, v)
 	}
 }
 
 func Uint(name string) (Key, func(interface{}) Field) {
 	k := makeOrGetKey(name, UintKind)
 	return k, func(v interface{}) Field {
-		i, err := cast.ToUint64E(v)
-		return makeField2(k, err).SetUint(i)
+		return Dynamic(name, v)
 	}
 }
 
 func Float(name string) (Key, func(interface{}) Field) {
 	k := makeOrGetKey(name, FloatKind)
 	return k, func(v interface{}) Field {
-		n, err := cast.ToFloat64E(v)
-		return makeField2(k, err).SetFloat(n)
+		return Dynamic(name, v)
 	}
 }
 
@@ -357,58 +237,59 @@ func Float(name string) (Key, func(interface{}) Field) {
 func Duration(name string) (Key, func(time.Duration) Field) {
 	k := makeOrGetKey(name, IntKind)
 	return k, func(v time.Duration) Field {
-		return makeField2(k).SetDuration(v)
+		d := int64(v)
+		return &pb.Field{Key: name, Kind: DurationKind, IntValue: &d}
 	}
 }
 
-// Slice 返回一个数组对象
-func Slice(name string, kind KeyKind) (Key, func(...interface{}) Field) {
-	k := &key{name: name, kind: kind}
-	// dtype := DynamicKind
-	// if len(kind) > 0 {
-	// 	dtype = kind[len(kind)-1]
-	// }
-	return k, func(v ...interface{}) (r Field) {
+// // Slice 返回一个数组对象
+// func Slice(name string, kind KeyKind) (Key, func(...interface{}) Field) {
+// 	k := &key{name: name, kind: kind}
+// 	// dtype := DynamicKind
+// 	// if len(kind) > 0 {
+// 	// 	dtype = kind[len(kind)-1]
+// 	// }
+// 	return k, func(v ...interface{}) (r Field) {
 
-		for _, v2 := range v {
-			infer(v2)
-		}
+// 		for _, v2 := range v {
+// 			infer(v2)
+// 		}
 
-		switch kind {
-		case StringKind:
-			val, err := cast.ToStringSliceE(v)
-			r = makeField(k, val, len(val) > 0, err)
-		case IntKind:
-			val, err := ToInt64SliceE(v)
-			r = makeField(k, val, len(val) > 0, err)
-		case UintKind:
-			val, err := ToUint64SliceE(v)
-			r = makeField(k, val, len(val) > 0, err)
-		case FloatKind:
-			val, err := ToFloat64SliceE(v)
-			r = makeField(k, val, len(val) > 0, err)
-		case BoolKind:
-			val, err := cast.ToBoolSliceE(v)
-			r = makeField(k, val, len(val) > 0, err)
-		case TimeKind:
-			// TODO: 时区未解决, 目前是UTC
-			val := []time.Time{}
-			var err error
-			for _, it := range v {
-				if t, ex := cast.ToTimeE(it); ex == nil {
-					val = append(val, t)
-				} else {
-					err = ex
-					break
-				}
-			}
-			r = makeField(k, val, len(val) > 0, err)
-		default:
-			r = makeField(k, v, len(v) > 0, nil)
-		}
-		return
-	}
-}
+// 		switch kind {
+// 		case StringKind:
+// 			val, err := cast.ToStringSliceE(v)
+// 			r = makeField(k, val, len(val) > 0, err)
+// 		case IntKind:
+// 			val, err := ToInt64SliceE(v)
+// 			r = makeField(k, val, len(val) > 0, err)
+// 		case UintKind:
+// 			val, err := ToUint64SliceE(v)
+// 			r = makeField(k, val, len(val) > 0, err)
+// 		case FloatKind:
+// 			val, err := ToFloat64SliceE(v)
+// 			r = makeField(k, val, len(val) > 0, err)
+// 		case BoolKind:
+// 			val, err := cast.ToBoolSliceE(v)
+// 			r = makeField(k, val, len(val) > 0, err)
+// 		case TimeKind:
+// 			// TODO: 时区未解决, 目前是UTC
+// 			val := []time.Time{}
+// 			var err error
+// 			for _, it := range v {
+// 				if t, ex := cast.ToTimeE(it); ex == nil {
+// 					val = append(val, t)
+// 				} else {
+// 					err = ex
+// 					break
+// 				}
+// 			}
+// 			r = makeField(k, val, len(val) > 0, err)
+// 		default:
+// 			r = makeField(k, v, len(v) > 0, nil)
+// 		}
+// 		return
+// 	}
+// }
 
 // Map 返回一个嵌套对象
 //
