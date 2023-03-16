@@ -8,21 +8,21 @@ import (
 
 type (
 	Field  = field.Field
-	Fields = []Field
+	Fields = []*Field
 )
 type Entry interface {
 	GetLevel() (v Level)
 	GetTime() (v time.Time)
 	GetMessage() (v string)
-	GetLabels() []Field
+	GetLabels() []*Field
 	GetCallerInfo() *CallerInfo
-	Lookup(key string) (found []Field)
+	Lookup(key string) (found []*Field)
 }
 
 type FieldsEntry struct {
 	Level      Level
 	Time       time.Time
-	Labels     []Field
+	Labels     Fields
 	CallerInfo CallerInfo
 }
 
@@ -33,7 +33,7 @@ func (e FieldsEntry) GetLevel() (v Level) {
 func (e FieldsEntry) GetTime() (v time.Time) {
 	return e.Time
 }
-func (e FieldsEntry) GetLabels() []Field {
+func (e FieldsEntry) GetLabels() Fields {
 	return e.Labels
 }
 func (e FieldsEntry) GetCallerInfo() *CallerInfo {
@@ -51,9 +51,9 @@ func (e FieldsEntry) GetMessage() (v string) {
 	}
 	return
 }
-func (e FieldsEntry) Lookup(key string) (found []Field) {
+func (e FieldsEntry) Lookup(key string) (found []*Field) {
 	for _, l := range e.GetLabels() {
-		if l != nil && l.GetKey() == key && l.GetKind() != field.InvalidKind {
+		if l != nil && l.GetKey() == key && l.GetType() != field.InvalidKind {
 			found = append(found, l)
 		}
 	}

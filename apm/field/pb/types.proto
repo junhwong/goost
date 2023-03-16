@@ -6,24 +6,25 @@ option go_package = "apm/field/pb";
 // 标签
 message Field {
   // 值类型
-  enum ValueType {
+  enum Type {
     UNKNOWN = 0;   // 未知
     STRING = 1;    // 字符串
-    FLOAT = 2;     // 浮点数
-    BOOL = 3;      // 布尔值
-    INT = 4;       // 整数 int64
-    UINT = 5;      // 整数 uint64
+    BOOL = 2;      // 布尔值
+    INT = 3;       // 整数 int64
+    UINT = 4;      // 整数 uint64
+    FLOAT = 5;     // 浮点数
     TIMESTAMP = 6; // 时间戳 纳秒
     DURATION = 7;  // 持续时间 纳秒
+    BYTES = 8;     // 二进制
   }
-  string key = 1;     // 名称
-  ValueType kind = 2; // 类型
-  optional string stringValue = 4;
-  optional bool boolValue = 5;
-  optional int64 intValue = 6;
-  optional uint64 uintValue = 7;
-  optional double floatValue = 8;
 
-  optional bool isTag = 11; // 是否是索引
-  // optional bool isSource = 12;
+  string key = 1;         // 名称
+  Type type = 2;          // 类型
+  string stringValue = 4; // 值
+  bool boolValue = 5;     // 值
+  int64 intValue = 6;     // 值
+  uint64 uintValue = 7;   // 值
+  double floatValue = 8;  // 值
+  bytes bytesValue = 9;   // 值
+  int32 flags = 21;       // 标志位
 }

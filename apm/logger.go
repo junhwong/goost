@@ -5,8 +5,6 @@ import (
 	"errors"
 	"strings"
 	"time"
-
-	"github.com/junhwong/goost/apm/field"
 )
 
 // LoggerInterface 日志记录接口
@@ -41,13 +39,13 @@ type logImpl struct {
 }
 
 func (l *logImpl) SetCalldepth(a int) { l.calldepth = a }
-func (l *logImpl) WithFields(fs ...Field) Interface {
+func (l *logImpl) WithFields(fs ...*Field) Interface {
 	cl := l.clone()
 	cl.fields = append(cl.fields, fs...)
 	return cl
 }
 func (l *logImpl) clone() *logImpl {
-	fieldsCopy := make([]field.Field, len(l.fields))
+	fieldsCopy := make(Fields, len(l.fields))
 	copy(fieldsCopy, l.fields)
 
 	return &logImpl{
@@ -79,7 +77,7 @@ func (l logImpl) Log(level Level, args []interface{}) {
 	entry.Labels = append(entry.Labels, l.fields...)
 	l.LogFS(entry, args)
 }
-func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}, fs ...Field) {
+func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 	// var err error
 	a := []interface{}{}
 	ctxs := []context.Context{}
@@ -87,6 +85,8 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}, fs ...Field) {
 	for _, f := range args {
 		switch f := f.(type) {
 		case Field:
+			entry.Labels = append(entry.Labels, &f)
+		case *Field:
 			entry.Labels = append(entry.Labels, f)
 		case context.Context:
 			ctxs = append(ctxs, f)
@@ -145,7 +145,7 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}, fs ...Field) {
 		for _, ctx := range ctxs {
 			tid, sid := GetTraceID(ctx)
 			if len(tid) > 0 {
-				entry.Labels = append(entry.Labels, TraceID(tid))
+				entry.Labels = append(entry.Labels, TraceIDField(tid))
 				entry.Labels = append(entry.Labels, SpanID(sid))
 				break
 			}

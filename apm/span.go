@@ -5,8 +5,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/junhwong/goost/apm/field"
 )
 
 type SpanFactory interface {
@@ -20,7 +18,7 @@ type Span interface {
 	FailIf(err error) bool                                          // 如果`err`不为`nil`, 则标记失败并返回`true`，否则`false`
 	PanicIf(err error)                                              // 如果`err`不为`nil`, 则标记失败并`panic`
 	SetStatus(code SpanStatus, description string, failure ...bool) // 设置状态
-	SetAttributes(attrs ...field.Field)                             //
+	SetAttributes(attrs ...*Field)                                  //
 	Context() SpanContext                                           // 返回与该span关联的上下文
 }
 
@@ -75,6 +73,8 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 		ctx = context.Background()
 	}
 	log = log.clone()
+	id := NewHexID()
+	id.High = 0
 	span := &spanImpl{
 		FieldsEntry: &FieldsEntry{
 			Level:  LevelTrace,
@@ -83,7 +83,7 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 		},
 		logImpl: log,
 		spanContext: spanContext{
-			SpanID: NewSpanId(),
+			SpanID: id.String(),
 		},
 	}
 	for _, opt := range options {
@@ -103,9 +103,9 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 		span.SpanParentID = prent.SpanID
 	} else {
 		span.first = true
-		span.TranceID, _ = GetTraceID(ctx) // TODO 上级ID
+		span.TranceID, span.SpanParentID = GetTraceID(ctx)
 		if len(span.TranceID) == 0 {
-			span.TranceID = NewTraceId()
+			span.TranceID = NewHexID().String()
 		}
 	}
 
@@ -166,12 +166,12 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 		span.Labels = append(span.Labels, SpanParentID(span.SpanParentID))
 	}
 	span.Labels = append(span.Labels, Duration(time.Since(span.Time))) // Latency
-	span.Labels = append(span.Labels, TraceID(span.TranceID))
+	span.Labels = append(span.Labels, TraceIDField(span.TranceID))
 	for _, fn := range span.endCalls {
 		fn(span)
 	}
 	if span.failed {
-		span.Labels = append(span.Labels, TraceError(span.failed))
+		span.Labels = append(span.Labels, SpanStatusCode(string(SpanStatusError)))
 	}
 
 	span.LogFS(span.FieldsEntry, []any{span.ctx}) //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
@@ -214,6 +214,6 @@ func (span *spanImpl) SetStatus(code SpanStatus, description string, failure ...
 		}
 	}
 }
-func (s *spanImpl) SetAttributes(a ...field.Field) { s.Labels = append(s.Labels, a...) }
-func (s *spanImpl) SetNameGetter(a func() string)  { s.getName = a }
-func (s *spanImpl) SetEndCalls(a []func(Span))     { s.endCalls = a }
+func (s *spanImpl) SetAttributes(a ...*Field)     { s.Labels = append(s.Labels, a...) }
+func (s *spanImpl) SetNameGetter(a func() string) { s.getName = a }
+func (s *spanImpl) SetEndCalls(a []func(Span))    { s.endCalls = a }

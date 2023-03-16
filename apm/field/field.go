@@ -8,60 +8,37 @@ import (
 )
 
 // Field 表示一个标准字段。
-type Field = *pb.Field
+type Field = pb.Field
 
-// type Field interface {
-// 	// Key() Key
-// 	// Kind() KeyKind
-// 	// Unwrap() (Key, interface{}) // 获取字段的键和值。返回 nil表示该字段无效
-// 	// GetObject() any
+// 字段标志位. 最多7+1个, 2**7-1
+type Flags int32
 
-// 	GetKey() string
-// 	GetKind() KeyKind
-// 	GetStringValue() string
-// 	GetBoolValue() bool
-// 	GetIntValue() int64
-// 	GetUintValue() uint64
-// 	GetFloatValue() float64
+const (
+	FlagTag Flags = 1 << iota // 是标记
 
-// 	// GetTimeValue() time.Time
-// 	// GetDurationValue() time.Duration
+	// RES                       // 是资源
+	// ATTR                      // 是属性
+	// BDG                       // 是传播
+	// BDY                       // 是内容
+	// SRC                       // 源
+)
 
-// 	// GetSlice() []any
-// }
+func IsTag(f *Field) bool { return (Flags(f.GetFlags()) & FlagTag) == FlagTag }
 
-// Field 表示一个标准字段。
-//
-// 参考：
-//
-// [opentelemetry](https://opentelemetry.io/docs/reference/specification/logs/overview/)
-//
-// [ecs](https://github.com/elastic/ecs)
-// type structField struct {
-// 	pb.Label
-// 	// KeyField Key         `json:"key"`
-// 	// Value    interface{} `json:"value"`
-// 	valid bool // 防止自定义
-// 	// sliceDataType KeyKind
-// 	err error
+type wrapField struct {
+	pb.Field
+}
 
-// 	// ValueString *string
-// 	// ValueInt    *int64
-// 	// ValueUint   *uint64
-// 	// ValueFloat  *float64
-// 	// ValueBool   *bool
-
-// 	// ValueSlice []*structField
-// }
-
-type structField pb.Field
-
-func (f *structField) SetString(v string) *structField {
+func SetString(f *pb.Field, v string) *pb.Field {
 	if len(v) == 0 {
 		return f
 	}
-	f.Kind = StringKind
-	f.StringValue = &v
+	f.Type = StringKind
+	f.StringValue = v
+	return f
+}
+func (f *wrapField) SetString(v string) *wrapField {
+	SetString(&f.Field, v)
 	return f
 }
 
@@ -71,9 +48,15 @@ func (f *structField) SetString(v string) *structField {
 //		}
 //		return f.Value.(string)
 //	}
-func (f *structField) SetBool(v bool) *structField {
-	f.Kind = BoolKind
-	f.BoolValue = &v
+
+func SetBool(f *pb.Field, v bool) *pb.Field {
+	f.Type = BoolKind
+	f.BoolValue = v
+	return f
+}
+
+func (f *wrapField) SetBool(v bool) *wrapField {
+	SetBool(&f.Field, v)
 	return f
 }
 
@@ -83,77 +66,84 @@ func (f *structField) SetBool(v bool) *structField {
 //		}
 //		return f.Value.(bool)
 //	}
-func (f *structField) SetInt(v int64) *structField {
-	f.Kind = IntKind
-	f.IntValue = &v
+func SetInt(f *pb.Field, v int64) *pb.Field {
+	f.Type = IntKind
+	f.IntValue = v
+	return f
+}
+func (f *wrapField) SetInt(v int64) *wrapField {
+	SetInt(&f.Field, v)
 	return f
 }
 
-// func (f *structField) GetInt() int64 {
-// 	if f.err != nil || f.kind != IntKind || f.Value == nil {
-// 		return 0
-// 	}
-// 	return f.Value.(int64)
-// }
-
-func (f *structField) SetUint(v uint64) *structField {
-	f.Kind = UintKind
-	f.UintValue = &v
+//	func (f *structField) GetInt() int64 {
+//		if f.err != nil || f.kind != IntKind || f.Value == nil {
+//			return 0
+//		}
+//		return f.Value.(int64)
+//	}
+func SetUint(f *pb.Field, v uint64) *pb.Field {
+	f.Type = UintKind
+	f.UintValue = v
+	return f
+}
+func (f *wrapField) SetUint(v uint64) *wrapField {
+	SetUint(&f.Field, v)
 	return f
 }
 
-// func (f *structField) GetUint() uint64 {
-// 	if f.err != nil || f.kind != UintKind || f.Value == nil {
-// 		return 0
-// 	}
-// 	return f.Value.(uint64)
-// }
-
-func (f *structField) SetFloat(v float64) *structField {
-	f.Kind = FloatKind
-	f.FloatValue = &v
+//	func (f *structField) GetUint() uint64 {
+//		if f.err != nil || f.kind != UintKind || f.Value == nil {
+//			return 0
+//		}
+//		return f.Value.(uint64)
+//	}
+func SetFloat(f *pb.Field, v float64) *pb.Field {
+	f.Type = FloatKind
+	f.FloatValue = v
+	return f
+}
+func (f *wrapField) SetFloat(v float64) *wrapField {
+	SetFloat(&f.Field, v)
 	return f
 }
 
-// func (f *structField) GetFloat() float64 {
-// 	if f.err != nil || f.kind != FloatKind || f.Value == nil {
-// 		return 0
-// 	}
-// 	return f.Value.(float64)
-// }
-
-func (f *structField) SetTime(v time.Time) *structField {
+//	func (f *structField) GetFloat() float64 {
+//		if f.err != nil || f.kind != FloatKind || f.Value == nil {
+//			return 0
+//		}
+//		return f.Value.(float64)
+//	}
+func SetTime(f *pb.Field, v time.Time) *pb.Field {
 	if v.IsZero() {
 		return f
 	}
-	f.Kind = TimeKind
-	u := v.UnixNano()
-	f.IntValue = &u
+	f.Type = TimeKind
+
+	f.IntValue = v.UnixNano()
+	return f
+}
+func (f *wrapField) SetTime(v time.Time) *wrapField {
+	SetTime(&f.Field, v)
 	return f
 }
 
-func (f structField) GetTimeValue() time.Time {
-	if f.Kind != TimeKind || f.IntValue == nil {
-		return time.Time{}
-	}
-	ff := pb.Field(f)
-	return time.Unix(0, ff.GetIntValue())
+func (f wrapField) GetTimeValue() time.Time {
+	return GetTimeValue(&f.Field)
 }
+func SetDuration(f *pb.Field, v time.Duration) *pb.Field {
+	f.Type = DurationKind
 
-func (f *structField) SetDuration(v time.Duration) *structField {
-
-	f.Kind = DurationKind
-	d := int64(v)
-	f.IntValue = &d
+	f.IntValue = int64(v)
+	return f
+}
+func (f *wrapField) SetDuration(v time.Duration) *wrapField {
+	SetDuration(&f.Field, v)
 	return f
 }
 
-func (f structField) GetDurationValue() time.Duration {
-	if f.Kind != DurationKind || f.IntValue == nil {
-		return 0
-	}
-	ff := pb.Field(f)
-	return time.Duration(ff.GetIntValue())
+func (f wrapField) GetDurationValue() time.Duration {
+	return GetDurationValue(&f.Field)
 }
 
 //	func (f *structField) GetSlice() []any {
@@ -175,68 +165,44 @@ func (f structField) GetDurationValue() time.Duration {
 //			}
 //		}
 //	}
+
 func GetTimeValue(f *pb.Field) time.Time {
-	if f == nil || f.Kind != TimeKind || f.IntValue == nil {
+	if f == nil || f.Type != TimeKind {
 		return time.Time{}
 	}
 	return time.Unix(0, f.GetIntValue())
 }
 func GetDurationValue(f *pb.Field) time.Duration {
-	if f == nil || f.Kind != DurationKind || f.IntValue == nil {
+	if f == nil || f.Type != DurationKind {
 		return 0
 	}
 	return time.Duration(f.GetIntValue())
 }
-func (f structField) GetObject() any {
-	ff := pb.Field(f)
-	switch f.Kind {
+
+func GetObject(f *pb.Field) any {
+	switch f.Type {
 	case IntKind:
-		return ff.GetIntValue()
+		return f.GetIntValue()
 	case UintKind:
-		return ff.GetUintValue()
+		return f.GetUintValue()
 	case StringKind:
-		return ff.GetStringValue()
+		return f.GetStringValue()
 	case BoolKind:
-		return ff.GetBoolValue()
+		return f.GetBoolValue()
 	case TimeKind:
-		return f.GetTimeValue()
+		return GetTimeValue(f)
 	case DurationKind:
-		return f.GetDurationValue()
-		// case DynamicKind:
-		// 	return f.Value
-		// case SliceKind:
-		// 	return f.GetSlice()
-	}
-	return nil
-}
-func GetObject(ff *pb.Field) any {
-	switch ff.Kind {
-	case IntKind:
-		return ff.GetIntValue()
-	case UintKind:
-		return ff.GetUintValue()
-	case StringKind:
-		return ff.GetStringValue()
-	case BoolKind:
-		return ff.GetBoolValue()
-	case TimeKind:
-		return GetTimeValue(ff)
-	case DurationKind:
-		return GetDurationValue(ff)
-		// case DynamicKind:
-		// 	return f.Value
-		// case SliceKind:
-		// 	return f.GetSlice()
+		return GetDurationValue(f)
 	}
 	return nil
 }
 
-func (f *structField) String() string {
-	return fmt.Sprintf("structField{%v, Value=%v, kind=%v}", f.Key, f.GetObject(), f.Kind)
+func (f wrapField) String() string {
+	return fmt.Sprintf("structField{%v, Value=%v, kind=%v}", f.Key, GetObject(&f.Field), f.Type)
 }
 
-func (f *structField) Valid() bool {
-	return f != nil && f.Kind != InvalidKind
+func (f *wrapField) Valid() bool {
+	return f != nil && f.Type != InvalidKind
 }
 
 // // 获取字段数据类型
@@ -254,12 +220,12 @@ func (f *structField) Valid() bool {
 // }
 
 // 获取字段的键和值。返回 nil表示该字段无效
-func (f *structField) Unwrap() (string, interface{}) {
-	if !f.Valid() {
-		return f.Key, nil
-	}
-	return f.Key, f.GetObject()
-}
+// func (f *wrapField) Unwrap() (string, interface{}) {
+// 	if !f.Valid() {
+// 		return f.Key, nil
+// 	}
+// 	return f.Key, f.GetObject()
+// }
 
 // // Fields 表示一个标签集合。
 // type Fields map[string]Field

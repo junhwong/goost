@@ -69,7 +69,7 @@ func TestIsValidKeyName(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.name, func(t *testing.T) {
-			if IsValidKeyName(tC.name) != tC.pass {
+			if IsValidKey(tC.name) != tC.pass {
 				t.Fail()
 			}
 		})

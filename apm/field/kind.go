@@ -5,7 +5,7 @@ import (
 )
 
 // KeyKind 表示 key 的数据类型。
-type KeyKind = pb.Field_ValueType
+type KeyKind = pb.Field_Type
 
 const (
 	InvalidKind  = pb.Field_UNKNOWN   // 无效的字段，将被忽略
@@ -16,10 +16,11 @@ const (
 	BoolKind     = pb.Field_BOOL      // 布尔值 bool
 	TimeKind     = pb.Field_TIMESTAMP // 时间 time.Time
 	DurationKind = pb.Field_DURATION  // 时间 time.Duration
+	BytesKind    = pb.Field_BYTES     // bytes
 
-	SliceKind = pb.Field_UNKNOWN // 数组
+	// SliceKind = pb.Field_UNKNOWN // 数组
 	// MapKind                     // 嵌套对象
-	DynamicKind = pb.Field_UNKNOWN // 动态字段。警告：该类型的key是不被检查的。
+	// DynamicKind = pb.Field_UNKNOWN // 动态字段。警告：该类型的key是不被检查的。
 )
 
 var kindNames = map[KeyKind]string{

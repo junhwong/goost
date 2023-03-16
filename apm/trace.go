@@ -2,18 +2,16 @@ package apm
 
 import (
 	"context"
-
-	"github.com/junhwong/goost/apm/field"
 )
 
 type SpanOptionSetter interface {
 	SetNameGetter(a func() string)
-	SetAttributes(a ...field.Field)
+	SetAttributes(a ...*Field)
 	SetCalldepth(a int)
 }
 type EndSpanOptionSetter interface {
 	SetNameGetter(a func() string)
-	SetAttributes(a ...field.Field)
+	SetAttributes(a ...*Field)
 	SetEndCalls(a []func(Span))
 }
 

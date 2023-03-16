@@ -47,7 +47,7 @@ type Adapter interface {
 // 同一接口
 type Interface interface {
 	Logger
-	WithFields(fs ...Field) Interface
+	WithFields(fs ...*Field) Interface
 	SpanFactory
 }
 
@@ -79,7 +79,7 @@ type Option interface {
 
 // type funcSpanOption func(SpanOptionSetter)
 
-func WithFields(fs ...Field) funcSpanOption {
+func WithFields(fs ...*Field) funcSpanOption {
 	return funcSpanOption(func(appender SpanOptionSetter) {
 		appender.SetAttributes(fs...)
 	})
