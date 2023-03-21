@@ -5,13 +5,11 @@ import (
 	"reflect"
 	"strings"
 	"time"
-
-	"github.com/junhwong/goost/apm/field/pb"
 )
 
 // TODO 从池中获取或创建字段对象
 func New(name string) *Field {
-	return &pb.Field{Key: name}
+	return &Field{Key: name}
 }
 func Release(f *Field) {
 	if f == nil {

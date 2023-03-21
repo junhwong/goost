@@ -1,7 +1,6 @@
 package field
 
 import (
-	"fmt"
 	"reflect"
 	"time"
 
@@ -119,6 +118,5 @@ func InferPrimitiveValueByReflect(rv reflect.Value) (any, KeyKind) {
 			}
 		}
 	}
-	fmt.Printf("rv.Kind(): %v\n", rv.Kind() == reflect.Int64)
 	return nil, InvalidKind
 }

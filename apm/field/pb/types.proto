@@ -3,28 +3,27 @@ package apm;
 
 option go_package = "apm/field/pb";
 
-// 标签
+// 字段
 message Field {
-  // 值类型
+  // 值类型. 用于基值转换为具体类型
   enum Type {
     UNKNOWN = 0;   // 未知
     STRING = 1;    // 字符串
-    BOOL = 2;      // 布尔值
+    BOOL = 2;      // 布尔值 int64 0, ~0
     INT = 3;       // 整数 int64
     UINT = 4;      // 整数 uint64
-    FLOAT = 5;     // 浮点数
-    TIMESTAMP = 6; // 时间戳 纳秒
-    DURATION = 7;  // 持续时间 纳秒
+    FLOAT = 5;     // 浮点数 float64
+    TIMESTAMP = 6; // 时间戳 纳秒 uint64
+    DURATION = 7;  // 持续时间 纳秒 int64
     BYTES = 8;     // 二进制
   }
 
-  string key = 1;         // 名称
-  Type type = 2;          // 类型
-  string stringValue = 4; // 值
-  bool boolValue = 5;     // 值
-  int64 intValue = 6;     // 值
-  uint64 uintValue = 7;   // 值
-  double floatValue = 8;  // 值
-  bytes bytesValue = 9;   // 值
-  int32 flags = 21;       // 标志位
+  string key = 1;                  // 名称
+  Type type = 2;                   // 类型
+  int32 flags = 3;                 // 标志位.
+  optional int64 intValue = 4;     // 基值. 整数
+  optional uint64 uintValue = 5;   // 基值. 无符号整数
+  optional double floatValue = 6;  // 基值. 浮点数
+  optional string stringValue = 7; // 基值. 字符串
+  optional bytes bytesValue = 8;   // 基值. 二进制
 }

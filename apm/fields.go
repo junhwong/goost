@@ -5,7 +5,7 @@ import "github.com/junhwong/goost/apm/field"
 var (
 	LevelKey, LevelField                            = field.Int("level")
 	MessageKey, Message                             = field.String("message")
-	TimeKey, Time                                   = field.Time("time")
+	TimeKey, Time                                   = field.Time("@timestamp")
 	DurationKey, Duration                           = field.Duration("duration")
 	TraceIDKey, TraceIDField                        = field.String("trace.id")
 	TraceServiceNameKey, TraceServiceName           = field.String("trace.service.name")
