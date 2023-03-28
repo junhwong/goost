@@ -2,30 +2,30 @@ package field
 
 import (
 	"strings"
-
-	"github.com/junhwong/goost/apm/field/pb"
 )
 
-// KeyKind 表示 key 的数据类型。
-type KeyKind = pb.Field_Type
+// Kind 数据类型。
+type Kind = Type
 
 const (
-	InvalidKind  = pb.Field_UNKNOWN   // 无效或未识别的字段
-	StringKind   = pb.Field_STRING    // 字符串 string
-	IntKind      = pb.Field_INT       // 整数 int64
-	UintKind     = pb.Field_UINT      // 整数 uint64
-	FloatKind    = pb.Field_FLOAT     // 浮点数 float64
-	BoolKind     = pb.Field_BOOL      // 布尔值 bool
-	TimeKind     = pb.Field_TIMESTAMP // 时间 time.Time => uint64
-	DurationKind = pb.Field_DURATION  // 时长 time.Duration => int64
-	BytesKind    = pb.Field_BYTES     // bytes
+	InvalidKind  = Type_UNKNOWN
+	StringKind   = Type_STRING
+	IntKind      = Type_INT
+	UintKind     = Type_UINT
+	FloatKind    = Type_FLOAT
+	BoolKind     = Type_BOOL
+	TimeKind     = Type_TIMESTAMP
+	DurationKind = Type_DURATION
+	BytesKind    = Type_BYTES
+	IPKind       = Type_IP
+	LevelKind    = Type_LOGLEVEL
 
 	// SliceKind = pb.Field_UNKNOWN // 数组
 	// MapKind                     // 嵌套对象
 	// DynamicKind = pb.Field_UNKNOWN // 动态字段。警告：该类型的key是不被检查的。
 )
 
-var kindNames = map[KeyKind]string{
+var kindNames = map[Kind]string{
 	InvalidKind:  "<invalid>",
 	StringKind:   "string",
 	IntKind:      "int",
@@ -35,6 +35,8 @@ var kindNames = map[KeyKind]string{
 	TimeKind:     "time",
 	DurationKind: "duration",
 	BytesKind:    "bytes",
+	IPKind:       "ip",
+	LevelKind:    "level",
 
 	// SliceKind:   "slice",
 	// MapKind:     "map",
@@ -48,7 +50,7 @@ var kindNames = map[KeyKind]string{
 //		}
 //		return s
 //	}
-func ParseType(v any) KeyKind {
+func ParseType(v any) Kind {
 	var n int32
 	switch v := v.(type) {
 	case string:
@@ -61,14 +63,14 @@ func ParseType(v any) KeyKind {
 		case "number":
 			v = "float"
 		}
-		n = int32(ParseType(pb.Field_Type_value[strings.ToUpper(v)]))
+		n = int32(ParseType(Type_value[strings.ToUpper(v)]))
 	case int:
 		n = int32(v)
 	case int32:
 		n = v
 	}
-	if _, ok := pb.Field_Type_name[n]; ok {
-		return KeyKind(n)
+	if _, ok := Type_name[n]; ok {
+		return Kind(n)
 	}
 
 	return InvalidKind

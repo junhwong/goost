@@ -92,20 +92,20 @@ type Entry struct {
 }
 
 func (e Entry) GetLevel() (lvl apm.Level) {
-	apmLvl := apm.LevelDebug
+	apmLvl := field.LevelDebug
 	switch e.ent.Level {
 	case zapcore.InfoLevel:
-		apmLvl = apm.LevelInfo
+		apmLvl = field.LevelInfo
 	case zapcore.WarnLevel:
-		apmLvl = apm.LevelWarn
+		apmLvl = field.LevelWarn
 	case zapcore.ErrorLevel:
-		apmLvl = apm.LevelError
+		apmLvl = field.LevelError
 	case zapcore.DPanicLevel:
-		apmLvl = apm.LevelWarn
+		apmLvl = field.LevelWarn
 	case zapcore.PanicLevel:
-		apmLvl = apm.LevelError
+		apmLvl = field.LevelError
 	case zapcore.FatalLevel:
-		apmLvl = apm.LevelFatal
+		apmLvl = field.LevelFatal
 	}
 	return apmLvl
 }
@@ -135,52 +135,52 @@ func transform(fields []zapcore.Field) (fs apm.Fields) {
 			}
 		case zapcore.ObjectMarshalerType:
 		case zapcore.BinaryType:
-			fs = append(fs, field.Dynamic(f.Key, string(f.Interface.([]byte))))
+			fs = append(fs, field.Any(f.Key, string(f.Interface.([]byte))))
 		case zapcore.BoolType:
-			fs = append(fs, field.Dynamic(f.Key, f.Integer == 1))
+			fs = append(fs, field.Any(f.Key, f.Integer == 1))
 		case zapcore.ByteStringType:
-			fs = append(fs, field.Dynamic(f.Key, string(f.Interface.([]byte))))
+			fs = append(fs, field.Any(f.Key, string(f.Interface.([]byte))))
 		case zapcore.Complex128Type:
-			fs = append(fs, field.Dynamic(f.Key, f.Interface))
+			fs = append(fs, field.Any(f.Key, f.Interface))
 		case zapcore.Complex64Type:
-			fs = append(fs, field.Dynamic(f.Key, f.Interface))
+			fs = append(fs, field.Any(f.Key, f.Interface))
 		case zapcore.DurationType:
-			fs = append(fs, field.Dynamic(f.Key, time.Duration(f.Integer)))
+			fs = append(fs, field.Any(f.Key, time.Duration(f.Integer)))
 		case zapcore.Float64Type:
-			fs = append(fs, field.Dynamic(f.Key, math.Float64frombits(uint64(f.Integer))))
+			fs = append(fs, field.Any(f.Key, math.Float64frombits(uint64(f.Integer))))
 		case zapcore.Float32Type:
-			fs = append(fs, field.Dynamic(f.Key, math.Float32frombits(uint32(f.Integer))))
+			fs = append(fs, field.Any(f.Key, math.Float32frombits(uint32(f.Integer))))
 		case zapcore.Int64Type:
-			fs = append(fs, field.Dynamic(f.Key, f.Integer))
+			fs = append(fs, field.Any(f.Key, f.Integer))
 		case zapcore.Int32Type:
-			fs = append(fs, field.Dynamic(f.Key, f.Integer))
+			fs = append(fs, field.Any(f.Key, f.Integer))
 		case zapcore.Int16Type:
-			fs = append(fs, field.Dynamic(f.Key, f.Integer))
+			fs = append(fs, field.Any(f.Key, f.Integer))
 		case zapcore.Int8Type:
-			fs = append(fs, field.Dynamic(f.Key, f.Integer))
+			fs = append(fs, field.Any(f.Key, f.Integer))
 		case zapcore.StringType:
-			fs = append(fs, field.Dynamic(f.Key, f.String))
+			fs = append(fs, field.Any(f.Key, f.String))
 		case zapcore.TimeType:
 			t := time.UnixMicro(f.Integer / 1e3)
 			t = t.Local().In(f.Interface.(*time.Location))
-			fs = append(fs, field.Dynamic(f.Key, t))
+			fs = append(fs, field.Any(f.Key, t))
 		case zapcore.TimeFullType:
 		case zapcore.Uint64Type:
-			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Any(f.Key, uint64(f.Integer)))
 		case zapcore.Uint32Type:
-			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Any(f.Key, uint64(f.Integer)))
 		case zapcore.Uint16Type:
-			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Any(f.Key, uint64(f.Integer)))
 		case zapcore.Uint8Type:
-			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Any(f.Key, uint64(f.Integer)))
 		case zapcore.UintptrType:
-			fs = append(fs, field.Dynamic(f.Key, uint64(f.Integer)))
+			fs = append(fs, field.Any(f.Key, uint64(f.Integer)))
 		case zapcore.ReflectType:
 		case zapcore.NamespaceType:
 		case zapcore.StringerType:
-			fs = append(fs, field.Dynamic(f.Key, f.Interface.(fmt.Stringer).String()))
+			fs = append(fs, field.Any(f.Key, f.Interface.(fmt.Stringer).String()))
 		case zapcore.ErrorType:
-			fs = append(fs, field.Dynamic(f.Key, f.Interface))
+			fs = append(fs, field.Any(f.Key, f.Interface))
 		case zapcore.SkipType:
 		case zapcore.InlineMarshalerType:
 		}
@@ -217,20 +217,20 @@ func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 	fs := transform(c.fields)
 	fs = append(fs, transform(fields)...)
 
-	apmLvl := apm.LevelDebug
+	apmLvl := field.LevelDebug
 	switch ent.Level {
 	case zapcore.InfoLevel:
-		apmLvl = apm.LevelInfo
+		apmLvl = field.LevelInfo
 	case zapcore.WarnLevel:
-		apmLvl = apm.LevelWarn
+		apmLvl = field.LevelWarn
 	case zapcore.ErrorLevel:
-		apmLvl = apm.LevelError
+		apmLvl = field.LevelError
 	case zapcore.DPanicLevel:
-		apmLvl = apm.LevelWarn
+		apmLvl = field.LevelWarn
 	case zapcore.PanicLevel:
-		apmLvl = apm.LevelError
+		apmLvl = field.LevelError
 	case zapcore.FatalLevel:
-		apmLvl = apm.LevelFatal
+		apmLvl = field.LevelFatal
 	}
 
 	c.log.Dispatch(&apm.FieldsEntry{

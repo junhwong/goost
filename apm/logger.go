@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"github.com/junhwong/goost/apm/field"
 )
 
 // LoggerInterface 日志记录接口
@@ -162,11 +164,11 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 	dispatcher.Dispatch(entry)
 }
 
-func (l *logImpl) Debug(a ...interface{}) { l.Log(LevelDebug, a) }
-func (l *logImpl) Info(a ...interface{})  { l.Log(LevelInfo, a) }
-func (l *logImpl) Warn(a ...interface{})  { l.Log(LevelWarn, a) }
-func (l *logImpl) Error(a ...interface{}) { l.Log(LevelError, a) }
-func (l *logImpl) Fatal(a ...interface{}) { l.Log(LevelFatal, a) }
+func (l *logImpl) Debug(a ...interface{}) { l.Log(field.LevelDebug, a) }
+func (l *logImpl) Info(a ...interface{})  { l.Log(field.LevelInfo, a) }
+func (l *logImpl) Warn(a ...interface{})  { l.Log(field.LevelWarn, a) }
+func (l *logImpl) Error(a ...interface{}) { l.Log(field.LevelError, a) }
+func (l *logImpl) Fatal(a ...interface{}) { l.Log(field.LevelFatal, a) }
 
 // func (log *logImpl) Logf(level LogLevel, format string, a []interface{}) {
 // 	log.logger.Logf(log.ctx, log.calldepth+1, level, format, a)

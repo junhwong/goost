@@ -20,7 +20,7 @@ func Release(f *Field) {
 }
 
 // 构造一个动态字段
-func Dynamic(name string, v any) *Field {
+func Any(name string, v any) *Field {
 	f := New(name)
 	iv, k := InferPrimitiveValue(v)
 	if k == InvalidKind {
@@ -90,21 +90,21 @@ func Time(name string) (Key, func(time.Time) *Field) {
 func Int(name string) (Key, func(interface{}) *Field) {
 	k := makeOrGetKey(name, IntKind)
 	return k, func(v interface{}) *Field {
-		return Dynamic(name, v)
+		return Any(name, v)
 	}
 }
 
 func Uint(name string) (Key, func(interface{}) *Field) {
 	k := makeOrGetKey(name, UintKind)
 	return k, func(v interface{}) *Field {
-		return Dynamic(name, v)
+		return Any(name, v)
 	}
 }
 
 func Float(name string) (Key, func(interface{}) *Field) {
 	k := makeOrGetKey(name, FloatKind)
 	return k, func(v interface{}) *Field {
-		return Dynamic(name, v)
+		return Any(name, v)
 	}
 }
 

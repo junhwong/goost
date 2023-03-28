@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -17,19 +18,19 @@ import (
 // - https://www.w3.org/TR/trace-context/#key
 type Key interface {
 	Name() string
-	Kind() KeyKind
+	Kind() Kind
 }
 
 type key struct {
 	name string
-	kind KeyKind
+	kind Kind
 }
 
 func (k key) Name() string {
 	return k.name
 }
 
-func (k key) Kind() KeyKind {
+func (k key) Kind() Kind {
 	return k.kind
 }
 func (k key) String() string {
@@ -45,8 +46,18 @@ var (
 	// IsValidKey 判断给定的名称是否是合法的。
 	//
 	// `Key name` 主要参考主流的存储设备来定义，如：ES
-	IsValidKey = regexp.MustCompile(`^@?[a-zA-Z]([\.\-]?[a-zA-Z]\w*)*$`).MatchString
+	IsValidKeyPatt = regexp.MustCompile(`^[a-zA-Z]([\.\-]?[a-zA-Z]\w*)*$`)
 )
+
+func IsValidKey(s string) bool {
+	if l := len(s); l > 4 && strings.HasPrefix(s, "__") && strings.HasSuffix(s, "__") {
+		return IsValidKeyPatt.MatchString(s[2 : l-2])
+	}
+	if l := len(s); l > 2 && strings.HasPrefix(s, "@") {
+		return IsValidKeyPatt.MatchString(s[1:])
+	}
+	return IsValidKeyPatt.MatchString(s)
+}
 
 func GetKey(name string) Key {
 	val, ok := keys.Load(name)
@@ -57,7 +68,7 @@ func GetKey(name string) Key {
 	return key
 }
 
-func makeOrGetKey(name string, kind KeyKind, sec ...KeyKind) Key {
+func makeOrGetKey(name string, kind Kind, sec ...Kind) Key {
 	if !IsValidKey(name) {
 		panic(fmt.Sprintf("Invalid key name: %s", name))
 	}

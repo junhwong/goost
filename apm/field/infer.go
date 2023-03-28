@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cast"
 )
 
-func InferPrimitiveValue(v any) (any, KeyKind) {
+func InferPrimitiveValue(v any) (any, Kind) {
 	if v == nil {
 		return nil, InvalidKind
 	}
@@ -87,7 +87,7 @@ func InferPrimitiveValue(v any) (any, KeyKind) {
 }
 
 // 反射获取重新定义基础类型的值
-func InferPrimitiveValueByReflect(rv reflect.Value) (any, KeyKind) {
+func InferPrimitiveValueByReflect(rv reflect.Value) (any, Kind) {
 	if rv.Kind() == reflect.Pointer {
 		rv = rv.Elem()
 	}

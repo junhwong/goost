@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/junhwong/goost/apm/field"
 )
 
 type SpanFactory interface {
@@ -77,7 +79,7 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 	id.High = 0
 	span := &spanImpl{
 		FieldsEntry: &FieldsEntry{
-			Level:  LevelTrace,
+			Level:  field.LevelTrace,
 			Time:   time.Now(),
 			Labels: log.fields,
 		},

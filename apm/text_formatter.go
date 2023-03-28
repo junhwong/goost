@@ -32,19 +32,19 @@ func getColor(lvl Level, supportColor bool) (start, end string) {
 	// https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
 	// https://juejin.cn/post/6920241597846126599
 	switch lvl {
-	case LevelDebug:
+	case field.LevelDebug:
 		start = "\033[1;30;49m" // 34
 		end = "\033[0m"
-	case LevelInfo:
+	case field.LevelInfo:
 		start = "\033[1;32;49m"
 		end = "\033[0m"
-	case LevelWarn:
+	case field.LevelWarn:
 		start = "\033[1;33;49m"
 		end = "\033[0m"
-	case LevelError:
+	case field.LevelError:
 		start = "\033[1;31;49m"
 		end = "\033[0m"
-	case LevelFatal:
+	case field.LevelFatal:
 		start = "\033[1;91;49m"
 		end = "\033[0m"
 	default:

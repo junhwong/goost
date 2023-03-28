@@ -7,6 +7,8 @@ import (
 	"os"
 	"sort"
 	"sync"
+
+	"github.com/junhwong/goost/apm/field"
 )
 
 // 日志项处理器
@@ -63,7 +65,7 @@ func Console() (*SimpleHandler, *TextFormatter) {
 		HandlerPriority: -9000,
 		Filter: func(entry Entry) bool {
 			l := entry.GetLevel()
-			return l >= LevelDebug && l < LevelTrace
+			return l >= field.LevelDebug && l < field.LevelTrace
 		},
 	}, text
 }
@@ -103,7 +105,7 @@ func (h SimpleHandler) Handle(entry Entry, next, end func()) {
 
 	if out == nil {
 		out = os.Stdout
-		if lvl := entry.GetLevel(); lvl >= LevelError && lvl < LevelTrace {
+		if lvl := entry.GetLevel(); lvl >= field.LevelError && lvl < field.LevelTrace {
 			out = os.Stderr
 		}
 	}

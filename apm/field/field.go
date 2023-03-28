@@ -2,13 +2,9 @@ package field
 
 import (
 	"fmt"
+	"net"
 	"time"
-
-	"github.com/junhwong/goost/apm/field/pb"
 )
-
-// Field 表示一个标准字段。
-type Field = pb.Field
 
 // 字段标志位.
 type Flags int32
@@ -114,6 +110,32 @@ func SetDuration(f *Field, v time.Duration) *Field {
 	f.IntValue = &i
 	return f
 }
+
+func SetIP(f *Field, v net.IP) *Field {
+	if l := len(v); !(l == net.IPv4len || l == net.IPv6len) {
+		return f
+	}
+	f.Type = IPKind
+	f.BytesValue = v
+	return f
+}
+func GetIP(f *Field) net.IP {
+	if f == nil || f.Type != IPKind {
+		return nil
+	}
+	if l := len(f.BytesValue); !(l == net.IPv4len || l == net.IPv6len) {
+		return nil
+	}
+	return f.BytesValue
+}
+
+func SetLogLevel(f *Field, v Level) *Field {
+	f.Type = LevelKind
+	i := uint64(v)
+	f.UintValue = &i
+	return f
+}
+
 func (f *WrapField) SetDuration(v time.Duration) *WrapField {
 	SetDuration(f.Field, v)
 	return f
@@ -154,7 +176,7 @@ func GetObject(f *Field) any {
 	case StringKind:
 		return f.GetStringValue()
 	case BoolKind:
-		return f.GetBoolValue()
+		return f.GetIntValue() != 0
 	case BytesKind:
 		return f.GetBytesValue()
 	case TimeKind:
@@ -193,7 +215,7 @@ func InvertType(f *Field) *Field {
 			f.Type = InvalidKind
 		}
 	case BoolKind:
-		if f.BoolValue == nil {
+		if f.IntValue == nil {
 			f.Type = InvalidKind
 		}
 	case BytesKind:
@@ -215,8 +237,6 @@ func InvertType(f *Field) *Field {
 		return f
 	}
 	switch {
-	case f.BoolValue != nil:
-		f.Type = BoolKind
 	case f.BytesValue != nil:
 		f.Type = BytesKind
 	case f.FloatValue != nil:
@@ -232,7 +252,7 @@ func InvertType(f *Field) *Field {
 }
 
 // 转换类型. 转换失败将不会改变
-func As(f *Field, t KeyKind, layouts ...string) *Field {
+func As(f *Field, t Kind, layouts ...string) *Field {
 	if f.Type == InvalidKind || f.Type == t {
 		return f
 	}
@@ -282,7 +302,6 @@ func As(f *Field, t KeyKind, layouts ...string) *Field {
 }
 func Clone(f *Field) *Field {
 	dst := New(f.GetKey())
-	dst.BoolValue = f.BoolValue
 	dst.BytesValue = f.BytesValue
 	dst.Flags = f.Flags
 	dst.FloatValue = f.FloatValue

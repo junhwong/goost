@@ -18,4 +18,4 @@ fi
 # fi
 PROM_ROOT="${PWD}"
 
-protoc --experimental_allow_proto3_optional --proto_path=${PROM_ROOT}/apm/field/pb --go_out=${PROM_ROOT} types.proto
+protoc --experimental_allow_proto3_optional --proto_path=${PROM_ROOT}/apm/field --go_out=${PROM_ROOT} types.proto

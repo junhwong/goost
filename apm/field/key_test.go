@@ -23,6 +23,34 @@ func TestIsValidKeyName(t *testing.T) {
 			pass: true,
 		},
 		{
+			name: "foo_bar",
+			pass: true,
+		},
+		{
+			name: "__foo__",
+			pass: true,
+		},
+		{
+			name: "____",
+			pass: false,
+		},
+		{
+			name: "__foo",
+			pass: false,
+		},
+		{
+			name: "_foo",
+			pass: false,
+		},
+		{
+			name: "@foo",
+			pass: true,
+		},
+		{
+			name: "foo@",
+			pass: false,
+		},
+		{
 			name: "foo.bar0",
 			pass: true,
 		},
@@ -146,7 +174,7 @@ type ts string
 func TestRV(t *testing.T) {
 	testCases := []struct {
 		o any
-		k KeyKind
+		k Kind
 	}{
 		{
 			o: "r",
