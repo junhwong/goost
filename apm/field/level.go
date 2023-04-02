@@ -8,7 +8,7 @@ type Level uint
 
 const (
 	LevelUnset Level = 0  // 未明确设置(预留给解析日志使用)
-	LevelDebug Level = 5  // 调试(用于开发时的辅助和调试)
+	LevelDebug Level = 8  // 5-8 调试(用于开发时的辅助和调试)
 	LevelInfo  Level = 9  // 普通(正常需要输出给最终用户的信息)
 	LevelWarn  Level = 13 // 警告(不符合预期, 但不妨碍系统运行)
 	LevelError Level = 17 // 错误(可恢复性错误，不确定系统后续是否正常工作)

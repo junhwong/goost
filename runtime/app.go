@@ -129,6 +129,7 @@ func (app *appImpl) Run(constructor interface{}, opts ...InvokeOption) {
 		opts:        opts,
 	})
 }
+
 func RootCause(err error) error {
 	return dig.RootCause(err)
 }
@@ -148,6 +149,9 @@ func (app *appImpl) Wait() error {
 	builder := lifecycle{ctx: stopCtx}
 	_ = app.container.Provide(func() Lifecycle {
 		return &builder
+	})
+	_ = app.container.Provide(func() context.Context {
+		return startCtx
 	})
 
 	err := app.doInvokes()

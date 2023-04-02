@@ -25,6 +25,7 @@ type Logger interface {
 	Error(...interface{})
 	Fatal(...interface{})
 }
+
 type FormatLogger interface {
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
@@ -56,27 +57,12 @@ func (l *logImpl) clone() *logImpl {
 	}
 }
 
-var callerContextKey = CallerInfo{}
-
-func WithCaller(ctx context.Context, depth ...int) context.Context {
-	d := 2
-	if len(depth) > 0 {
-		d = depth[len(depth)-1]
-	}
-	info := Caller(d)
-	return context.WithValue(ctx, callerContextKey, info)
-}
-func CallerFromContext(ctx context.Context) (CallerInfo, bool) {
-	obj := ctx.Value(callerContextKey)
-	info, ok := obj.(CallerInfo)
-	return info, ok
-}
 func (l logImpl) Log(level Level, args []interface{}) {
 	l.calldepth++
 	entry := &FieldsEntry{
 		Level: level,
 	}
-	entry.Labels = append(entry.Labels, l.fields...)
+	entry.Fields = append(entry.Fields, l.fields...)
 	l.LogFS(entry, args)
 }
 func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
@@ -87,9 +73,9 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 	for _, f := range args {
 		switch f := f.(type) {
 		case Field:
-			entry.Labels = append(entry.Labels, &f)
+			entry.Fields = append(entry.Fields, &f)
 		case *Field:
-			entry.Labels = append(entry.Labels, f)
+			entry.Fields = append(entry.Fields, f)
 		case context.Context:
 			ctxs = append(ctxs, f)
 		case error:
@@ -134,12 +120,12 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 			// fmt.Printf("stack: %s\n", serr.Stack)
 			// fmt.Printf("arr: %v\n", arr)
 			if len(arr) > 0 {
-				entry.Labels = append(entry.Labels, ErrorMethod(strings.Join(arr, ",")))
+				entry.Fields = append(entry.Fields, ErrorMethod(strings.Join(arr, ",")))
 			}
 		}
 
 		if ls := entry.Lookup(ErrorStackTraceKey.Name()); len(ls) == 0 {
-			entry.Labels = append(entry.Labels, ErrorStackTrace("%s", serr.Stack))
+			entry.Fields = append(entry.Fields, ErrorStackTrace("%s", serr.Stack))
 		}
 	}
 
@@ -147,15 +133,15 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 		for _, ctx := range ctxs {
 			tid, sid := GetTraceID(ctx)
 			if len(tid) > 0 {
-				entry.Labels = append(entry.Labels, TraceIDField(tid))
-				entry.Labels = append(entry.Labels, SpanID(sid))
+				entry.Fields = append(entry.Fields, TraceIDField(tid))
+				entry.Fields = append(entry.Fields, SpanID(sid))
 				break
 			}
 		}
 	}
 
 	if len(a) > 0 {
-		entry.Labels = append(entry.Labels, Message("", a...))
+		entry.Fields = append(entry.Fields, Message("", a...))
 	}
 
 	if entry.Time.IsZero() {
@@ -169,12 +155,3 @@ func (l *logImpl) Info(a ...interface{})  { l.Log(field.LevelInfo, a) }
 func (l *logImpl) Warn(a ...interface{})  { l.Log(field.LevelWarn, a) }
 func (l *logImpl) Error(a ...interface{}) { l.Log(field.LevelError, a) }
 func (l *logImpl) Fatal(a ...interface{}) { l.Log(field.LevelFatal, a) }
-
-// func (log *logImpl) Logf(level LogLevel, format string, a []interface{}) {
-// 	log.logger.Logf(log.ctx, log.calldepth+1, level, format, a)
-// }
-// func (log *entryLog) Debugf(format string, a ...interface{}) { log.Logf(Debug, format, a) }
-// func (log *entryLog) Infof(format string, a ...interface{})  { log.Logf(Info, format, a) }
-// func (log *entryLog) Warnf(format string, a ...interface{})  { log.Logf(Warn, format, a) }
-// func (log *entryLog) Errorf(format string, a ...interface{}) { log.Logf(Error, format, a) }
-// func (log *entryLog) Fatalf(format string, a ...interface{}) { log.Logf(Fatal, format, a) }

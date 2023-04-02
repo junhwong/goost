@@ -100,7 +100,7 @@ func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	}
 	// writeByte('|')
 	writeByte(' ')
-	fs := entry.GetLabels()
+	fs := entry.GetFields()
 
 	if ci := entry.GetCallerInfo(); ci != nil {
 		fprintf(`%s`, ci.Caller())

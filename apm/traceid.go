@@ -78,6 +78,7 @@ const (
 	spanInContextKey = "$apm.spanInContextKey"
 )
 
+// Deprecated: Drivers
 func GetTraceID(ctx context.Context) (traceID, spanID string) {
 	if ctx == nil {
 		return "", ""
@@ -107,6 +108,7 @@ func GetTraceID(ctx context.Context) (traceID, spanID string) {
 // 解析 W3C trace.
 //
 // 示例: `00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01`.
+//
 // see: https://www.w3.org/TR/trace-context/#traceparent-header
 func ParseW3Traceparent(traceparent string) (version byte, traceID, parentSpanID HexID, flags byte, err error) {
 	arr := strings.Split(traceparent, "-")
@@ -142,6 +144,7 @@ func ParseW3Traceparent(traceparent string) (version byte, traceID, parentSpanID
 // 解析 W3C tracestate.
 //
 // 示例: `rojo=00f067aa0ba902b7,congo=t61rcWkgMzE`.
+//
 // see: https://www.w3.org/TR/trace-context/#tracestate-header
 func ParseW3Tracestate(tracestate string) (fs Fields, err error) {
 	arr := strings.Split(tracestate, "-")

@@ -1,6 +1,7 @@
 package apm
 
 import (
+	"context"
 	"path"
 	"runtime"
 	"strings"
@@ -61,4 +62,20 @@ func (info CallerInfo) Caller() string {
 		p += ":" + cast.ToString(info.Line)
 	}
 	return p
+}
+
+var callerContextKey = CallerInfo{}
+
+func WithCaller(ctx context.Context, depth ...int) context.Context {
+	d := 2
+	if len(depth) > 0 {
+		d = depth[len(depth)-1]
+	}
+	info := Caller(d)
+	return context.WithValue(ctx, callerContextKey, info)
+}
+func CallerFromContext(ctx context.Context) (CallerInfo, bool) {
+	obj := ctx.Value(callerContextKey)
+	info, ok := obj.(CallerInfo)
+	return info, ok
 }

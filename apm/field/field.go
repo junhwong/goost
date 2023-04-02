@@ -6,6 +6,21 @@ import (
 	"time"
 )
 
+type FieldSet map[string]*Field
+
+func (fs FieldSet) Set(f *Field) *Field {
+	fs[f.GetKey()] = f
+	return f
+}
+func (fs FieldSet) Get(k string) *Field {
+	return fs[k]
+}
+func (fs FieldSet) Remove(k string) *Field {
+	f := fs[k]
+	delete(fs, k)
+	return f
+}
+
 // 字段标志位.
 type Flags int32
 
@@ -166,6 +181,9 @@ func GetBoolValue(f *Field) bool {
 }
 
 func GetObject(f *Field) any {
+	if f == nil {
+		return nil
+	}
 	switch f.Type {
 	case IntKind:
 		return f.GetIntValue()

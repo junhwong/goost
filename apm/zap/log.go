@@ -236,7 +236,7 @@ func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 	c.log.Dispatch(&apm.FieldsEntry{
 		Time:       ent.Time,
 		Level:      apmLvl,
-		Labels:     fs,
+		Fields:     fs,
 		CallerInfo: info,
 	})
 	// buf, err := c.enc.EncodeEntry(ent, fields)

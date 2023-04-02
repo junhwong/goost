@@ -81,7 +81,7 @@ func (log *logImpl) NewSpan(ctx context.Context, options ...SpanOption) (context
 		FieldsEntry: &FieldsEntry{
 			Level:  field.LevelTrace,
 			Time:   time.Now(),
-			Labels: log.fields,
+			Fields: log.fields,
 		},
 		logImpl: log,
 		spanContext: spanContext{
@@ -162,18 +162,18 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 		}
 	}
 
-	span.Labels = append(span.Labels, SpanName(name))
-	span.Labels = append(span.Labels, SpanID(span.SpanID))
+	span.Fields = append(span.Fields, SpanName(name))
+	span.Fields = append(span.Fields, SpanID(span.SpanID))
 	if len(span.SpanParentID) > 0 {
-		span.Labels = append(span.Labels, SpanParentID(span.SpanParentID))
+		span.Fields = append(span.Fields, SpanParentID(span.SpanParentID))
 	}
-	span.Labels = append(span.Labels, Duration(time.Since(span.Time))) // Latency
-	span.Labels = append(span.Labels, TraceIDField(span.TranceID))
+	span.Fields = append(span.Fields, Duration(time.Since(span.Time))) // Latency
+	span.Fields = append(span.Fields, TraceIDField(span.TranceID))
 	for _, fn := range span.endCalls {
 		fn(span)
 	}
 	if span.failed {
-		span.Labels = append(span.Labels, SpanStatusCode(string(SpanStatusError)))
+		span.Fields = append(span.Fields, SpanStatusCode(string(SpanStatusError)))
 	}
 
 	span.LogFS(span.FieldsEntry, []any{span.ctx}) //span.ctx , Trace, TODO: calldepth 不能获取到 defer 位置
@@ -216,6 +216,6 @@ func (span *spanImpl) SetStatus(code SpanStatus, description string, failure ...
 		}
 	}
 }
-func (s *spanImpl) SetAttributes(a ...*Field)     { s.Labels = append(s.Labels, a...) }
+func (s *spanImpl) SetAttributes(a ...*Field)     { s.Fields = append(s.Fields, a...) }
 func (s *spanImpl) SetNameGetter(a func() string) { s.getName = a }
 func (s *spanImpl) SetEndCalls(a []func(Span))    { s.endCalls = a }
