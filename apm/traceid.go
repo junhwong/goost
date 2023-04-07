@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
@@ -40,14 +41,18 @@ func (id HexID) String() string {
 }
 
 var seededIDGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+var mu sync.Mutex
 
 // randomTimestamped can generate 128 bit time sortable traceid's compatible
 // with AWS X-Ray and 64 bit spanid's.
 func NewHexID() HexID {
-	return HexID{
+	mu.Lock()
+	id := HexID{
 		High: uint64(time.Now().Unix()<<32) + uint64(seededIDGen.Int31()),
 		Low:  uint64(seededIDGen.Int63()),
 	}
+	mu.Unlock()
+	return id
 }
 
 var (

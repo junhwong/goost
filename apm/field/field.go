@@ -3,22 +3,75 @@ package field
 import (
 	"fmt"
 	"net"
+	"sort"
 	"time"
 )
 
-type FieldSet map[string]*Field
+type FieldSet []*Field
 
-func (fs FieldSet) Set(f *Field) *Field {
-	fs[f.GetKey()] = f
+func (x FieldSet) Len() int           { return len(x) }
+func (x FieldSet) Less(i, j int) bool { return x[i].GetKey() < x[j].GetKey() } // 字典序
+func (x FieldSet) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
+func (x FieldSet) Sort()              { sort.Sort(x) }
+
+func (fs *FieldSet) Set(f *Field) *Field {
+	f, _ = fs.Put(f)
 	return f
 }
+func (fs *FieldSet) Put(f *Field) (crt, old *Field) {
+	crt = f
+	i := fs.GetAt(f.GetKey())
+	if i < 0 {
+		*fs = append(*fs, f)
+		return
+	}
+	tmp := *fs
+	old = tmp[i]
+	tmp[i] = f
+	return
+}
+
 func (fs FieldSet) Get(k string) *Field {
-	return fs[k]
+	for _, v := range fs {
+		if v.GetKey() == k {
+			return v
+		}
+	}
+	return nil
 }
-func (fs FieldSet) Remove(k string) *Field {
-	f := fs[k]
-	delete(fs, k)
+func (fs FieldSet) GetAt(k string) int {
+	for i, v := range fs {
+		if v.GetKey() == k {
+			return i
+		}
+	}
+	return -1
+}
+
+func (fs *FieldSet) Remove(k string) *Field {
+	i := fs.GetAt(k)
+	if i < 0 {
+		return nil
+	}
+
+	tmp := *fs
+	f := tmp[i]
+	n := len(tmp) - 1
+	for j := i; j < n; j++ {
+		tmp[j] = tmp[j+1]
+	}
+	*fs = tmp[:n]
 	return f
+}
+
+// 清除重复
+func (fs *FieldSet) Unique() FieldSet {
+	tmp := FieldSet{}
+	for _, f := range *fs {
+		tmp.Set(f)
+	}
+	*fs = tmp
+	return tmp
 }
 
 // 字段标志位.

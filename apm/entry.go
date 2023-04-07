@@ -11,16 +11,16 @@ type Level = field.Level
 
 type (
 	Field  = field.Field
-	Fields = []*Field
+	Fields = field.FieldSet
 )
 
 type Entry interface {
 	GetLevel() (v Level)
 	GetTime() (v time.Time)
 	GetMessage() (v string)
-	GetFields() []*Field
+	GetFields() Fields
 	GetCallerInfo() *CallerInfo
-	Lookup(key string) (found []*Field)
+	Lookup(key string) (found Fields)
 }
 
 type FieldsEntry struct {
@@ -50,14 +50,12 @@ func (e FieldsEntry) GetCallerInfo() *CallerInfo {
 }
 
 func (e FieldsEntry) GetMessage() (v string) {
-	for _, l := range e.GetFields() {
-		if l != nil && l.GetKey() == MessageKey.Name() {
-			return l.GetStringValue()
-		}
+	if f := e.Fields.Get(MessageKey.Name()); f != nil {
+		return f.GetStringValue()
 	}
 	return
 }
-func (e FieldsEntry) Lookup(key string) (found []*Field) {
+func (e FieldsEntry) Lookup(key string) (found Fields) {
 	for _, l := range e.GetFields() {
 		if l != nil && l.GetKey() == key && l.GetType() != field.InvalidKind {
 			found = append(found, l)
