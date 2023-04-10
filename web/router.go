@@ -147,7 +147,7 @@ func (r *ginRouter) enterHandler(ctx Context) {
 			} else {
 				err.Raise = re
 			}
-			span.Fail(err)
+			span.FailIf(err)
 			r.handleError(ctx, err)
 		}
 	}()

@@ -82,7 +82,7 @@ func prepareContext(ctx context.Context, meta connMeta, raw sqlPrepare, query st
 	// fmt.Println("sql", query)
 	stmt, err := raw.PrepareContext(ctx, query)
 	if err != nil {
-		span.Fail(err)
+		span.FailIf(err)
 		return nil, err
 	}
 

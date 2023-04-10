@@ -34,7 +34,7 @@ func (k key) Kind() Kind {
 	return k.kind
 }
 func (k key) String() string {
-	r := kindNames[k.kind]
+	r := Type_name[int32(k.kind)]
 	if len(r) == 0 {
 		r = "<invalid>"
 	}
@@ -76,7 +76,7 @@ func makeOrGetKey(name string, kind Kind, sec ...Kind) Key {
 	if key, _ := obj.(*key); key != nil && key.kind == kind {
 		return key
 	}
-	panic(fmt.Sprintf("Key already exists, but is not a %s: %s", kindNames[kind], obj))
+	panic(fmt.Sprintf("Key already exists, but is not a %s: %s", kind, obj))
 }
 
 type Keys []Key

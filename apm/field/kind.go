@@ -1,10 +1,8 @@
 package field
 
-import (
-	"strings"
-)
+import "strings"
 
-// Kind 数据类型。
+// // Kind 数据类型。
 type Kind = Type
 
 const (
@@ -18,49 +16,20 @@ const (
 	DurationKind = Type_DURATION
 	BytesKind    = Type_BYTES
 	IPKind       = Type_IP
-	LevelKind    = Type_LOGLEVEL
-
-	// SliceKind = pb.Field_UNKNOWN // 数组
-	// MapKind                     // 嵌套对象
-	// DynamicKind = pb.Field_UNKNOWN // 动态字段。警告：该类型的key是不被检查的。
+	LevelKind    = Type_LEVEL
 )
 
-var kindNames = map[Kind]string{
-	InvalidKind:  "<invalid>",
-	StringKind:   "string",
-	IntKind:      "int",
-	UintKind:     "uint",
-	FloatKind:    "float",
-	BoolKind:     "bool",
-	TimeKind:     "time",
-	DurationKind: "duration",
-	BytesKind:    "bytes",
-	IPKind:       "ip",
-	LevelKind:    "level",
-
-	// SliceKind:   "slice",
-	// MapKind:     "map",
-	// DynamicKind: "dynamic",
-}
-
-//	func (k KeyKind) String() string {
-//		s, ok := kindNames[k]
-//		if !ok {
-//			return strconv.Itoa(int(k))
-//		}
-//		return s
-//	}
-func ParseType(v any) Kind {
+func ParseType(v any) Type {
 	var n int32
 	switch v := v.(type) {
 	case string:
 		v = strings.ToLower(v)
 		switch v {
-		case "timestamp", "time", "datetime":
+		case "timestamp", "time", "datetime", "date":
 			v = "timestamp"
 		case "long", "short":
 			v = "int"
-		case "number":
+		case "number", "double":
 			v = "float"
 		}
 		n = int32(ParseType(Type_value[strings.ToUpper(v)]))
@@ -70,8 +39,8 @@ func ParseType(v any) Kind {
 		n = v
 	}
 	if _, ok := Type_name[n]; ok {
-		return Kind(n)
+		return Type(n)
 	}
 
-	return InvalidKind
+	return Type_UNKNOWN
 }

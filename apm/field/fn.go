@@ -114,3 +114,22 @@ func Duration(name string) (Key, func(time.Duration) *Field) {
 		return SetDuration(New(name), v)
 	}
 }
+func BuildLevel(name string) (Key, func(interface{}) *Field) {
+	k := makeOrGetKey(name, Type_LEVEL)
+	return k, func(v interface{}) *Field {
+		f := Any(name, v)
+		var i int
+		switch f.Type {
+		case Type_UINT:
+			i = int(f.GetUintValue())
+		case Type_INT:
+			i = int(f.GetIntValue())
+		case Type_LEVEL:
+			return f
+		default:
+			f.Type = Type_UNKNOWN // panic
+			return f
+		}
+		return SetLevel(f, LevelFromInt(i))
+	}
+}

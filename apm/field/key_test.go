@@ -119,7 +119,7 @@ func (fs Fields2) Set(f FieldInvoker) {
 }
 
 func makeInt(name string) (Key, func(interface{}) FieldInvoker) {
-	k := makeOrGetKey(name, IntKind)
+	k := makeOrGetKey(name, Type_INT)
 	return k, func(v interface{}) FieldInvoker {
 		v, e := cast.ToInt64E(v)
 		return makeResult(k, v, e)
@@ -174,23 +174,23 @@ type ts string
 func TestRV(t *testing.T) {
 	testCases := []struct {
 		o any
-		k Kind
+		k Type
 	}{
 		{
 			o: "r",
-			k: StringKind,
+			k: Type_STRING,
 		},
 		{
 			o: ts("s"),
-			k: StringKind,
+			k: Type_STRING,
 		},
 		{
 			o: time.Now(),
-			k: TimeKind,
+			k: Type_TIMESTAMP,
 		},
 		{
 			o: time.Second,
-			k: DurationKind,
+			k: Type_DURATION,
 		},
 	}
 	for _, tC := range testCases {

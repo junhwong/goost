@@ -105,7 +105,7 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 
 	if serr != nil { // todo 额外处理
 		caller := entry.CallerInfo.Caller()
-		if ls := entry.Lookup(ErrorMethodKey.Name()); len(ls) == 0 {
+		if entry.GetFields().Get(ErrorMethodKey.Name()) == nil {
 			stack := StackToCallerInfo(serr.Stack)
 			arr := []string{}
 			for _, it := range stack {
@@ -124,12 +124,12 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 			}
 		}
 
-		if ls := entry.Lookup(ErrorStackTraceKey.Name()); len(ls) == 0 {
+		if entry.GetFields().Get(ErrorStackTraceKey.Name()) == nil {
 			entry.Fields = append(entry.Fields, ErrorStackTrace("%s", serr.Stack))
 		}
 	}
 
-	if ls := entry.Lookup(TraceIDKey.Name()); len(ls) == 0 {
+	if entry.GetFields().Get(TraceIDKey.Name()) == nil {
 		for _, ctx := range ctxs {
 			tid, sid := GetTraceID(ctx)
 			if len(tid) > 0 {

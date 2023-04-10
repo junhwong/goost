@@ -12,7 +12,12 @@ type FieldSet []*Field
 func (x FieldSet) Len() int           { return len(x) }
 func (x FieldSet) Less(i, j int) bool { return x[i].GetKey() < x[j].GetKey() } // 字典序
 func (x FieldSet) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
-func (x FieldSet) Sort()              { sort.Sort(x) }
+func (x FieldSet) Sort() {
+	if len(x) == 0 {
+		return
+	}
+	sort.Sort(x)
+}
 
 func (fs *FieldSet) Set(f *Field) *Field {
 	f, _ = fs.Put(f)
@@ -197,11 +202,17 @@ func GetIP(f *Field) net.IP {
 	return f.BytesValue
 }
 
-func SetLogLevel(f *Field, v Level) *Field {
+func SetLevel(f *Field, v Level) *Field {
 	f.Type = LevelKind
 	i := uint64(v)
 	f.UintValue = &i
 	return f
+}
+func GetLevelValue(f *Field) Level {
+	if f == nil || f.Type != LevelKind {
+		return LevelUnset
+	}
+	return LevelFromInt(int(f.GetUintValue()))
 }
 
 func (f *WrapField) SetDuration(v time.Duration) *WrapField {
