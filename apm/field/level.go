@@ -1,6 +1,9 @@
 package field
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // Level type.
 // see https://opentelemetry.io/docs/reference/specification/logs/data-model/#severity-fields
@@ -168,7 +171,11 @@ func ParseLevel(s string) Level {
 	case "F4":
 		return levelFatal4
 	}
-	return LevelUnset
+	i, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return LevelUnset
+	}
+	return LevelFromInt(int(i))
 }
 
 func LevelFromInt(v int) Level {

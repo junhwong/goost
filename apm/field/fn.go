@@ -42,7 +42,14 @@ func Any(name string, v any) *Field {
 
 	switch k {
 	case StringKind:
-		SetString(f, iv.(string))
+		s := iv.(string)
+		if f.Key == "level" { // todo 更多可能的名称
+			l := ParseLevel(s)
+			if l != LevelUnset {
+				return SetLevel(f, l)
+			}
+		}
+		SetString(f, s)
 	case IntKind:
 		SetInt(f, iv.(int64))
 	case UintKind:

@@ -192,7 +192,7 @@ func SetIP(f *Field, v net.IP) *Field {
 	f.BytesValue = v
 	return f
 }
-func GetIP(f *Field) net.IP {
+func GetIPValue(f *Field) net.IP {
 	if f == nil || f.Type != IPKind {
 		return nil
 	}
@@ -249,14 +249,14 @@ func GetObject(f *Field) any {
 		return nil
 	}
 	switch f.Type {
+	case StringKind:
+		return f.GetStringValue()
 	case IntKind:
 		return f.GetIntValue()
 	case UintKind:
 		return f.GetUintValue()
 	case FloatKind:
 		return f.GetFloatValue()
-	case StringKind:
-		return f.GetStringValue()
 	case BoolKind:
 		return f.GetIntValue() != 0
 	case BytesKind:
@@ -265,6 +265,10 @@ func GetObject(f *Field) any {
 		return GetTimeValue(f)
 	case DurationKind:
 		return GetDurationValue(f)
+	case IPKind:
+		return GetIPValue(f)
+	case LevelKind:
+		return GetLevelValue(f)
 	}
 	return nil
 }
