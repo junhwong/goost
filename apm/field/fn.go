@@ -2,6 +2,7 @@ package field
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"strings"
 	"time"
@@ -62,6 +63,10 @@ func Any(name string, v any) *Field {
 		SetTime(f, iv.(time.Time))
 	case DurationKind:
 		SetDuration(f, iv.(time.Duration))
+	case IPKind:
+		SetIP(f, iv.(net.IP))
+	case BytesKind:
+		SetBytes(f, iv.([]byte))
 	}
 	return f
 }

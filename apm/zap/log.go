@@ -116,7 +116,7 @@ func (e Entry) GetMessage() (v string) {
 	return e.ent.Message
 }
 
-func transform(fields []zapcore.Field) (fs apm.Fields) {
+func transform(fields []zapcore.Field) (fs field.FieldSet) {
 
 	for _, f := range fields {
 		// if f.Key == "start time" || f.Key == "time spent" || f.Key == "response type" {
@@ -188,7 +188,7 @@ func transform(fields []zapcore.Field) (fs apm.Fields) {
 	return
 }
 
-func (e Entry) GetFields() apm.Fields {
+func (e Entry) GetFields() field.FieldSet {
 
 	info := apm.CallerInfo{
 		File:   e.ent.Caller.File,
@@ -199,7 +199,7 @@ func (e Entry) GetFields() apm.Fields {
 	// fmt.Printf("e.ent.Caller: %+v\n", e.ent.Caller.PC)
 	// fmt.Printf("e.ent.Caller.File: %v\n", e.ent.Caller.File)
 	// fmt.Printf("====caller: %v\n", caller)
-	fs := apm.Fields{apm.TracebackCaller(caller)}
+	fs := field.FieldSet{apm.TracebackCaller(caller)}
 
 	fs = append(fs, transform(e.c.fields)...)
 	fs = append(fs, transform(e.fields)...)

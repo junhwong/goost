@@ -16,26 +16,24 @@ import (
 
 // 符合 W3C 规范的 TraceID 或 SpanID.
 // https://www.w3.org/TR/trace-context/#trace-id
-type HexID struct {
-	High uint64
-	Low  uint64
-}
+type HexID []byte
 
-func (id HexID) Bytes() []byte {
-	var b []byte
-	if i := id.High; i > 0 {
-		b = binary.BigEndian.AppendUint64(b, i)
+func (id HexID) Bytes() []byte { return id }
+func (id HexID) High() HexID {
+	if len(id) != 16 {
+		return nil
 	}
-	if i := id.Low; i > 0 {
-		b = binary.BigEndian.AppendUint64(b, i)
-	}
-	return b
+	return id[:8]
 }
-
+func (id HexID) Low() HexID {
+	if len(id) != 16 {
+		return nil
+	}
+	return id[8:]
+}
 func (id HexID) String() string {
-	b := id.Bytes()
-	if len(b) == 0 {
-		return ""
+	if l := len(id); !(l == 0 || l == 8 || l == 16) {
+		return "<invalid>"
 	}
 	return fmt.Sprintf("%x", id.Bytes())
 }
@@ -47,12 +45,15 @@ var mu sync.Mutex
 // with AWS X-Ray and 64 bit spanid's.
 func NewHexID() HexID {
 	mu.Lock()
-	id := HexID{
-		High: uint64(time.Now().Unix()<<32) + uint64(seededIDGen.Int31()),
-		Low:  uint64(seededIDGen.Int63()),
+	var b []byte
+	if i := uint64(time.Now().Unix()<<32) + uint64(seededIDGen.Int31()); i > 0 {
+		b = binary.BigEndian.AppendUint64(b, i)
+	}
+	if i := uint64(seededIDGen.Int63()); i > 0 {
+		b = binary.BigEndian.AppendUint64(b, i)
 	}
 	mu.Unlock()
-	return id
+	return b
 }
 
 var (
@@ -61,22 +62,18 @@ var (
 
 // ParseHexID returns a HexID from a hex string.
 func ParseHexID(h string) (HexID, error) {
-	t := HexID{}
 	decoded, err := hex.DecodeString(h)
 	if err != nil {
-		return t, errInvalidHexID
+		return nil, errInvalidHexID
 	}
 	switch len(decoded) {
 	case 16:
-		t.High = binary.BigEndian.Uint64(decoded[:8])
-		decoded = decoded[8:]
-		fallthrough
 	case 8:
-		t.Low = binary.BigEndian.Uint64(decoded)
+		decoded = append(make([]byte, 8), decoded...)
 	default:
-		return t, errInvalidHexID
+		return nil, errInvalidHexID
 	}
-	return t, nil
+	return decoded, nil
 }
 
 const (
@@ -151,8 +148,8 @@ func ParseW3Traceparent(traceparent string) (version byte, traceID, parentSpanID
 // 示例: `rojo=00f067aa0ba902b7,congo=t61rcWkgMzE`.
 //
 // see: https://www.w3.org/TR/trace-context/#tracestate-header
-func ParseW3Tracestate(tracestate string) (fs Fields, err error) {
-	arr := strings.Split(tracestate, "-")
+func ParseW3Tracestate(tracestate string) (fs field.FieldSet, err error) {
+	arr := strings.Split(tracestate, ",")
 	if len(arr) == 0 {
 		return nil, nil
 	}
@@ -165,9 +162,10 @@ func ParseW3Tracestate(tracestate string) (fs Fields, err error) {
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid state item")
 		}
-		f := field.New(kv[0])
-		field.SetString(f, kv[1]) // TODO 推断值类型?
-		fs = append(fs, f)
+		f := field.SetString(field.New(kv[0]), kv[1]) // TODO 推断值类型?
+		if f.GetType() == field.StringKind {
+			fs.Set(f)
+		}
 	}
 	return
 }

@@ -25,7 +25,7 @@ func (fs *FieldSet) Set(f *Field) *Field {
 }
 func (fs *FieldSet) Put(f *Field) (crt, old *Field) {
 	crt = f
-	i := fs.GetAt(f.GetKey())
+	i := fs.At(f.GetKey())
 	if i < 0 {
 		*fs = append(*fs, f)
 		return
@@ -44,7 +44,7 @@ func (fs FieldSet) Get(k string) *Field {
 	}
 	return nil
 }
-func (fs FieldSet) GetAt(k string) int {
+func (fs FieldSet) At(k string) int {
 	for i, v := range fs {
 		if v.GetKey() == k {
 			return i
@@ -54,7 +54,7 @@ func (fs FieldSet) GetAt(k string) int {
 }
 
 func (fs *FieldSet) Remove(k string) *Field {
-	i := fs.GetAt(k)
+	i := fs.At(k)
 	if i < 0 {
 		return nil
 	}
@@ -71,6 +71,9 @@ func (fs *FieldSet) Remove(k string) *Field {
 
 // 清除重复
 func (fs *FieldSet) Unique() FieldSet {
+	if fs == nil {
+		return nil
+	}
 	tmp := FieldSet{}
 	for _, f := range *fs {
 		tmp.Set(f)
@@ -102,16 +105,49 @@ type WrapField struct {
 	Layout []string `json:"layout"` // 时间格式
 }
 
-func SetString(f *Field, v string) *Field {
-	if len(v) == 0 {
-		return f
-	}
-	f.Type = StringKind
-	f.StringValue = &v
-	return f
-}
 func (f *WrapField) SetString(v string) *WrapField {
 	SetString(f.Field, v)
+	return f
+}
+func (f *WrapField) SetBool(v bool) *WrapField {
+	SetBool(f.Field, v)
+	return f
+}
+
+func (f *WrapField) SetInt(v int64) *WrapField {
+	SetInt(f.Field, v)
+	return f
+}
+func (f *WrapField) SetUint(v uint64) *WrapField {
+	SetUint(f.Field, v)
+	return f
+}
+
+func (f *WrapField) SetFloat(v float64) *WrapField {
+	SetFloat(f.Field, v)
+	return f
+}
+func (f *WrapField) SetTime(v time.Time) *WrapField {
+	SetTime(f.Field, v)
+	return f
+}
+
+func (f WrapField) GetTimeValue() time.Time {
+	return GetTimeValue(f.Field)
+}
+
+func (f *WrapField) SetDuration(v time.Duration) *WrapField {
+	SetDuration(f.Field, v)
+	return f
+}
+
+func (f WrapField) GetDurationValue() time.Duration {
+	return GetDurationValue(f.Field)
+}
+
+func SetString(f *Field, v string) *Field {
+	f.Type = StringKind
+	f.StringValue = &v
 	return f
 }
 
@@ -125,18 +161,9 @@ func SetBool(f *Field, v bool) *Field {
 	return f
 }
 
-func (f *WrapField) SetBool(v bool) *WrapField {
-	SetBool(f.Field, v)
-	return f
-}
-
 func SetInt(f *Field, v int64) *Field {
 	f.Type = IntKind
 	f.IntValue = &v
-	return f
-}
-func (f *WrapField) SetInt(v int64) *WrapField {
-	SetInt(f.Field, v)
 	return f
 }
 
@@ -145,18 +172,10 @@ func SetUint(f *Field, v uint64) *Field {
 	f.UintValue = &v
 	return f
 }
-func (f *WrapField) SetUint(v uint64) *WrapField {
-	SetUint(f.Field, v)
-	return f
-}
 
 func SetFloat(f *Field, v float64) *Field {
 	f.Type = FloatKind
 	f.FloatValue = &v
-	return f
-}
-func (f *WrapField) SetFloat(v float64) *WrapField {
-	SetFloat(f.Field, v)
 	return f
 }
 
@@ -169,14 +188,7 @@ func SetTime(f *Field, v time.Time) *Field {
 	f.UintValue = &i
 	return f
 }
-func (f *WrapField) SetTime(v time.Time) *WrapField {
-	SetTime(f.Field, v)
-	return f
-}
 
-func (f WrapField) GetTimeValue() time.Time {
-	return GetTimeValue(f.Field)
-}
 func SetDuration(f *Field, v time.Duration) *Field {
 	f.Type = DurationKind
 	i := int64(v)
@@ -215,15 +227,6 @@ func GetLevelValue(f *Field) Level {
 	return LevelFromInt(int(f.GetUintValue()))
 }
 
-func (f *WrapField) SetDuration(v time.Duration) *WrapField {
-	SetDuration(f.Field, v)
-	return f
-}
-
-func (f WrapField) GetDurationValue() time.Duration {
-	return GetDurationValue(f.Field)
-}
-
 func GetTimeValue(f *Field) time.Time {
 	if f == nil || f.Type != TimeKind {
 		return time.Time{}
@@ -242,6 +245,15 @@ func GetBoolValue(f *Field) bool {
 		return false
 	}
 	return f.GetIntValue() != 0
+}
+
+func SetBytes(f *Field, v []byte) *Field {
+	if len(v) == 0 && v != nil {
+		return f
+	}
+	f.Type = BytesKind
+	f.BytesValue = v
+	return f
 }
 
 func GetObject(f *Field) any {
@@ -269,6 +281,7 @@ func GetObject(f *Field) any {
 		return GetIPValue(f)
 	case LevelKind:
 		return GetLevelValue(f)
+
 	}
 	return nil
 }

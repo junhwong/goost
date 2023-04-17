@@ -17,7 +17,7 @@ type TextFormatter struct {
 	TimeLayout string
 	SkipFields []string
 	Color      bool // 是否打印颜色
-	Skipped    func(*Field)
+	Skipped    func(*field.Field)
 }
 
 func cutstr(v interface{}, l int) string {

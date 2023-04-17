@@ -2,16 +2,18 @@ package apm
 
 import (
 	"context"
+
+	"github.com/junhwong/goost/apm/field"
 )
 
 type SpanOptionSetter interface {
 	SetNameGetter(a func() string)
-	SetAttributes(a ...*Field)
+	SetAttributes(a ...*field.Field)
 	SetCalldepth(a int)
 }
 type EndSpanOptionSetter interface {
 	SetNameGetter(a func() string)
-	SetAttributes(a ...*Field)
+	SetAttributes(a ...*field.Field)
 	SetEndCalls(a []func(Span))
 }
 
@@ -86,12 +88,22 @@ func WithEndCall(fn func(Span)) funcEndSpanOption {
 // }
 
 func Start(ctx context.Context, options ...SpanOption) (context.Context, Span) {
-	return std.NewSpan(WithCaller(ctx, 2), options...)
+	return std.NewSpan(WithCaller(ctx, 3), options...)
 }
 
 // // 调整日志堆栈记录深度
-// func WithClearup(closer interface{}) *traceOption {
-// 	return WithEndCall(func(s Span) {
-// 		Close(closer, s)
-// 	})
-// }
+//
+//	func WithClearup(closer interface{}) *traceOption {
+//		return WithEndCall(func(s Span) {
+//			Close(closer, s)
+//		})
+//	}
+var nk = "__ComponentName__"
+
+func WithComponentName(ctx context.Context, s string) context.Context {
+	return context.WithValue(ctx, &nk, s)
+}
+func ComponentName(ctx context.Context) (s string) {
+	s, _ = ctx.Value(&nk).(string)
+	return
+}

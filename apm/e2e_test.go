@@ -11,7 +11,7 @@ func TestLog(t *testing.T) {
 	t.Cleanup(apm.Flush)
 
 	// apm.UseAsyncDispatcher()
-
-	apm.Default().WithFields(apm.LogComponent("test")).Debug("hello")
+	apm.LogComponent("test")
+	apm.Default().WithFields().Debug("hello")
 	apm.Default().Debug(apm.WrapCallStack(errors.New("hhh")))
 }

@@ -35,47 +35,48 @@ type FormatLogger interface {
 }
 
 // ==================== EntryInterface ====================
-type logImpl struct {
-	calldepth int // 1
-	fields    Fields
-	ctx       context.Context
-}
 
-func (l *logImpl) SetCalldepth(a int) { l.calldepth = a }
-func (l *logImpl) WithFields(fs ...*Field) Interface {
+func (l *FieldsEntry) SetCalldepth(v int) { l.calldepth = v }
+func (l *FieldsEntry) WithFields(fs ...*field.Field) Interface {
 	cl := l.clone()
-	cl.fields = append(cl.fields, fs...)
+	for _, f := range fs {
+		cl.Fields.Set(f)
+	}
 	return cl
 }
-func (l *logImpl) clone() *logImpl {
-	fieldsCopy := make(Fields, len(l.fields))
-	copy(fieldsCopy, l.fields)
-
-	return &logImpl{
+func (l *FieldsEntry) clone() *FieldsEntry {
+	l.mu.Lock()
+	r := &FieldsEntry{
 		calldepth: l.calldepth,
-		fields:    fieldsCopy,
 	}
+	for _, f := range l.Fields {
+		r.Fields.Set(field.Clone(f))
+	}
+	l.mu.Unlock()
+	return r
 }
 
-func (l logImpl) Log(level Level, args []interface{}) {
+func (l *FieldsEntry) Log(level Level, args []interface{}) {
+	l = l.clone()
 	l.calldepth++
-	entry := &FieldsEntry{
-		Level: level,
-	}
-	entry.Fields = append(entry.Fields, l.fields...)
-	l.LogFS(entry, args)
+	l.Level = level
+
+	l.do(args, func() {})
 }
-func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
+
+func (entry *FieldsEntry) do(args []interface{}, befor func()) {
 	// var err error
-	a := []interface{}{}
-	ctxs := []context.Context{}
-	var serr *StacktraceError
+	var (
+		a    []interface{}
+		ctxs []context.Context
+		serr *StacktraceError
+	)
 	for _, f := range args {
 		switch f := f.(type) {
-		case Field:
-			entry.Fields = append(entry.Fields, &f)
-		case *Field:
-			entry.Fields = append(entry.Fields, f)
+		case field.Field:
+			entry.Fields.Set(&f)
+		case *field.Field:
+			entry.Fields.Set(f)
 		case context.Context:
 			ctxs = append(ctxs, f)
 		case error:
@@ -99,8 +100,8 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 		}
 	}
 
-	if !entry.CallerInfo.Ok && l.calldepth > -1 {
-		doCaller(l.calldepth+1, &entry.CallerInfo)
+	if !entry.CallerInfo.Ok && entry.calldepth > -1 {
+		doCaller(entry.calldepth+1, &entry.CallerInfo)
 	}
 
 	if serr != nil { // todo 额外处理
@@ -120,12 +121,12 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 			// fmt.Printf("stack: %s\n", serr.Stack)
 			// fmt.Printf("arr: %v\n", arr)
 			if len(arr) > 0 {
-				entry.Fields = append(entry.Fields, ErrorMethod(strings.Join(arr, ",")))
+				entry.Fields.Set(ErrorMethod(strings.Join(arr, ",")))
 			}
 		}
 
 		if entry.GetFields().Get(ErrorStackTraceKey.Name()) == nil {
-			entry.Fields = append(entry.Fields, ErrorStackTrace("%s", serr.Stack))
+			entry.Fields.Set(ErrorStackTrace("%s", serr.Stack))
 		}
 	}
 
@@ -133,25 +134,25 @@ func (l logImpl) LogFS(entry *FieldsEntry, args []interface{}) {
 		for _, ctx := range ctxs {
 			tid, sid := GetTraceID(ctx)
 			if len(tid) > 0 {
-				entry.Fields = append(entry.Fields, TraceIDField(tid))
-				entry.Fields = append(entry.Fields, SpanID(sid))
+				entry.Fields.Set(TraceIDField(tid))
+				entry.Fields.Set(SpanID(sid))
 				break
 			}
 		}
 	}
 
 	if len(a) > 0 {
-		entry.Fields = append(entry.Fields, Message("", a...))
+		entry.Fields.Set(Message("", a...))
 	}
-
+	befor()
 	if entry.Time.IsZero() {
 		entry.Time = time.Now()
 	}
 	dispatcher.Dispatch(entry)
 }
 
-func (l *logImpl) Debug(a ...interface{}) { l.Log(field.LevelDebug, a) }
-func (l *logImpl) Info(a ...interface{})  { l.Log(field.LevelInfo, a) }
-func (l *logImpl) Warn(a ...interface{})  { l.Log(field.LevelWarn, a) }
-func (l *logImpl) Error(a ...interface{}) { l.Log(field.LevelError, a) }
-func (l *logImpl) Fatal(a ...interface{}) { l.Log(field.LevelFatal, a) }
+func (l *FieldsEntry) Debug(a ...interface{}) { l.Log(field.LevelDebug, a) }
+func (l *FieldsEntry) Info(a ...interface{})  { l.Log(field.LevelInfo, a) }
+func (l *FieldsEntry) Warn(a ...interface{})  { l.Log(field.LevelWarn, a) }
+func (l *FieldsEntry) Error(a ...interface{}) { l.Log(field.LevelError, a) }
+func (l *FieldsEntry) Fatal(a ...interface{}) { l.Log(field.LevelFatal, a) }

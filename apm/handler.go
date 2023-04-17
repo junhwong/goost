@@ -57,7 +57,6 @@ func (x handlerSlice) handle(entry Entry) {
 func Console() (*SimpleHandler, *TextFormatter) {
 	text := &TextFormatter{SkipFields: []string{"log.component"}}
 	if a := os.Getenv("GOOST_APM_CONSOLE_COLOR"); a == "1" {
-		fmt.Printf("a: %v\n", a)
 		text.Color = true
 	}
 	return &SimpleHandler{

@@ -2,10 +2,12 @@ package apm
 
 import (
 	"sync"
+
+	"github.com/junhwong/goost/apm/field"
 )
 
 var (
-	std *logImpl
+	std *FieldsEntry
 	// defi Interface
 	// asyncD Dispatcher
 	dispatcher Dispatcher = &syncDispatcher{}
@@ -28,7 +30,7 @@ func init() {
 		handler, _ := Console()
 		handler.HandlerPriority -= 999
 		dispatcher.AddHandlers(handler)
-		std = &logImpl{calldepth: 1}
+		std = &FieldsEntry{calldepth: 1}
 	})
 
 	// asyncD = &asyncDispatcher{}
@@ -47,7 +49,7 @@ type Adapter interface {
 // 同一接口
 type Interface interface {
 	Logger
-	WithFields(fs ...*Field) Interface
+	WithFields(fs ...*field.Field) Interface
 	SpanFactory
 }
 
@@ -74,12 +76,12 @@ func AddHandlers(handlers ...Handler) {
 }
 
 type Option interface {
-	applyInterface(*logImpl)
+	applyInterface(*FieldsEntry)
 }
 
 // type funcSpanOption func(SpanOptionSetter)
 
-func WithFields(fs ...*Field) funcSpanOption {
+func WithFields(fs ...*field.Field) funcSpanOption {
 	return funcSpanOption(func(appender SpanOptionSetter) {
 		appender.SetAttributes(fs...)
 	})

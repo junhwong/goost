@@ -1,6 +1,7 @@
 package field
 
 import (
+	"net"
 	"reflect"
 	"time"
 
@@ -82,6 +83,10 @@ func InferPrimitiveValue(v any) (any, Kind) {
 		return v, DurationKind
 	case *time.Duration:
 		return *v, DurationKind
+	case []byte:
+		return v, BytesKind
+	case net.IP:
+		return v, IPKind
 	}
 	return nil, InvalidKind
 }
