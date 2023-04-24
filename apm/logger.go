@@ -37,17 +37,21 @@ type FormatLogger interface {
 // ==================== EntryInterface ====================
 
 func (l *FieldsEntry) SetCalldepth(v int) { l.calldepth = v }
+func (l *FieldsEntry) CalldepthInc() {
+	l.calldepth++
+}
 func (l *FieldsEntry) WithFields(fs ...*field.Field) Interface {
-	cl := l.clone()
+	cl := l.new()
 	for _, f := range fs {
 		cl.Fields.Set(f)
 	}
 	return cl
 }
-func (l *FieldsEntry) clone() *FieldsEntry {
+func (l *FieldsEntry) new() *FieldsEntry {
 	l.mu.Lock()
 	r := &FieldsEntry{
 		calldepth: l.calldepth,
+		Time:      time.Now(),
 	}
 	for _, f := range l.Fields {
 		r.Fields.Set(field.Clone(f))
@@ -56,8 +60,8 @@ func (l *FieldsEntry) clone() *FieldsEntry {
 	return r
 }
 
-func (l *FieldsEntry) Log(level Level, args []interface{}) {
-	l = l.clone()
+func (l *FieldsEntry) Log(level field.Level, args []interface{}) {
+	l = l.new()
 	l.calldepth++
 	l.Level = level
 
@@ -66,6 +70,10 @@ func (l *FieldsEntry) Log(level Level, args []interface{}) {
 
 func (entry *FieldsEntry) do(args []interface{}, befor func()) {
 	// var err error
+	if entry.Time.IsZero() {
+		panic("apm: entry.Time cannot be zero")
+	}
+
 	var (
 		a    []interface{}
 		ctxs []context.Context
@@ -89,10 +97,10 @@ func (entry *FieldsEntry) do(args []interface{}, befor func()) {
 		}
 	}
 
-	if !entry.CallerInfo.Ok {
+	if entry.CallerInfo == nil {
 		for _, ctx := range ctxs {
-			info, ok := CallerFromContext(ctx)
-			if !ok {
+			info := CallerFrom(ctx)
+			if info == nil {
 				continue
 			}
 			entry.CallerInfo = info
@@ -100,8 +108,9 @@ func (entry *FieldsEntry) do(args []interface{}, befor func()) {
 		}
 	}
 
-	if !entry.CallerInfo.Ok && entry.calldepth > -1 {
-		doCaller(entry.calldepth+1, &entry.CallerInfo)
+	if entry.CallerInfo == nil && entry.calldepth > -1 {
+		entry.CallerInfo = &CallerInfo{}
+		doCaller(entry.calldepth+1, entry.CallerInfo)
 	}
 
 	if serr != nil { // todo 额外处理
@@ -145,9 +154,7 @@ func (entry *FieldsEntry) do(args []interface{}, befor func()) {
 		entry.Fields.Set(Message("", a...))
 	}
 	befor()
-	if entry.Time.IsZero() {
-		entry.Time = time.Now()
-	}
+
 	dispatcher.Dispatch(entry)
 }
 

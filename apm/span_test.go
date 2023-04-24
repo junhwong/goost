@@ -69,3 +69,28 @@ func TestHexIDNil(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestContextKey(t *testing.T) {
+	ctx := context.TODO()
+	var (
+		s1 = ""
+		s2 = ""
+	)
+	c1 := context.WithValue(ctx, &s1, "s1")
+	c2 := context.WithValue(ctx, &s2, "s2")
+
+	k := ""
+
+	if c1.Value(k) == "s1" {
+		t.Fatal()
+	}
+	if c1.Value(&k) == c1.Value(&s1) {
+		t.Fatal(c1.Value(&k))
+	}
+	if c1.Value(&s1) == c2.Value(&s1) {
+		t.Fatal()
+	}
+	if c1.Value(&s1) == c2.Value(&s2) {
+		t.Fatal()
+	}
+}

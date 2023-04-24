@@ -118,14 +118,12 @@ func (r *ginRouter) enterHandler(ctx Context) {
 	// "os.arch":"x86_64","os.platform":"linux","os.release":"ubuntu","os.version":"8.0"
 
 	panic("todo")
-	_, span := apm.Start(ctx,
-		apm.WithName(method+" "+path),
-		// apm.WithTrimFieldPrefix("__web."),
-		// apm.WithFields(
-		// 	clientIP(ctx.ClientIP()),
-		// 	httpMethod(method),
-		// ),
-	)
+	_, span := apm.Start(apm.WithName(ctx, method+" "+path)) // apm.WithTrimFieldPrefix("__web."),
+	// apm.WithFields(
+	// 	clientIP(ctx.ClientIP()),
+	// 	httpMethod(method),
+	// ),
+
 	defer func() {
 		span.End(
 			// 用于替换自定义名称

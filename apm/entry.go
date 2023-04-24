@@ -23,7 +23,7 @@ type FieldsEntry struct {
 	Time       time.Time
 	Level      field.Level
 	Fields     field.FieldSet
-	CallerInfo CallerInfo
+	CallerInfo *CallerInfo
 	calldepth  int // 1
 	ctx        context.Context
 	mu         sync.Mutex
@@ -43,7 +43,7 @@ func (e *FieldsEntry) GetFields() field.FieldSet {
 
 func (e *FieldsEntry) GetCallerInfo() *CallerInfo {
 	if e.CallerInfo.Ok {
-		return &e.CallerInfo
+		return e.CallerInfo
 	}
 	return nil
 }

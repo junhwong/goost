@@ -76,10 +76,6 @@ func ParseHexID(h string) (HexID, error) {
 	return decoded, nil
 }
 
-const (
-	spanInContextKey = "$apm.spanInContextKey"
-)
-
 // Deprecated: Drivers
 func GetTraceID(ctx context.Context) (traceID, spanID string) {
 	if ctx == nil {

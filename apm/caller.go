@@ -14,6 +14,7 @@ func Caller(depth int) (info CallerInfo) {
 	doCaller(depth, &info)
 	return
 }
+
 func doCaller(depth int, info *CallerInfo) {
 	info.depth = depth + 1
 	info.pc, info.File, info.Line, info.Ok = runtime.Caller(info.depth)
@@ -64,18 +65,22 @@ func (info CallerInfo) Caller() string {
 	return p
 }
 
-var callerContextKey = CallerInfo{}
-
 func WithCaller(ctx context.Context, depth ...int) context.Context {
 	d := 2
 	if len(depth) > 0 {
 		d = depth[len(depth)-1]
 	}
 	info := Caller(d)
-	return context.WithValue(ctx, callerContextKey, info)
+	if setter, ok := ctx.(interface {
+		Set(key string, value interface{})
+	}); ok {
+		setter.Set(callerContextKey, &info)
+	} else {
+		ctx = context.WithValue(ctx, callerContextKey, &info)
+	}
+	return ctx
 }
-func CallerFromContext(ctx context.Context) (CallerInfo, bool) {
-	obj := ctx.Value(callerContextKey)
-	info, ok := obj.(CallerInfo)
-	return info, ok
+func CallerFrom(ctx context.Context) *CallerInfo {
+	obj, _ := ctx.Value(callerContextKey).(*CallerInfo)
+	return obj
 }

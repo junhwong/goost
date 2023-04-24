@@ -5,6 +5,8 @@ import (
 	"net"
 	"sort"
 	"time"
+
+	"github.com/junhwong/goost/runtime"
 )
 
 type FieldSet []*Field
@@ -180,13 +182,16 @@ func SetFloat(f *Field, v float64) *Field {
 }
 
 func SetTime(f *Field, v time.Time) *Field {
-	if v.IsZero() {
-		return f
-	}
 	f.Type = TimeKind
 	i := uint64(v.UnixNano())
 	f.UintValue = &i
 	return f
+}
+func GetTimeValue(f *Field) time.Time {
+	if f == nil || f.Type != TimeKind {
+		return time.Time{}
+	}
+	return time.Unix(0, int64(f.GetUintValue()))
 }
 
 func SetDuration(f *Field, v time.Duration) *Field {
@@ -227,12 +232,6 @@ func GetLevelValue(f *Field) Level {
 	return LevelFromInt(int(f.GetUintValue()))
 }
 
-func GetTimeValue(f *Field) time.Time {
-	if f == nil || f.Type != TimeKind {
-		return time.Time{}
-	}
-	return time.Unix(0, int64(f.GetUintValue()))
-}
 func GetDurationValue(f *Field) time.Duration {
 	if f == nil || f.Type != DurationKind {
 		return 0
@@ -248,9 +247,6 @@ func GetBoolValue(f *Field) bool {
 }
 
 func SetBytes(f *Field, v []byte) *Field {
-	if len(v) == 0 && v != nil {
-		return f
-	}
 	f.Type = BytesKind
 	f.BytesValue = v
 	return f
@@ -351,31 +347,44 @@ func InvertType(f *Field) *Field {
 }
 
 // 转换类型. 转换失败将不会改变
-func As(f *Field, t Kind, layouts ...string) *Field {
-	if f.Type == InvalidKind || f.Type == t {
-		return f
+func As(f *Field, t Kind, layouts ...string) error {
+	if f.Type == t {
+		return nil
 	}
 	switch t {
 	case IntKind:
-
+		panic("todo convert")
 	case UintKind:
-
+		panic("todo convert")
 	case FloatKind:
-
+		panic("todo convert")
 	case StringKind:
-
+		panic("todo convert")
 	case BoolKind:
-
+		panic("todo convert")
 	case BytesKind:
+		switch f.Type {
+		case StringKind:
+			f.StringValue = nil
+			SetBytes(f, []byte(f.GetStringValue()))
+			return nil
+		case BytesKind:
+			return nil
+		default:
+			panic("todo convert")
+		}
 
 	case TimeKind:
+		if len(layouts) == 0 {
+			return fmt.Errorf("unable convert to timestamp: %s", "layouts is required")
+		}
 		switch f.GetType() {
 		case IntKind:
-
+			panic("todo convert")
 		case UintKind:
-
+			panic("todo convert")
 		case FloatKind:
-
+			panic("todo convert")
 		case StringKind:
 			// 字符串转日期
 			s := f.GetStringValue()
@@ -383,21 +392,25 @@ func As(f *Field, t Kind, layouts ...string) *Field {
 				v, err := time.Parse(l, s)
 				if err != nil {
 					fmt.Printf("err: %v\n", err)
+					runtime.Debug(err)
 					continue
 				}
-				return SetTime(f, v)
+				f.StringValue = nil
+				SetTime(f, v)
+				return nil
 			}
 			// 转换失败
+			return fmt.Errorf("unable convert to timestamp: %q", s)
 		case TimeKind:
-			return f
+			return nil
 		default:
-
+			panic("todo convert")
 		}
 	case DurationKind:
-
+		panic("todo convert1")
 	}
-	panic("todo convert")
-	return f
+
+	panic(fmt.Sprintf("todo convert %v->%v", f.GetType(), t))
 }
 func Clone(f *Field) *Field {
 	dst := New(f.GetKey())

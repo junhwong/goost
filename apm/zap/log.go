@@ -208,7 +208,7 @@ func (e Entry) GetFields() field.FieldSet {
 }
 
 func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	info := apm.CallerInfo{
+	info := &apm.CallerInfo{
 		File:   ent.Caller.File,
 		Line:   ent.Caller.Line,
 		Method: ent.Caller.Function,

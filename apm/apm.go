@@ -50,6 +50,7 @@ type Adapter interface {
 type Interface interface {
 	Logger
 	WithFields(fs ...*field.Field) Interface
+	CalldepthInc()
 	SpanFactory
 }
 
@@ -75,17 +76,18 @@ func AddHandlers(handlers ...Handler) {
 	dispatcher.AddHandlers(handlers...)
 }
 
-type Option interface {
-	applyInterface(*FieldsEntry)
-}
+// type Option interface {
+// 	applyInterface(*FieldsEntry)
+// }
 
-// type funcSpanOption func(SpanOptionSetter)
+// type attributesSetter interface {
+// 	SetAttributes(a ...*field.Field)
+// }
+// type funcSetAttrsOption func(attributesSetter)
 
-func WithFields(fs ...*field.Field) funcSpanOption {
-	return funcSpanOption(func(appender SpanOptionSetter) {
-		appender.SetAttributes(fs...)
-	})
-}
+// func (f funcSetAttrsOption) applySpanOption(target *spanImpl) {
+// 	f(target)
+// }
 
 func Default() Interface {
 	return std
