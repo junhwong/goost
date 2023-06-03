@@ -6,6 +6,7 @@ var log = apm.Default()
 
 func init() {
 	log.CalldepthInc()
+	// log.CalldepthInc()
 }
 
 func Debug(a ...interface{}) { log.Debug(a...) }

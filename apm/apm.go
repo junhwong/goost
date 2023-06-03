@@ -50,7 +50,7 @@ type Adapter interface {
 type Interface interface {
 	Logger
 	WithFields(fs ...*field.Field) Interface
-	CalldepthInc()
+	CalldepthInc() Interface
 	SpanFactory
 }
 

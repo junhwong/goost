@@ -23,19 +23,24 @@ func TestSpanCaller(t *testing.T) {
 
 	{
 		_, span = Default().NewSpan(context.TODO())
+		span.Debug("aaaa")
 		span.End()
 
 	}
 	{
 		_, span = Start(context.TODO())
+		span.Debug("bbbb")
 		span.End()
 	}
 	{
 		_, span = Default().WithFields(LogComponent("t")).NewSpan(context.TODO())
+		span.Debug("cccc")
 		span.End()
 	}
-
 	if strings.Count(sb.String(), "apm.TestSpanCaller") != 3 {
+		t.Fatal(sb.String())
+	}
+	if strings.Count(sb.String(), "span_test.go") != 6 {
 		t.Fatal(sb.String())
 	}
 }

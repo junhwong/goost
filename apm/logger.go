@@ -37,8 +37,9 @@ type FormatLogger interface {
 // ==================== EntryInterface ====================
 
 func (l *FieldsEntry) SetCalldepth(v int) { l.calldepth = v }
-func (l *FieldsEntry) CalldepthInc() {
+func (l *FieldsEntry) CalldepthInc() Interface {
 	l.calldepth++
+	return l
 }
 func (l *FieldsEntry) WithFields(fs ...*field.Field) Interface {
 	cl := l.new()
