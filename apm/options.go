@@ -37,9 +37,19 @@ func (f funcSpanOption) applySpanOption(target *spanImpl) {
 	f(target)
 }
 
-type callDepthOption func(target *spanImpl)
+type callDepthProperty interface {
+	SetCalldepth(v int)
+	GetCalldepth() int
+}
+type callDepthOption func(target callDepthProperty)
 
 func (f callDepthOption) applySpanOption(target *spanImpl) {
+	if f == nil {
+		return
+	}
+	f(target)
+}
+func (f callDepthOption) applyWithOption(target *FieldsEntry) {
 	if f == nil {
 		return
 	}
@@ -48,14 +58,42 @@ func (f callDepthOption) applySpanOption(target *spanImpl) {
 
 // 调整日志堆栈记录深度
 func WithCallDepth(depth int) callDepthOption {
-	return callDepthOption(func(target *spanImpl) {
+	return callDepthOption(func(target callDepthProperty) {
 		target.SetCalldepth(depth)
 	})
 }
 
+// 在当前日志堆栈记录深度上增加指定值
+func WithCallDepthAdd(depth int) callDepthOption {
+	return callDepthOption(func(target callDepthProperty) {
+		target.SetCalldepth(depth + target.GetCalldepth())
+	})
+}
+
+type fieldsSetter interface {
+	SetAttributes(a ...*field.Field)
+}
+type withFieldsOption func(target fieldsSetter)
+
+// impl SpanOption
+func (f withFieldsOption) applySpanOption(target *spanImpl) {
+	if f == nil {
+		return
+	}
+	f(target)
+}
+
+// impl WithOption
+func (f withFieldsOption) applyWithOption(target *FieldsEntry) {
+	if f == nil {
+		return
+	}
+	f(target)
+}
+
 // 设置字段
-func WithFields(fs ...*field.Field) funcSpanOption {
-	return funcSpanOption(func(target *spanImpl) {
+func WithFields(fs ...*field.Field) withFieldsOption {
+	return withFieldsOption(func(target fieldsSetter) {
 		target.SetAttributes(fs...)
 	})
 }

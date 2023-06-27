@@ -12,6 +12,6 @@ func TestLog(t *testing.T) {
 
 	// apm.UseAsyncDispatcher()
 	apm.LogComponent("test")
-	apm.Default().WithFields().Debug("hello")
+	apm.Default(apm.WithFields(apm.LogComponent(""))).Debug("hello")
 	apm.Default().Debug(apm.WrapCallStack(errors.New("hhh")))
 }

@@ -2,8 +2,6 @@ package apm
 
 import (
 	"sync"
-
-	"github.com/junhwong/goost/apm/field"
 )
 
 var (
@@ -30,7 +28,7 @@ func init() {
 		handler, _ := Console()
 		handler.HandlerPriority -= 999
 		dispatcher.AddHandlers(handler)
-		std = &FieldsEntry{calldepth: 1}
+		std = &FieldsEntry{calldepth: 1} // 0 Default() ok
 	})
 
 	// asyncD = &asyncDispatcher{}
@@ -49,9 +47,12 @@ type Adapter interface {
 // 同一接口
 type Interface interface {
 	Logger
-	WithFields(fs ...*field.Field) Interface
-	CalldepthInc() Interface
 	SpanFactory
+	// With(options ...WithOption) Interface
+}
+
+type WithOption interface {
+	applyWithOption(*FieldsEntry)
 }
 
 func GetAdapter() Adapter {
@@ -89,6 +90,16 @@ func AddHandlers(handlers ...Handler) {
 // 	f(target)
 // }
 
-func Default() Interface {
-	return std
+func Default(options ...WithOption) Interface {
+	if len(options) == 0 {
+		return std
+	}
+	cl := std.new()
+	// cl.calldepth++
+	for _, o := range options {
+		if o != nil {
+			o.applyWithOption(cl)
+		}
+	}
+	return cl
 }

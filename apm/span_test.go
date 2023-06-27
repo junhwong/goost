@@ -33,15 +33,15 @@ func TestSpanCaller(t *testing.T) {
 		span.End()
 	}
 	{
-		_, span = Default().WithFields(LogComponent("t")).NewSpan(context.TODO())
+		_, span = Default(WithFields(LogComponent("t"))).NewSpan(context.TODO())
 		span.Debug("cccc")
 		span.End()
 	}
 	if strings.Count(sb.String(), "apm.TestSpanCaller") != 3 {
-		t.Fatal(sb.String())
+		t.Fatal("\n\n" + sb.String())
 	}
 	if strings.Count(sb.String(), "span_test.go") != 6 {
-		t.Fatal(sb.String())
+		t.Fatal("\n\n" + sb.String())
 	}
 }
 

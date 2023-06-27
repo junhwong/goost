@@ -66,6 +66,7 @@ func (e *FieldsEntry) NewSpan(ctx context.Context, options ...SpanOption) (conte
 		FieldsEntry: e.new(),
 		SpanID:      NewHexID().Low().String(),
 	}
+	// span.calldepth++
 
 	for _, opt := range options {
 		if opt == nil {
@@ -188,13 +189,12 @@ func (span *spanImpl) PanicIf(err error, description ...string) {
 	}
 }
 
-func (s *spanImpl) SetAttributes(a ...*field.Field) { s.Fields = append(s.Fields, a...) }
-func (s *spanImpl) SetNameGetter(a func() string)   { s.getName = a }
-func (s *spanImpl) SetEndCalls(a []func(Span))      { s.endCalls = a }
-func (s *spanImpl) SpanContext() SpanContext        { return s }
-func (s *spanImpl) Name() string                    { return s.name }
-func (s *spanImpl) Duration() time.Duration         { return s.duration }
-func (s *spanImpl) IsFirst() bool                   { return s.first }
-func (s *spanImpl) GetTranceID() string             { return s.TranceID }
-func (s *spanImpl) GetSpanID() string               { return s.SpanID }
-func (s *spanImpl) GetSpanParentID() string         { return s.SpanParentID }
+func (s *spanImpl) SetNameGetter(a func() string) { s.getName = a }
+func (s *spanImpl) SetEndCalls(a []func(Span))    { s.endCalls = a }
+func (s *spanImpl) SpanContext() SpanContext      { return s }
+func (s *spanImpl) Name() string                  { return s.name }
+func (s *spanImpl) Duration() time.Duration       { return s.duration }
+func (s *spanImpl) IsFirst() bool                 { return s.first }
+func (s *spanImpl) GetTranceID() string           { return s.TranceID }
+func (s *spanImpl) GetSpanID() string             { return s.SpanID }
+func (s *spanImpl) GetSpanParentID() string       { return s.SpanParentID }

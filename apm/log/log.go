@@ -2,12 +2,7 @@ package log
 
 import "github.com/junhwong/goost/apm"
 
-var log = apm.Default()
-
-func init() {
-	log.CalldepthInc()
-	// log.CalldepthInc()
-}
+var log = apm.Default(apm.WithCallDepthAdd(1))
 
 func Debug(a ...interface{}) { log.Debug(a...) }
 func Info(a ...interface{})  { log.Info(a...) }

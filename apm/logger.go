@@ -35,8 +35,21 @@ type FormatLogger interface {
 }
 
 // ==================== EntryInterface ====================
-
-func (l *FieldsEntry) SetCalldepth(v int) { l.calldepth = v }
+func (l *FieldsEntry) With(options ...WithOption) Interface {
+	if len(options) == 0 {
+		return l
+	}
+	cl := l.new()
+	for _, o := range options {
+		if o != nil {
+			o.applyWithOption(cl)
+		}
+	}
+	return cl
+}
+func (s *FieldsEntry) SetAttributes(a ...*field.Field) { s.Fields = append(s.Fields, a...) }
+func (l *FieldsEntry) SetCalldepth(v int)              { l.calldepth = v }
+func (l *FieldsEntry) GetCalldepth() int               { return l.calldepth }
 func (l *FieldsEntry) CalldepthInc() Interface {
 	l.calldepth++
 	return l
