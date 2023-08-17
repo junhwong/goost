@@ -26,27 +26,24 @@ type Hook struct {
 	serving bool
 
 	hook        func(ctx context.Context)
-	servingHook func(ctx context.Context, onStarted func())
+	servingHook func(ctx context.Context, next func())
 }
 type hookCtx struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string), m *sync.Map) {
+func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string), callerNames *sync.Map) {
 	h.once.Do(func() {
+		fn := FuncName(h.servingHook)
+		callerNames.Store(fn, true)
+		defer callerNames.Delete(fn)
+		if h.serving {
+			defer stop(fn)
+		}
 		defer wg.Done()
 		defer h.cancel()
-		if h.servingHook != nil {
-			fn := FuncName(h.servingHook)
-			m.Store(fn, true)
-			defer stop(fn)
-			defer func() { m.Delete(fn) }()
-			h.servingHook(h.ctx, next)
-			return
-		}
-		h.hook(h.ctx)
-		next()
+		h.servingHook(h.ctx, next)
 	})
 }
 
@@ -86,9 +83,15 @@ type appImpl struct {
 	mu        sync.Mutex
 	provides  []provideOption
 	invokes   []invokeOption
+	regs      []reg
 }
 
 func (app *appImpl) doInvokes() error {
+	for _, v := range app.regs {
+		if err := v.run(app.container); err != nil {
+			return err
+		}
+	}
 	for _, it := range app.provides {
 		if err := app.container.Provide(it.constructor, it.opts...); err != nil {
 			return err
@@ -102,71 +105,88 @@ func (app *appImpl) doInvokes() error {
 	return nil
 }
 
+type reg interface {
+	run(container *dig.Container) error
+}
 type provideOption struct {
 	constructor interface{}
 	opts        []ProvideOption
 }
+
+func (o *provideOption) run(container *dig.Container) error {
+	return container.Provide(o.constructor, o.opts...)
+}
+
 type invokeOption struct {
 	constructor interface{}
 	opts        []InvokeOption
 }
 
+func (o *invokeOption) run(container *dig.Container) error {
+	return container.Invoke(o.constructor, o.opts...)
+}
+
 func (app *appImpl) Provide(constructor interface{}, opts ...ProvideOption) {
 	app.mu.Lock()
 	defer app.mu.Unlock()
-
-	app.provides = append(app.provides, provideOption{
+	app.regs = append(app.regs, &provideOption{
 		constructor: constructor,
 		opts:        opts,
 	})
+	// app.provides = append(app.provides, provideOption{
+	// 	constructor: constructor,
+	// 	opts:        opts,
+	// })
 }
 func (app *appImpl) Run(constructor interface{}, opts ...InvokeOption) {
 	app.mu.Lock()
 	defer app.mu.Unlock()
-
-	app.invokes = append(app.invokes, invokeOption{
+	app.regs = append(app.regs, &invokeOption{
 		constructor: constructor,
 		opts:        opts,
 	})
+	// app.invokes = append(app.invokes, invokeOption{
+	// 	constructor: constructor,
+	// 	opts:        opts,
+	// })
 }
 
 func RootCause(err error) error {
 	return dig.RootCause(err)
 }
 func (app *appImpl) Wait() error {
-	startCtx, startCancel := context.WithCancel(context.Background())
-	defer startCancel()
-	stopCtx, stopCancel := context.WithCancel(context.Background())
-	defer stopCancel()
-	var once sync.Once
-	stop := func(s string) {
-		once.Do(func() {
-			startCancel()
-			Debugf("runtime: terminating caused by %s", s)
-		})
-	}
+	// startCtx, startCancel := context.WithCancel(context.Background())
+	// defer startCancel()
+	// stopCtx, stopCancel := context.WithCancel(context.Background())
+	// defer stopCancel()
+	// var once sync.Once
+	// stop := func(s string) {
+	// 	once.Do(func() {
+	// 		startCancel()
+	// 		Debugf("runtime: terminating caused by %s", s)
+	// 	})
+	// }
 
-	builder := lifecycle{ctx: stopCtx}
+	life, stop := NewLifecycle(context.Background())
+	defer stop("")
 	_ = app.container.Provide(func() Lifecycle {
-		return &builder
+		return life
 	})
 	_ = app.container.Provide(func() context.Context {
-		return startCtx
+		return life.Context()
 	})
-
-	err := app.doInvokes()
-	if err != nil {
-		return err
+	for _, v := range app.regs {
+		if err := v.run(app.container); err != nil {
+			return err
+		}
 	}
+	// err := app.doInvokes()
+	// if err != nil {
+	// 	return err
+	// }
 
-	var wg sync.WaitGroup
-	var m sync.Map
-	go watchInterrupt(startCtx, stop, &m)
-	builder.build(startCtx, &wg, stop, &m)()
-	wg.Wait()
-	stopCancel()
-	builder.wgStop.Wait()
-
+	go watchInterrupt(life.Context(), stop, life.CallerNames())
+	life.Wait()
 	return nil
 }
 
@@ -181,19 +201,53 @@ func New() Application {
 	return app
 }
 
+func NewLifecycle(ctx context.Context) (*lifecycle, func(string)) {
+	_, startCancel := context.WithCancel(ctx)
+	defer startCancel()
+
+	stopCtx, stopCancel := context.WithCancel(context.Background())
+	// defer stopCancel()
+	var once sync.Once
+	stop := func(s string) {
+		once.Do(func() {
+			// startCancel()
+			stopCancel()
+			if len(s) == 0 {
+				return
+			}
+			Debugf("runtime: terminating caused by %s", s)
+		})
+	}
+
+	return &lifecycle{ctx: stopCtx, startCancel: startCancel, stop: stop}, stop // stopCtx
+}
+
 type lifecycle struct {
-	hooks  []*Hook
-	ctx    context.Context
-	wgStop sync.WaitGroup
+	hooks       []*Hook
+	ctx         context.Context
+	wgStop      sync.WaitGroup // 等待结束
+	wg          sync.WaitGroup // hook 组
+	startCancel context.CancelFunc
+	stop        func(s string)
+	callerNames sync.Map
+	mu          sync.Mutex
+	started     bool
 }
 
 func (l *lifecycle) Append(fn func(context.Context)) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.hooks = append(l.hooks, &Hook{
 		serving: false,
-		hook:    fn,
+		servingHook: func(ctx context.Context, next func()) {
+			fn(ctx)
+			next()
+		},
 	})
 }
-func (l *lifecycle) AppendServing(fn func(ctx context.Context, onStarted func())) {
+func (l *lifecycle) AppendServing(fn func(context.Context, func())) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.hooks = append(l.hooks, &Hook{
 		serving:     true,
 		servingHook: fn,
@@ -210,11 +264,27 @@ func (l *lifecycle) WaitTerminateWithTimeout(t time.Duration, task func()) {
 		task()
 	}()
 }
-
-func (l *lifecycle) build(ctx context.Context, wg *sync.WaitGroup, stop func(s string), m *sync.Map) (next func()) {
+func (l *lifecycle) Context() context.Context {
+	return l.ctx
+}
+func (l *lifecycle) CallerNames() *sync.Map {
+	return &l.callerNames
+}
+func (l *lifecycle) Start() {
+	l.mu.Lock()
+	if l.started {
+		l.mu.Unlock()
+		return
+	}
+	l.started = true
 	builder := l.hooks
-
+	ctx := l.ctx
+	wg := &l.wg
+	stop := l.stop
 	contexts := []*hookCtx{}
+	//ctx context.Context, wg *sync.WaitGroup, stop func(s string), callerNames *sync.Map
+	callerNames := l.CallerNames()
+
 	for range builder {
 		nextCtx, cancel := context.WithCancel(ctx)
 		contexts = append(contexts, &hookCtx{
@@ -226,46 +296,47 @@ func (l *lifecycle) build(ctx context.Context, wg *sync.WaitGroup, stop func(s s
 	// fmt.Printf("n: %v\n", n)
 	for i, h := range builder {
 		h.hookCtx = contexts[n-i]
-		// if h.serving {
-		// 	// wg.Add(1)
-		// 	// h.hookCtx.ctx = context.WithValue(h.hookCtx.ctx, "hookName", funcName(h.servingHook))
-		// }
 	}
 
 	var i = 0
-	var mu sync.Mutex
-
+	// var mu sync.Mutex
+	var next func()
 	next = func() {
-		mu.Lock()
-		// fmt.Printf("i: %v\n", i)
-		done := i > n
+		l.mu.Lock()
+		if i > n {
+			l.mu.Unlock()
+			return
+		}
 		select {
 		case <-ctx.Done():
-			done = true
-		default:
-		}
-		if ctx.Err() != nil {
-			done = true
-		}
-		if done {
-			mu.Unlock()
+			l.mu.Unlock()
 			return
+		default:
 		}
 
 		h := builder[i]
 		//fn:=funcName(h.servingHook)
 		i++
 		wg.Add(1)
-		mu.Unlock()
+		l.mu.Unlock()
 
-		go h.doRun(wg, next, stop, m)
+		go h.doRun(wg, next, stop, callerNames)
 
 	}
+	l.mu.Unlock()
+	next()
 
 	return
 }
 
-func watchInterrupt(ctx context.Context, cancel func(s string), m *sync.Map, sig ...os.Signal) {
+func (l *lifecycle) Wait() {
+	l.Start()
+	l.wg.Wait()
+	l.stop("")
+	l.wgStop.Wait()
+}
+
+func watchInterrupt(ctx context.Context, stop func(s string), callerNames *sync.Map, sig ...os.Signal) {
 	if len(sig) == 0 {
 		sig = []os.Signal{os.Interrupt, syscall.SIGHUP}
 	}
@@ -278,14 +349,14 @@ func watchInterrupt(ctx context.Context, cancel func(s string), m *sync.Map, sig
 	case <-ctx.Done():
 		b = syscall.SIGPIPE // TODO 自定义退出
 	}
-	cancel(fmt.Sprintf("signal: %v", b))
+	stop(fmt.Sprintf("signal: %v", b))
 
 	select {
 	case <-ch:
 		Debug("\nforce quit")
 	case <-time.After(time.Minute * 1):
 		Debug("terminating timeout 5m force quit")
-		m.Range(func(key, value any) bool {
+		callerNames.Range(func(key, value any) bool {
 			Debugf("blocking terminated hook: %v", key)
 			return false
 		})

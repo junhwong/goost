@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
-	"sync"
 	"testing"
 	"time"
 )
@@ -71,13 +70,13 @@ func TestBuilder(t *testing.T) {
 
 	// }
 	//
-	start := context.TODO()
-	var wg sync.WaitGroup
-	var m sync.Map
-	next := builder.build(start, &wg, func(s string) {}, &m)
-	next()
+	// start := context.TODO()
+	// var wg sync.WaitGroup
+	// var m sync.Map
+	builder.Wait() //start, &wg, func(s string) {}, &m
+	// next()
 
-	wg.Wait()
+	// wg.Wait()
 	fmt.Println("wg all done")
 	time.Sleep(time.Second)
 
