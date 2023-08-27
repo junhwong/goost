@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -84,6 +85,9 @@ type appImpl struct {
 	provides  []provideOption
 	invokes   []invokeOption
 	regs      []reg
+	life      *lifecycle
+	stop      func(string)
+	err       error
 }
 
 func (app *appImpl) doInvokes() error {
@@ -128,64 +132,54 @@ func (o *invokeOption) run(container *dig.Container) error {
 
 func (app *appImpl) Provide(constructor interface{}, opts ...ProvideOption) {
 	app.mu.Lock()
-	defer app.mu.Unlock()
-	app.regs = append(app.regs, &provideOption{
-		constructor: constructor,
-		opts:        opts,
-	})
-	// app.provides = append(app.provides, provideOption{
-	// 	constructor: constructor,
-	// 	opts:        opts,
-	// })
+	if app.err != nil {
+		app.mu.Unlock()
+		return
+	}
+	app.mu.Unlock()
+	err := app.container.Provide(constructor, opts...)
+	if err != nil {
+		app.mu.Lock()
+		if app.err != nil {
+			app.err = errors.Join(app.err, err)
+		} else {
+			app.err = err
+		}
+		app.mu.Unlock()
+	}
 }
 func (app *appImpl) Run(constructor interface{}, opts ...InvokeOption) {
 	app.mu.Lock()
-	defer app.mu.Unlock()
-	app.regs = append(app.regs, &invokeOption{
-		constructor: constructor,
-		opts:        opts,
-	})
-	// app.invokes = append(app.invokes, invokeOption{
-	// 	constructor: constructor,
-	// 	opts:        opts,
-	// })
+	if app.err != nil {
+		app.mu.Unlock()
+		return
+	}
+	app.mu.Unlock()
+	err := app.container.Invoke(constructor, opts...)
+	if err != nil {
+		app.mu.Lock()
+		if app.err != nil {
+			app.err = errors.Join(app.err, err)
+		} else {
+			app.err = err
+		}
+		app.mu.Unlock()
+	}
 }
 
 func RootCause(err error) error {
 	return dig.RootCause(err)
 }
 func (app *appImpl) Wait() error {
-	// startCtx, startCancel := context.WithCancel(context.Background())
-	// defer startCancel()
-	// stopCtx, stopCancel := context.WithCancel(context.Background())
-	// defer stopCancel()
-	// var once sync.Once
-	// stop := func(s string) {
-	// 	once.Do(func() {
-	// 		startCancel()
-	// 		Debugf("runtime: terminating caused by %s", s)
-	// 	})
-	// }
-
-	life, stop := NewLifecycle(context.Background())
-	defer stop("")
-	_ = app.container.Provide(func() Lifecycle {
-		return life
-	})
-	_ = app.container.Provide(func() context.Context {
-		return life.Context()
-	})
-	for _, v := range app.regs {
-		if err := v.run(app.container); err != nil {
-			return err
-		}
+	app.mu.Lock()
+	if app.err != nil {
+		app.mu.Unlock()
+		return app.err
 	}
-	// err := app.doInvokes()
-	// if err != nil {
-	// 	return err
-	// }
+	app.mu.Unlock()
+	life, stop := app.life, app.stop
+	defer stop("")
 
-	go watchInterrupt(life.Context(), stop, life.CallerNames())
 	life.Wait()
 	return nil
 }
@@ -197,6 +191,14 @@ func New() Application {
 		provides:  []provideOption{},
 		invokes:   []invokeOption{},
 	}
+	app.life, app.stop = NewLifecycle(context.Background())
+	_ = app.container.Provide(func() Lifecycle {
+		return app.life
+	})
+	_ = app.container.Provide(func() context.Context {
+		return app.life.Context()
+	})
+	go watchInterrupt(app.life.Context(), app.stop, app.life.CallerNames())
 	// app.Run(WatchInterrupt()) // todo options
 	return app
 }
