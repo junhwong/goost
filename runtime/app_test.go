@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -94,4 +95,35 @@ func TestRef(t *testing.T) {
 	}
 	fn := runtime.FuncForPC(rv.Pointer()).Name()
 	fmt.Printf("fn: %v\n", fn)
+}
+
+func TestLifecycle(t *testing.T) {
+
+	l, f := NewLifecycle(context.TODO())
+	defer f()
+	b := bytes.NewBuffer(make([]byte, 0))
+	l.AppendServing(func(ctx context.Context, f func()) {
+		f()
+		fmt.Fprint(b, "1")
+		<-ctx.Done()
+		fmt.Fprint(b, "1")
+	})
+	l.AppendServing(func(ctx context.Context, f func()) {
+		f()
+		fmt.Fprint(b, "2")
+		time.Sleep(time.Millisecond * 100)
+		fmt.Fprint(b, "2")
+	})
+	l.AppendServing(func(ctx context.Context, f func()) {
+		f()
+		fmt.Fprint(b, "3")
+		<-ctx.Done()
+		fmt.Fprint(b, "3")
+	})
+
+	l.Wait()
+
+	if b.String() != "123231" {
+		t.Fatal(b.String())
+	}
 }

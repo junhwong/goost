@@ -1,12 +1,9 @@
 package web
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/junhwong/goost/apm/field"
-	"github.com/junhwong/goost/errors"
 	"github.com/junhwong/goost/runtime"
 )
 
@@ -300,28 +297,28 @@ type ServerOption interface {
 // ServerFactory 返回 http.Server 构造函数
 func ServerFactory(opts ...ServerOption) func(runtime.Lifecycle, Router) error {
 	return func(lifecycle runtime.Lifecycle, router Router) error {
-		lis := &http.Server{
-			Addr:    ":8086",
-			Handler: router,
-			//ErrorLog
-		}
+		// lis := &http.Server{
+		// 	Addr:    ":8086",
+		// 	Handler: router,
+		// 	//ErrorLog
+		// }
 
-		stoped := false
-		lifecycle.Append(func(ctx context.Context) {
-			fmt.Println("ListenAndServe:", lis.Addr)
-			go func() {
-				<-ctx.Done()
-				lis.Shutdown(context.TODO())
-			}()
-			err := lis.ListenAndServe()
-			if err == nil || (stoped && errors.Is(err, http.ErrServerClosed)) {
-				return
-			}
-			if err != nil {
-				fmt.Println("ListenAndServe Faile:", err)
-			}
+		// stoped := false
+		// lifecycle.Append(func(ctx context.Context) {
+		// 	fmt.Println("ListenAndServe:", lis.Addr)
+		// 	go func() {
+		// 		<-ctx.Done()
+		// 		lis.Shutdown(context.TODO())
+		// 	}()
+		// 	err := lis.ListenAndServe()
+		// 	if err == nil || (stoped && errors.Is(err, http.ErrServerClosed)) {
+		// 		return
+		// 	}
+		// 	if err != nil {
+		// 		fmt.Println("ListenAndServe Faile:", err)
+		// 	}
 
-		})
+		// })
 		// lifecycle.Append(runtime.Hook{
 		// 	OnStart: func(c context.Context) {
 		// 		fmt.Println("ListenAndServe:", lis.Addr)

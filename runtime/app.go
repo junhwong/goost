@@ -23,8 +23,7 @@ func Debugf(format string, a ...any) { Debug(fmt.Sprintf(format+"\n", a...)) }
 
 type Hook struct {
 	*hookCtx
-	once    sync.Once
-	serving bool
+	once sync.Once
 
 	hook        func(ctx context.Context)
 	servingHook func(ctx context.Context, next func())
@@ -32,6 +31,8 @@ type Hook struct {
 type hookCtx struct {
 	ctx    context.Context
 	cancel context.CancelFunc
+	name   string
+	done   chan struct{}
 }
 
 func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string), callerNames *sync.Map) {
@@ -39,9 +40,7 @@ func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string), calle
 		fn := FuncName(h.servingHook)
 		callerNames.Store(fn, true)
 		defer callerNames.Delete(fn)
-		if h.serving {
-			defer stop(fn)
-		}
+		defer stop(fn)
 		defer wg.Done()
 		defer h.cancel()
 		h.servingHook(h.ctx, next)
@@ -49,7 +48,7 @@ func (h *Hook) doRun(wg *sync.WaitGroup, next func(), stop func(s string), calle
 }
 
 type Lifecycle interface {
-	Append(func(ctx context.Context))
+	// Append(func(ctx context.Context))
 	AppendServing(func(ctx context.Context, onStarted func()))
 	WaitTerminateWithTimeout(time.Duration, func())
 }
@@ -82,53 +81,52 @@ var (
 type appImpl struct {
 	container *dig.Container
 	mu        sync.Mutex
-	provides  []provideOption
-	invokes   []invokeOption
-	regs      []reg
-	life      *lifecycle
-	stop      func(string)
-	err       error
+	// provides  []provideOption
+	// invokes   []invokeOption
+	// regs      []reg
+	life *lifecycle
+	err  error
 }
 
-func (app *appImpl) doInvokes() error {
-	for _, v := range app.regs {
-		if err := v.run(app.container); err != nil {
-			return err
-		}
-	}
-	for _, it := range app.provides {
-		if err := app.container.Provide(it.constructor, it.opts...); err != nil {
-			return err
-		}
-	}
-	for _, it := range app.invokes {
-		if err := app.container.Invoke(it.constructor, it.opts...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// func (app *appImpl) doInvokes() error {
+// 	for _, v := range app.regs {
+// 		if err := v.run(app.container); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	for _, it := range app.provides {
+// 		if err := app.container.Provide(it.constructor, it.opts...); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	for _, it := range app.invokes {
+// 		if err := app.container.Invoke(it.constructor, it.opts...); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
-type reg interface {
-	run(container *dig.Container) error
-}
-type provideOption struct {
-	constructor interface{}
-	opts        []ProvideOption
-}
+// type reg interface {
+// 	run(container *dig.Container) error
+// }
+// type provideOption struct {
+// 	constructor interface{}
+// 	opts        []ProvideOption
+// }
 
-func (o *provideOption) run(container *dig.Container) error {
-	return container.Provide(o.constructor, o.opts...)
-}
+// func (o *provideOption) run(container *dig.Container) error {
+// 	return container.Provide(o.constructor, o.opts...)
+// }
 
-type invokeOption struct {
-	constructor interface{}
-	opts        []InvokeOption
-}
+// type invokeOption struct {
+// 	constructor interface{}
+// 	opts        []InvokeOption
+// }
 
-func (o *invokeOption) run(container *dig.Container) error {
-	return container.Invoke(o.constructor, o.opts...)
-}
+// func (o *invokeOption) run(container *dig.Container) error {
+// 	return container.Invoke(o.constructor, o.opts...)
+// }
 
 func (app *appImpl) Provide(constructor interface{}, opts ...ProvideOption) {
 	app.mu.Lock()
@@ -148,6 +146,7 @@ func (app *appImpl) Provide(constructor interface{}, opts ...ProvideOption) {
 		app.mu.Unlock()
 	}
 }
+
 func (app *appImpl) Run(constructor interface{}, opts ...InvokeOption) {
 	app.mu.Lock()
 	if app.err != nil {
@@ -177,8 +176,8 @@ func (app *appImpl) Wait() error {
 		return app.err
 	}
 	app.mu.Unlock()
-	life, stop := app.life, app.stop
-	defer stop("")
+	life := app.life
+	defer life.stop("")
 
 	life.Wait()
 	return nil
@@ -188,40 +187,47 @@ func New() Application {
 	//dig.DeferAcyclicVerification()
 	app := &appImpl{
 		container: dig.New(),
-		provides:  []provideOption{},
-		invokes:   []invokeOption{},
+		// provides:  []provideOption{},
+		// invokes:   []invokeOption{},
 	}
-	app.life, app.stop = NewLifecycle(context.Background())
+	app.life, _ = NewLifecycle(context.Background())
 	_ = app.container.Provide(func() Lifecycle {
 		return app.life
 	})
 	_ = app.container.Provide(func() context.Context {
 		return app.life.Context()
 	})
-	go watchInterrupt(app.life.Context(), app.stop, app.life.CallerNames())
+	go watchInterrupt(app.life.Context(), app.life.stop, app.life.CallerNames())
 	// app.Run(WatchInterrupt()) // todo options
 	return app
 }
 
-func NewLifecycle(ctx context.Context) (*lifecycle, func(string)) {
-	_, startCancel := context.WithCancel(ctx)
-	defer startCancel()
-
-	stopCtx, stopCancel := context.WithCancel(context.Background())
-	// defer stopCancel()
+func NewLifecycle(ctx context.Context) (*lifecycle, func()) {
+	ctx, startCancel := context.WithCancel(ctx)
 	var once sync.Once
+	l := &lifecycle{ctx: ctx, startCancel: startCancel}
 	stop := func(s string) {
-		once.Do(func() {
-			// startCancel()
-			stopCancel()
-			if len(s) == 0 {
-				return
+		go once.Do(func() {
+			l.startCancel()
+			if len(s) != 0 {
+				Debugf("runtime: terminating caused by %s", s)
 			}
-			Debugf("runtime: terminating caused by %s", s)
+			l.mu.Lock()
+			n := len(l.cancels)
+			l.mu.Unlock()
+
+			for n > 0 {
+				l.mu.Lock()
+				n--
+				ctx := l.cancels[n]
+				l.mu.Unlock()
+				ctx.cancel()
+				<-ctx.done // todo 超时
+			}
 		})
 	}
-
-	return &lifecycle{ctx: stopCtx, startCancel: startCancel, stop: stop}, stop // stopCtx
+	l.stop = stop
+	return l, func() { stop("") } // stopCtx
 }
 
 type lifecycle struct {
@@ -234,13 +240,14 @@ type lifecycle struct {
 	callerNames sync.Map
 	mu          sync.Mutex
 	started     bool
+	timeout     time.Duration
+	cancels     []*hookCtx
 }
 
 func (l *lifecycle) Append(fn func(context.Context)) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.hooks = append(l.hooks, &Hook{
-		serving: false,
 		servingHook: func(ctx context.Context, next func()) {
 			fn(ctx)
 			next()
@@ -251,13 +258,15 @@ func (l *lifecycle) AppendServing(fn func(context.Context, func())) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.hooks = append(l.hooks, &Hook{
-		serving:     true,
 		servingHook: fn,
 	})
 }
 func (l *lifecycle) WaitTerminateWithTimeout(t time.Duration, task func()) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	l.wgStop.Add(1)
-	ctx, cancel := context.WithTimeout(l.ctx, t)
+	ctx, cancel := context.WithTimeout(context.TODO(), t)
 	go func() {
 		defer cancel()
 		defer l.wgStop.Done()
@@ -279,33 +288,34 @@ func (l *lifecycle) Start() {
 		return
 	}
 	l.started = true
-	builder := l.hooks
+
 	ctx := l.ctx
 	wg := &l.wg
 	stop := l.stop
-	contexts := []*hookCtx{}
-	//ctx context.Context, wg *sync.WaitGroup, stop func(s string), callerNames *sync.Map
-	callerNames := l.CallerNames()
 
-	for range builder {
-		nextCtx, cancel := context.WithCancel(ctx)
-		contexts = append(contexts, &hookCtx{
-			ctx:    nextCtx,
-			cancel: cancel,
-		})
-	}
-	n := len(contexts) - 1
-	// fmt.Printf("n: %v\n", n)
-	for i, h := range builder {
-		h.hookCtx = contexts[n-i]
-	}
+	callerNames := l.CallerNames()
+	// contexts := []*hookCtx{}
+	// hooksCopy := make([]*Hook, len(l.hooks))
+	// copy(hooksCopy, l.hooks)
+	// for range hooksCopy {
+	// 	nextCtx, cancel := context.WithCancel(ctx)
+	// 	contexts = append(contexts, &hookCtx{
+	// 		ctx:    nextCtx,
+	// 		cancel: cancel,
+	// 	})
+	// }
+	// n := len(contexts) - 1
+	// // fmt.Printf("n: %v\n", n)
+	// for i, h := range hooksCopy {
+	// 	h.hookCtx = contexts[n-i]
+	// }
 
 	var i = 0
 	// var mu sync.Mutex
 	var next func()
 	next = func() {
 		l.mu.Lock()
-		if i > n {
+		if i >= len(l.hooks) {
 			l.mu.Unlock()
 			return
 		}
@@ -316,14 +326,35 @@ func (l *lifecycle) Start() {
 		default:
 		}
 
-		h := builder[i]
-		//fn:=funcName(h.servingHook)
+		h := l.hooks[i]
+		hook := h.servingHook
 		i++
 		wg.Add(1)
 		l.mu.Unlock()
 
-		go h.doRun(wg, next, stop, callerNames)
+		// done := make(chan struct{})
+		// close(done)
 
+		ctx, cancel := context.WithCancel(context.TODO())
+		hookCtx := &hookCtx{
+			ctx:    ctx,
+			cancel: cancel,
+			name:   FuncName(hook),
+			done:   make(chan struct{}),
+		}
+		l.cancels = append(l.cancels, hookCtx)
+		// go h.doRun(wg, next, stop, callerNames)
+		go func(next func()) {
+			defer wg.Done()
+			defer func() {
+				close(hookCtx.done)
+				hookCtx.cancel()
+				callerNames.Delete(hookCtx.name)
+			}()
+			callerNames.Store(hookCtx.name, true)
+			defer stop(hookCtx.name)
+			hook(hookCtx.ctx, next)
+		}(next)
 	}
 	l.mu.Unlock()
 	next()
