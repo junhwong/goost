@@ -16,11 +16,6 @@ func TestBuilder(t *testing.T) {
 		time.Sleep(time.Microsecond * 5)
 		fmt.Println("Append 1")
 	})
-	builder.AppendServing(func(ctx context.Context, onStarted func()) {
-		onStarted()
-		time.Sleep(time.Microsecond * 3)
-		fmt.Println("AppendServing 1")
-	})
 	builder.Append(func(ctx context.Context) {
 		time.Sleep(time.Microsecond * 2)
 		fmt.Println("Append 2")
@@ -99,23 +94,20 @@ func TestRef(t *testing.T) {
 
 func TestLifecycle(t *testing.T) {
 
-	l, f := NewLifecycle(context.TODO())
-	defer f()
+	l, done := NewLifecycle(context.TODO())
+	defer done()
 	b := bytes.NewBuffer(make([]byte, 0))
-	l.AppendServing(func(ctx context.Context, f func()) {
-		f()
+	l.Append(func(ctx context.Context) {
 		fmt.Fprint(b, "1")
 		<-ctx.Done()
 		fmt.Fprint(b, "1")
 	})
-	l.AppendServing(func(ctx context.Context, f func()) {
-		f()
+	l.Append(func(ctx context.Context) {
 		fmt.Fprint(b, "2")
 		time.Sleep(time.Millisecond * 100)
 		fmt.Fprint(b, "2")
 	})
-	l.AppendServing(func(ctx context.Context, f func()) {
-		f()
+	l.Append(func(ctx context.Context) {
 		fmt.Fprint(b, "3")
 		<-ctx.Done()
 		fmt.Fprint(b, "3")
