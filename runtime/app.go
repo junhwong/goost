@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"reflect"
 	"runtime"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -133,10 +134,7 @@ func (app *appImpl) Wait() error {
 		return app.err
 	}
 	app.mu.Unlock()
-	life := app.life
-	defer life.stop("")
-
-	life.Wait()
+	app.life.Wait()
 	return nil
 }
 
@@ -198,27 +196,30 @@ func NewLifecycle(ctx context.Context) (*lifecycle, func()) {
 		n := len(l.cancels)
 		l.mu.Unlock()
 
-		defer startCancel()
-		if len(s) != 0 {
-			Debugf("runtime: terminating caused by %s", s)
-		}
-
-		for n > 0 {
-			l.mu.Lock()
-			n--
-			ctx := l.cancels[n]
-			l.mu.Unlock()
-			ctx.cancel()
-			select {
-			case <-ctx.done:
-			case <-time.After(time.Minute * 1):
-				Debugf("runtime: waiting for %s to done timeout", s)
+		go func() {
+			defer startCancel()
+			if len(s) != 0 {
+				Debugf("runtime: terminating caused by %s", s)
 			}
-		}
-		l.mu.Lock()
-		close(l.done)
-		l.mu.Unlock()
+
+			for n > 0 {
+				l.mu.Lock()
+				n--
+				ctx := l.cancels[n]
+				l.mu.Unlock()
+				ctx.cancel()
+				select {
+				case <-ctx.done:
+				case <-time.After(time.Minute * 1):
+					Debugf("runtime: waiting for %s to done timeout", ctx.name)
+				}
+			}
+			l.mu.Lock()
+			close(l.done)
+			l.mu.Unlock()
+		}()
 	}
+
 	l.stop = stop
 	return l, func() { stop("") } // stopCtx
 }
@@ -226,6 +227,7 @@ func NewLifecycle(ctx context.Context) (*lifecycle, func()) {
 type hookCtx struct {
 	context.Context
 	cancel context.CancelFunc
+	index  int
 	name   string
 	done   chan struct{}
 	next   func()
@@ -304,15 +306,22 @@ func (l *lifecycle) Append(run func(context.Context), opts ...HookAppendOption) 
 func (l *lifecycle) WaitTerminateWithTimeout(t time.Duration, task func()) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-
 	l.wgStop.Add(1)
-	ctx, cancel := context.WithTimeout(context.TODO(), t)
+
 	go func() {
+		<-l.done
+		ctx, cancel := context.WithTimeout(context.TODO(), t)
 		defer cancel()
 		defer l.wgStop.Done()
-
+		go func() {
+			defer cancel()
+			task()
+		}()
 		<-ctx.Done()
-		task()
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			Debugf("runtime: waiting for %s to done timeout", FuncName(task, true))
+		}
+
 	}()
 }
 
@@ -353,46 +362,58 @@ func (l *lifecycle) Start() {
 			return
 		default:
 		}
-		next := next // copy
+
 		h := l.hooks[i]
 		hook := h.hook
-		i++
 		var once sync.Once
 		ctx, cancel := context.WithCancel(context.TODO())
-
 		hctx := &hookCtx{
+			index:   i,
 			Context: ctx,
 			cancel:  cancel,
-			name:    FuncName(hook),
+			name:    FuncName(hook, true),
 			done:    make(chan struct{}),
 			next:    func() { once.Do(next) },
 		}
-		l.cancels = append(l.cancels, hctx)
-		el := l.cc.PushBack(hctx.name)
+
+		i++
 		wg.Add(1)
 		l.mu.Unlock()
 
 		go func(ctx *hookCtx) {
 			defer wg.Done()
-			defer func() {
-				close(ctx.done)
-				ctx.cancel()
 
+			l.mu.Lock()
+			l.cancels = append(l.cancels, hctx)
+			el := l.cc.PushBack(hctx.name)
+			l.mu.Unlock()
+
+			defer func() {
 				l.mu.Lock()
 				l.cc.Remove(el)
+				close(ctx.done)
+				ctx.cancel()
 				l.mu.Unlock()
+				Debugf("todo: end %s: %d", ctx.name, ctx.index)
 			}()
 
+			Debugf("todo: run %s: %d", ctx.name, ctx.index)
 			defer stop(ctx.name)
-			if h.delay > 0 {
+
+			delayCancel := func() {}
+			if h.delay > 0 { // 延时调用 next
 				waitCtx, cancel := context.WithTimeout(ctx, h.delay)
-				defer cancel()
+				delayCancel = cancel
 				go func() {
 					<-waitCtx.Done()
 					ctx.next()
 				}()
 			}
+
 			hook(ctx)
+
+			delayCancel()
+
 			if h.delay > 0 {
 				ctx.next()
 			}
@@ -412,10 +433,18 @@ func (l *lifecycle) Wait() {
 	l.wgStop.Wait()
 }
 
-func FuncName(f any) string {
+func FuncName(f any, includeLine ...bool) string {
 	rv := reflect.ValueOf(f)
 	if !rv.IsValid() || rv.Kind() != reflect.Func {
 		return ""
 	}
-	return runtime.FuncForPC(rv.Pointer()).Name()
+	pc := rv.Pointer()
+	rf := runtime.FuncForPC(pc)
+	s := rf.Name()
+	if len(includeLine) > 0 && includeLine[len(includeLine)-1] {
+		_, l := rf.FileLine(pc)
+		s += ":" + strconv.Itoa(l)
+	}
+
+	return s
 }
