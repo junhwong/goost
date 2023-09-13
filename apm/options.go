@@ -153,7 +153,7 @@ func WithEndCall(fn func(Span)) funcEndSpanOption {
 // }
 
 func Start(ctx context.Context, options ...SpanOption) (context.Context, Span) {
-	return std.NewSpan(WithCaller(ctx, 3), options...)
+	return defaultEntry.NewSpan(WithCaller(ctx, 3), options...)
 }
 
 // // 调整日志堆栈记录深度

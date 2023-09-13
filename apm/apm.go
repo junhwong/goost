@@ -2,41 +2,47 @@ package apm
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 var (
-	std *FieldsEntry
+	defaultEntry *FieldsEntry
 	// defi Interface
 	// asyncD Dispatcher
-	dispatcher Dispatcher = &syncDispatcher{}
+	dispatcher atomic.Value //Dispatcher = &syncDispatcher{}
 	initOnce   sync.Once
+	gmu        sync.Mutex
 )
 
 func init() {
-	// ctx, cancel := context.WithCancel(context.Background())
-	// f := NewTextFormatter() // NewJsonFormatter() //
-	// std = &DefaultLogger{
-	// 	queue:    make(chan Entry, 1024),
-	// 	inqueue:  make(chan Entry, 1024),
-	// 	handlers: []Handler{&ConsoleHandler{Formatter: f}},
-	// 	cancel:   cancel,
-	// }
-	// go std.Run(ctx.Done())
-	// defi = New(context.Background())
-
 	initOnce.Do(func() {
+		defaultEntry = &FieldsEntry{calldepth: 1} // 0 Default() ok
+
 		handler, _ := Console()
 		handler.HandlerPriority -= 999
-		dispatcher.AddHandlers(handler)
-		std = &FieldsEntry{calldepth: 1} // 0 Default() ok
-	})
+		d := &syncDispatcher{}
+		d.AddHandlers(handler)
 
-	// asyncD = &asyncDispatcher{}
-	// defi = New(context.Background())
+		dispatcher.Store(d)
+
+	})
+	var a atomic.Value
+	a.Store(dispatcher)
+	a.Load()
+}
+
+func GetDispatcher() Dispatcher {
+	obj := dispatcher.Load()
+	if obj == nil {
+		return nil
+	}
+	return obj.(Dispatcher)
 }
 
 func Flush() {
-	dispatcher.Flush()
+	if d := GetDispatcher(); d != nil {
+		d.Flush()
+	}
 }
 
 // 适配接口
@@ -56,45 +62,46 @@ type WithOption interface {
 }
 
 func GetAdapter() Adapter {
-	return dispatcher
+	return GetDispatcher()
 }
-func SetDispatcher(a Dispatcher) {
-	old := dispatcher
-	defer old.Flush()
+func SetDispatcher(d Dispatcher) {
+	gmu.Lock()
+	defer gmu.Unlock()
 
-	handlers := dispatcher.GetHandlers()
-	a.AddHandlers(handlers...)
-	dispatcher = a
+	old := GetDispatcher()
+	if old != nil {
+		defer old.Flush()
+
+		handlers := old.GetHandlers()
+		d.AddHandlers(handlers...)
+	}
+	dispatcher.Store(d)
+}
+func AddHandlers(handlers ...Handler) {
+	if d := GetDispatcher(); d != nil {
+		d.AddHandlers(handlers...)
+	}
+}
+func RemoveHandlers(handlers ...Handler) {
+	if d := GetDispatcher(); d != nil {
+		d.RemoveHandlers(handlers...)
+	}
 }
 
 func UseAsyncDispatcher() {
+	gmu.Lock()
+	defer gmu.Unlock()
+
 	d := &asyncDispatcher{queue: make(chan Entry, 1024)}
 	SetDispatcher(d)
 	go d.loop()
 }
 
-func AddHandlers(handlers ...Handler) {
-	dispatcher.AddHandlers(handlers...)
-}
-
-// type Option interface {
-// 	applyInterface(*FieldsEntry)
-// }
-
-// type attributesSetter interface {
-// 	SetAttributes(a ...*field.Field)
-// }
-// type funcSetAttrsOption func(attributesSetter)
-
-// func (f funcSetAttrsOption) applySpanOption(target *spanImpl) {
-// 	f(target)
-// }
-
 func Default(options ...WithOption) Interface {
 	if len(options) == 0 {
-		return std
+		return defaultEntry
 	}
-	cl := std.new()
+	cl := defaultEntry.new()
 	// cl.calldepth++
 	for _, o := range options {
 		if o != nil {

@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"sort"
-	"sync"
 
 	"github.com/junhwong/goost/apm/field"
 )
@@ -30,29 +29,6 @@ func (x handlerSlice) Len() int           { return len(x) }
 func (x handlerSlice) Less(i, j int) bool { return x[i].Priority() > x[j].Priority() }
 func (x handlerSlice) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
 func (x handlerSlice) Sort()              { sort.Sort(x) }
-func (x handlerSlice) handle(entry Entry) {
-	size := x.Len()
-	crt := 0
-	var once sync.Once
-	var release = func() {
-		once.Do(func() {
-			crt += size
-			// todo 将entry释放
-		})
-	}
-
-	var next func()
-	next = func() {
-		if crt >= size {
-			release()
-			return
-		}
-		h := x[crt]
-		crt++
-		h.Handle(entry, next, release)
-	}
-	next()
-}
 
 func Console() (*SimpleHandler, *TextFormatter) {
 	text := &TextFormatter{SkipFields: []string{"log.component"}}

@@ -12,12 +12,12 @@ func TestSpanCaller(t *testing.T) {
 
 	var sb strings.Builder
 
-	sd := dispatcher.(*syncDispatcher)
-	sd.handlers = handlerSlice{&SimpleHandler{
+	sd := dispatcher.Load().(*syncDispatcher)
+	sd.handlers.Store(handlerSlice{&SimpleHandler{
 		IsEnd:     true,
 		Formatter: &TextFormatter{},
 		Out:       &sb,
-	}}
+	}})
 
 	var span Span
 

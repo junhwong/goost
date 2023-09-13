@@ -2,10 +2,12 @@ package apm
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 type Dispatcher interface {
 	AddHandlers(handlers ...Handler)
+	RemoveHandlers(handlers ...Handler)
 	GetHandlers() []Handler
 	Dispatch(e Entry)
 	Flush() error
@@ -14,7 +16,7 @@ type Dispatcher interface {
 
 type syncDispatcher struct {
 	mu       sync.RWMutex
-	handlers handlerSlice
+	handlers atomic.Value
 }
 
 func (d *syncDispatcher) AddHandlers(handlers ...Handler) {
@@ -23,45 +25,94 @@ func (d *syncDispatcher) AddHandlers(handlers ...Handler) {
 	}
 
 	d.mu.Lock()
-	old := d.gethandlers()
-	d.mu.Unlock()
+	defer d.mu.Unlock()
 
+	dst := d.getHandlers()
 	for _, it := range handlers {
 		if it == nil {
 			continue
 		}
-		old = append(old, it)
+		dst = append(dst, it)
 	}
-	// handlersCopy := make([]Handler, len(handlers))
-	// copy(handlersCopy, handlers)
-	// old := handlerSlice(handlersCopy)
-	old.Sort()
+	dst.Sort()
+	d.handlers.Store(dst)
+}
+func (d *syncDispatcher) RemoveHandlers(handlers ...Handler) {
+	if len(handlers) == 0 {
+		return
+	}
 
 	d.mu.Lock()
-	d.handlers = old
-	d.mu.Unlock()
+	defer d.mu.Unlock()
+
+	var dst handlerSlice
+	for _, v := range d.getHandlers() {
+		found := false
+		for _, it := range handlers {
+			if it == v {
+				found = true
+				break
+			}
+		}
+		if !found {
+			dst = append(dst, v)
+		}
+	}
+	dst.Sort()
+	d.handlers.Store(dst)
 }
 
-func (logger *syncDispatcher) gethandlers() handlerSlice {
-	handlers := make(handlerSlice, logger.handlers.Len())
-	copy(handlers, logger.handlers)
-	return handlers
+func (d *syncDispatcher) getHandlers() handlerSlice {
+	obj := d.handlers.Load()
+	if obj == nil {
+		return handlerSlice{}
+	}
+	return obj.(handlerSlice)
 }
-func (logger *syncDispatcher) GetHandlers() []Handler {
-	logger.mu.Lock()
-	old := logger.gethandlers()
-	logger.mu.Unlock()
+
+func (d *syncDispatcher) GetHandlers() []Handler {
+	d.mu.Lock()
+	old := d.getHandlers()
+	d.mu.Unlock()
 	return old
 }
 
-func (logger *syncDispatcher) Dispatch(e Entry) {
-	logger.handlers.handle(e)
+func (d *syncDispatcher) Dispatch(entry Entry) {
+	if entry == nil {
+		return
+	}
+	handlers := d.getHandlers()
+	if len(handlers) == 0 {
+		return
+	}
+
+	size := int32(handlers.Len())
+	var crt atomic.Int32
+	var once sync.Once
+	var release = func() {
+		once.Do(func() {
+			// todo 将entry释放
+		})
+	}
+	// defer release()?
+
+	var next func()
+	next = func() {
+		i := crt.Add(1) - 1
+		if i >= size {
+			release()
+			return
+		}
+		h := handlers[i]
+		h.Handle(entry, next, release)
+	}
+	next()
 }
 
-func (logger *syncDispatcher) Flush() error {
+func (d *syncDispatcher) Flush() error {
 	return nil
 }
-func (logger *syncDispatcher) Close() error {
+func (d *syncDispatcher) Close() error {
 	return nil
 }
 
@@ -71,50 +122,50 @@ type asyncDispatcher struct {
 	once  sync.Once
 }
 
-func (logger *asyncDispatcher) Dispatch(e Entry) {
-	logger.mu.RLock()
-	defer logger.mu.RUnlock()
+func (d *asyncDispatcher) Dispatch(e Entry) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 
-	logger.queue <- e
+	d.queue <- e
 }
-func (logger *asyncDispatcher) doFlush() error {
+func (d *asyncDispatcher) doFlush() error {
 
 	for {
 		select {
-		case e, ok := <-logger.queue:
+		case e, ok := <-d.queue:
 			if !ok {
 				return nil
 			}
-			logger.syncDispatcher.Dispatch(e)
+			d.syncDispatcher.Dispatch(e)
 		default:
 			return nil
 		}
 	}
 
 }
-func (logger *asyncDispatcher) Flush() error {
-	logger.mu.Lock()
-	defer logger.mu.Unlock()
+func (d *asyncDispatcher) Flush() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-	return logger.doFlush()
+	return d.doFlush()
 }
 
-func (logger *asyncDispatcher) Close() error {
-	logger.mu.Lock()
-	defer logger.mu.Unlock()
+func (d *asyncDispatcher) Close() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-	close(logger.queue)
+	close(d.queue)
 
-	return logger.doFlush()
+	return d.doFlush()
 }
 
-func (logger *asyncDispatcher) loop() {
-	logger.once.Do(func() {
-		for e := range logger.queue {
+func (d *asyncDispatcher) loop() {
+	d.once.Do(func() {
+		for e := range d.queue {
 			if e == nil {
 				return
 			}
-			logger.syncDispatcher.Dispatch(e)
+			d.syncDispatcher.Dispatch(e)
 		}
 	})
 }

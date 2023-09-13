@@ -169,7 +169,11 @@ func (entry *FieldsEntry) do(args []interface{}, befor func()) {
 	}
 	befor()
 
-	dispatcher.Dispatch(entry)
+	if d := GetDispatcher(); d != nil {
+		d.Dispatch(entry)
+	} else {
+		// todo
+	}
 }
 
 func (l *FieldsEntry) Debug(a ...interface{}) { l.Log(field.LevelDebug, a) }
