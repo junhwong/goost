@@ -11,30 +11,42 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func New(adapter apm.Adapter) *zap.Logger {
-	log := zap.New(&ioCore{
-		log:    adapter,
-		fields: []zapcore.Field{zap.String(apm.LogAdapterKey.Name(), "zap")},
-	}, zap.AddCaller())
+func New(adapter apm.Adapter, fs ...*field.Field) *zap.Logger {
+	core := &ioCore{
+		log: adapter,
+		// fields: []zapcore.Field{zap.String(apm.LogAdapterKey.Name(), "zap")},
+	}
+	core.fs.Set(apm.LogAdapter("zap"))
+	for _, v := range fs {
+		if v != nil {
+			core.fs.Set(v)
+		}
+	}
+
+	log := zap.New(core, zap.AddCaller())
+
 	return log
 }
 
 // Core
 type ioCore struct {
-	log    apm.Adapter
-	fields []zapcore.Field
-	level  zapcore.Level
+	log   apm.Adapter
+	level zapcore.Level
+	fs    field.FieldSet
 }
 
 func (c *ioCore) Enabled(l zapcore.Level) bool { return true }
 func (c *ioCore) With(fields []zapcore.Field) zapcore.Core {
 	cc := &ioCore{
-		log:    c.log,
-		fields: make([]zapcore.Field, len(c.fields)),
-		level:  c.level,
+		log:   c.log,
+		level: c.level,
+		fs:    c.fs,
 	}
-	copy(cc.fields, c.fields)
-	cc.fields = append(cc.fields, fields...)
+	for _, v := range transform(fields) {
+		if v != nil {
+			cc.fs.Set(v)
+		}
+	}
 	return cc
 }
 
@@ -45,55 +57,27 @@ func (c *ioCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Che
 	return ce
 }
 
-type Field struct {
-	Type  any
-	Float float64
-	Int   int16
-	Uint  uint64
-	Any   any
-}
-
-type FloatType interface {
-	~float32 | ~float64
-}
-type IntType interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64
-}
-type UintType interface {
-	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
-}
-
-type ComplexType interface {
-	~complex64 | ~complex128
-}
-
-type BoolType interface {
-	~bool
-}
-
-func Float[T FloatType](typeValue T) func(T) {
-	return func(t T) {
-		x := float64(t)
-		fmt.Printf("x: %v\n", x)
+func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
+	info := &apm.CallerInfo{
+		File:   ent.Caller.File,
+		Line:   ent.Caller.Line,
+		Method: ent.Caller.Function,
+		Ok:     true,
 	}
-}
+	var fs field.FieldSet
+	for _, v := range c.fs {
+		if v != nil {
+			fs.Set(v)
+		}
+	}
+	for _, v := range transform(fields) {
+		if v != nil {
+			fs.Set(v)
+		}
+	}
 
-func Slice[T any](typeValue T) func(T) {
-	return func(t T) {}
-}
-func Complex[T ComplexType](typeValue T) func(T) {
-	return func(t T) {}
-}
-
-type Entry struct {
-	ent    zapcore.Entry
-	fields []zapcore.Field
-	c      *ioCore
-}
-
-func (e Entry) GetLevel() (lvl apm.Level) {
 	apmLvl := field.LevelDebug
-	switch e.ent.Level {
+	switch ent.Level {
 	case zapcore.InfoLevel:
 		apmLvl = field.LevelInfo
 	case zapcore.WarnLevel:
@@ -107,13 +91,21 @@ func (e Entry) GetLevel() (lvl apm.Level) {
 	case zapcore.FatalLevel:
 		apmLvl = field.LevelFatal
 	}
-	return apmLvl
+
+	c.log.Dispatch(&apm.FieldsEntry{
+		Time:       ent.Time,
+		Level:      apmLvl,
+		Fields:     fs,
+		CallerInfo: info,
+	})
+	// buf, err := c.enc.EncodeEntry(ent, fields)
+
+	return nil
 }
-func (e Entry) GetTime() (v time.Time) {
-	return e.ent.Time
-}
-func (e Entry) GetMessage() (v string) {
-	return e.ent.Message
+
+func (c *ioCore) Sync() error {
+	// return c.out.Sync()
+	return nil
 }
 
 func transform(fields []zapcore.Field) (fs field.FieldSet) {
@@ -188,78 +180,95 @@ func transform(fields []zapcore.Field) (fs field.FieldSet) {
 	return
 }
 
-func (e Entry) GetFields() field.FieldSet {
+// type Field struct {
+// 	Type  any
+// 	Float float64
+// 	Int   int16
+// 	Uint  uint64
+// 	Any   any
+// }
 
-	info := apm.CallerInfo{
-		File:   e.ent.Caller.File,
-		Line:   e.ent.Caller.Line,
-		Method: e.ent.Caller.Function,
-	}
-	caller := info.Caller()
-	// fmt.Printf("e.ent.Caller: %+v\n", e.ent.Caller.PC)
-	// fmt.Printf("e.ent.Caller.File: %v\n", e.ent.Caller.File)
-	// fmt.Printf("====caller: %v\n", caller)
-	fs := field.FieldSet{apm.TracebackCaller(caller)}
+// type FloatType interface {
+// 	~float32 | ~float64
+// }
+// type IntType interface {
+// 	~int | ~int8 | ~int16 | ~int32 | ~int64
+// }
+// type UintType interface {
+// 	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+// }
 
-	fs = append(fs, transform(e.c.fields)...)
-	fs = append(fs, transform(e.fields)...)
+// type ComplexType interface {
+// 	~complex64 | ~complex128
+// }
 
-	return fs
-}
+// type BoolType interface {
+// 	~bool
+// }
 
-func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	info := &apm.CallerInfo{
-		File:   ent.Caller.File,
-		Line:   ent.Caller.Line,
-		Method: ent.Caller.Function,
-		Ok:     true,
-	}
-	fs := transform(c.fields)
-	fs = append(fs, transform(fields)...)
+// func Float[T FloatType](typeValue T) func(T) {
+// 	return func(t T) {
+// 		x := float64(t)
+// 		fmt.Printf("x: %v\n", x)
+// 	}
+// }
 
-	apmLvl := field.LevelDebug
-	switch ent.Level {
-	case zapcore.InfoLevel:
-		apmLvl = field.LevelInfo
-	case zapcore.WarnLevel:
-		apmLvl = field.LevelWarn
-	case zapcore.ErrorLevel:
-		apmLvl = field.LevelError
-	case zapcore.DPanicLevel:
-		apmLvl = field.LevelWarn
-	case zapcore.PanicLevel:
-		apmLvl = field.LevelError
-	case zapcore.FatalLevel:
-		apmLvl = field.LevelFatal
-	}
+// func Slice[T any](typeValue T) func(T) {
+// 	return func(t T) {}
+// }
+// func Complex[T ComplexType](typeValue T) func(T) {
+// 	return func(t T) {}
+// }
 
-	c.log.Dispatch(&apm.FieldsEntry{
-		Time:       ent.Time,
-		Level:      apmLvl,
-		Fields:     fs,
-		CallerInfo: info,
-	})
-	// buf, err := c.enc.EncodeEntry(ent, fields)
-	// if err != nil {
-	// 	return err
-	// }
-	// _, err = c.out.Write(buf.Bytes())
-	// buf.Free()
-	// if err != nil {
-	// 	return err
-	// }
-	// if ent.Level > zapcore.ErrorLevel {
-	// 	// Since we may be crashing the program, sync the output. Ignore Sync
-	// 	// errors, pending a clean solution to issue #370.
-	// 	c.Sync()
-	// }
-	return nil
-}
+// type Entry struct {
+// 	ent    zapcore.Entry
+// 	fields []zapcore.Field
+// 	c      *ioCore
+// }
 
-func (c *ioCore) Sync() error {
-	// return c.out.Sync()
-	return nil
-}
+// func (e Entry) GetLevel() (lvl apm.Level) {
+// 	apmLvl := field.LevelDebug
+// 	switch e.ent.Level {
+// 	case zapcore.InfoLevel:
+// 		apmLvl = field.LevelInfo
+// 	case zapcore.WarnLevel:
+// 		apmLvl = field.LevelWarn
+// 	case zapcore.ErrorLevel:
+// 		apmLvl = field.LevelError
+// 	case zapcore.DPanicLevel:
+// 		apmLvl = field.LevelWarn
+// 	case zapcore.PanicLevel:
+// 		apmLvl = field.LevelError
+// 	case zapcore.FatalLevel:
+// 		apmLvl = field.LevelFatal
+// 	}
+// 	return apmLvl
+// }
+// func (e Entry) GetTime() (v time.Time) {
+// 	return e.ent.Time
+// }
+// func (e Entry) GetMessage() (v string) {
+// 	return e.ent.Message
+// }
+
+// func (e Entry) GetFields() field.FieldSet {
+
+// 	info := apm.CallerInfo{
+// 		File:   e.ent.Caller.File,
+// 		Line:   e.ent.Caller.Line,
+// 		Method: e.ent.Caller.Function,
+// 	}
+// 	caller := info.Caller()
+// 	// fmt.Printf("e.ent.Caller: %+v\n", e.ent.Caller.PC)
+// 	// fmt.Printf("e.ent.Caller.File: %v\n", e.ent.Caller.File)
+// 	// fmt.Printf("====caller: %v\n", caller)
+// 	fs := field.FieldSet{apm.TracebackCaller(caller)}
+
+// 	fs = append(fs, transform(e.c.fields)...)
+// 	fs = append(fs, transform(e.fields)...)
+
+// 	return fs
+// }
 
 // func (c *ioCore) clone() *ioCore {
 // 	return &ioCore{
