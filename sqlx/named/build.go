@@ -18,6 +18,7 @@ type BuildOption interface {
 }
 type buildOptions struct {
 	holder func(i int) string
+	funcs  map[string]func() (interface{}, error)
 }
 type holderFnOption func(i int) string
 
@@ -49,6 +50,7 @@ var pipes = map[string]PipeFn{}
 // TODO: 不同的驱动使用不同的参数占位符
 func BuildNamedQuery(tpl string, options ...BuildOption) (sql string, holders sqlx.ParameterHolders, err error) {
 	opts := buildOptions{
+		funcs: functions,
 		holder: func(i int) string {
 			return "?"
 		},
@@ -84,7 +86,7 @@ func BuildNamedQuery(tpl string, options ...BuildOption) (sql string, holders sq
 		}
 
 		if iscall {
-			f, ok := functions[arr[0]]
+			f, ok := opts.funcs[arr[0]]
 			if !ok {
 				errs = append(errs, fmt.Errorf("sqlx: function not defined: %s", s))
 			}

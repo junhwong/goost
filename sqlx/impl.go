@@ -5,15 +5,19 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/junhwong/goost/apm"
 	"github.com/junhwong/goost/apm/field"
 )
 
 type Config struct {
-	Name   string
-	Driver string `json:"driver" yml:"driver"`
-	DSN    string `json:"dsn" yml:"dsn"`
+	Name            string
+	Driver          string `json:"driver" yml:"driver"`
+	DSN             string `json:"dsn" yml:"dsn"`
+	MaxOpenConns    int    // 默认0无限
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
 }
 
 var (
@@ -66,7 +70,7 @@ func prepareContext(ctx context.Context, meta connMeta, raw sqlPrepare, query st
 	// if id == "" {
 	// 	id = "sql"
 	// }
-	panic("todo")
+	// panic("todo")
 	ctx, span := apm.Start(ctx,
 		// apm.WithFields(
 		// 	dbType("sql"),
@@ -95,7 +99,6 @@ type stmtWrap struct {
 }
 
 func (stmt *stmtWrap) Exec(ctx context.Context, args ...interface{}) (ExecutedResult, error) {
-	panic("todo")
 	ctx, span := apm.Start(ctx,
 		// apm.WithFields(
 		// 	dbType("sql"),
@@ -111,7 +114,6 @@ func (stmt *stmtWrap) Exec(ctx context.Context, args ...interface{}) (ExecutedRe
 }
 
 func (stmt *stmtWrap) Query(ctx context.Context, args ...interface{}) (Rows, error) {
-	panic("todo")
 	ctx, span := apm.Start(ctx) // apm.WithFields(
 	// 	dbType("sql"),
 	// 	dbStage("query"),
@@ -125,7 +127,6 @@ func (stmt *stmtWrap) Query(ctx context.Context, args ...interface{}) (Rows, err
 }
 
 func (stmt *stmtWrap) QueryRow(ctx context.Context, args ...interface{}) (*sql.Row, error) {
-	panic("todo")
 	ctx, span := apm.Start(ctx) // apm.WithFields(
 	// 	dbType("sql"),
 	// 	dbStage("query"),

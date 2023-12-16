@@ -75,6 +75,20 @@ func (l *FieldsEntry) new() *FieldsEntry {
 }
 
 func (l *FieldsEntry) Log(level field.Level, args []interface{}) {
+	if len(args) == 0 {
+		return
+	}
+	pass := false
+	for _, v := range args {
+		if v != nil {
+			pass = true
+			break
+		}
+	}
+	if !pass {
+		return
+	}
+
 	l = l.new()
 	l.calldepth++
 	l.Level = level

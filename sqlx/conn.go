@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"github.com/junhwong/goost/apm/log"
 )
 
 type connWrap struct {
@@ -27,6 +29,15 @@ func New(config Config) (DBInterface, error) {
 	err = db.Ping()
 	if err != nil {
 		return nil, err
+	}
+	if config.ConnMaxLifetime > 0 {
+		db.SetConnMaxLifetime(config.ConnMaxLifetime)
+	}
+	if config.MaxOpenConns > 0 {
+		db.SetMaxOpenConns(config.MaxOpenConns)
+	}
+	if config.MaxIdleConns > 0 {
+		db.SetMaxIdleConns(config.MaxIdleConns)
 	}
 
 	if config.Name == "" {
@@ -56,16 +67,16 @@ func New(config Config) (DBInterface, error) {
 		raw:  db,
 	}
 
-	// if rows, err := db.Query("SELECT VERSION()"); err != nil {
-	// 	return nil, err
-	// } else {
-	// 	defer rows.Close()
-	// 	for rows.Next() {
-	// 		if err := rows.Scan(&conn.serverVersion); err != nil {
-	// 			return nil, err
-	// 		}
-	// 	}
-	// }
+	if rows, err := db.Query("SELECT VERSION()"); err != nil {
+		log.Error(err)
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			if err := rows.Scan(&conn.serverVersion); err != nil {
+				log.Error(err)
+			}
+		}
+	}
 
 	conn.beginTxFn = buildBegin(conn, db)
 	conn.newConnFn = func(ctx context.Context) (ConnectionInterface, error) {
