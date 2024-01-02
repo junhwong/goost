@@ -16,7 +16,6 @@ func TestSetSort(t *testing.T) {
 	if s != "ace" {
 		t.Fatal()
 	}
-
 }
 
 func TestSetRemove(t *testing.T) {

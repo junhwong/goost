@@ -7,18 +7,21 @@ option go_package = "apm/field";
 // 必须是通用且最具需要规范定义的类型
 enum Type {
   UNKNOWN = 0;   // 未知
-  STRING = 1;    // 字符串
-  BOOL = 2;      // 布尔值 int64 0, ~0
-  INT = 3;       // 整数 int64
-  UINT = 4;      // 整数 uint64
-  FLOAT = 5;     // 浮点数 float64
-  TIMESTAMP = 6; // 时间戳 纳秒 uint64
-  DURATION = 7;  // 持续时间 纳秒 int64
-  BYTES = 8;     // 二进制
+  ARRAY = 1;     // 数组.
+  MAP = 2;       // 字典.
+  STRING = 3;    // 字符串
+  BOOL = 4;      // 布尔值 int64 0, ~0
+  INT = 5;       // 整数 int64
+  UINT = 6;      // 整数 uint64
+  FLOAT = 7;     // 浮点数 float64
+  TIMESTAMP = 8; // 时间戳 纳秒 uint64
+  DURATION = 9;  // 持续时间 纳秒 int64
+  BYTES = 10;    // 二进制
   // 日志级别  uint64. see:
   // https://opentelemetry.io/docs/reference/specification/logs/data-model/#severity-fields
-  LEVEL = 9;
-  IP = 10; // IP v4或v6 BYTES
+  LEVEL = 11;
+  IP = 12;  // IP. v4或v6 BYTES
+  URL = 13; // URL. STRING
 }
 
 // 字段
@@ -31,4 +34,5 @@ message Field {
   optional double floatValue = 6;  // 基值. 浮点数
   optional string stringValue = 7; // 基值. 字符串
   optional bytes bytesValue = 8;   // 基值. 二进制
+  repeated Field itemsValue = 9;   // 子项
 }

@@ -3,86 +3,8 @@ package field
 import (
 	"fmt"
 	"net"
-	"sort"
 	"time"
-
-	"github.com/junhwong/goost/runtime"
 )
-
-type FieldSet []*Field
-
-func (x FieldSet) Len() int           { return len(x) }
-func (x FieldSet) Less(i, j int) bool { return x[i].GetKey() < x[j].GetKey() } // 字典序
-func (x FieldSet) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
-func (x FieldSet) Sort() {
-	if len(x) == 0 {
-		return
-	}
-	sort.Sort(x)
-}
-
-func (fs *FieldSet) Set(f *Field) *Field {
-	f, _ = fs.Put(f)
-	return f
-}
-func (fs *FieldSet) Put(f *Field) (crt, old *Field) {
-	crt = f
-	i := fs.At(f.GetKey())
-	if i < 0 {
-		*fs = append(*fs, f)
-		return
-	}
-	tmp := *fs
-	old = tmp[i]
-	tmp[i] = f
-	return
-}
-
-func (fs FieldSet) Get(k string) *Field {
-	for _, v := range fs {
-		if v.GetKey() == k {
-			return v
-		}
-	}
-	return nil
-}
-func (fs FieldSet) At(k string) int {
-	for i, v := range fs {
-		if v.GetKey() == k {
-			return i
-		}
-	}
-	return -1
-}
-
-func (fs *FieldSet) Remove(k string) *Field {
-	i := fs.At(k)
-	if i < 0 {
-		return nil
-	}
-
-	tmp := *fs
-	f := tmp[i]
-	n := len(tmp) - 1
-	for j := i; j < n; j++ {
-		tmp[j] = tmp[j+1]
-	}
-	*fs = tmp[:n]
-	return f
-}
-
-// 清除重复
-func (fs *FieldSet) Unique() FieldSet {
-	if fs == nil {
-		return nil
-	}
-	tmp := FieldSet{}
-	for _, f := range *fs {
-		tmp.Set(f)
-	}
-	*fs = tmp
-	return tmp
-}
 
 // 字段标志位.
 type Flags int32
@@ -99,61 +21,13 @@ const (
 
 func IsKey(f *Field) bool { return (Flags(f.GetFlags()) & FlagKey) == FlagKey }
 
-type WrapField struct {
-	*Field `json:",inline"`
-	Value  any      `json:"value"`
-	As     string   `json:"as"`
-	Zone   string   `json:"zone"`   // 时区
-	Layout []string `json:"layout"` // 时间格式
-}
-
-func (f *WrapField) SetString(v string) *WrapField {
-	SetString(f.Field, v)
-	return f
-}
-func (f *WrapField) SetBool(v bool) *WrapField {
-	SetBool(f.Field, v)
-	return f
-}
-
-func (f *WrapField) SetInt(v int64) *WrapField {
-	SetInt(f.Field, v)
-	return f
-}
-func (f *WrapField) SetUint(v uint64) *WrapField {
-	SetUint(f.Field, v)
-	return f
-}
-
-func (f *WrapField) SetFloat(v float64) *WrapField {
-	SetFloat(f.Field, v)
-	return f
-}
-func (f *WrapField) SetTime(v time.Time) *WrapField {
-	SetTime(f.Field, v)
-	return f
-}
-
-func (f WrapField) GetTimeValue() time.Time {
-	return GetTimeValue(f.Field)
-}
-
-func (f *WrapField) SetDuration(v time.Duration) *WrapField {
-	SetDuration(f.Field, v)
-	return f
-}
-
-func (f WrapField) GetDurationValue() time.Duration {
-	return GetDurationValue(f.Field)
-}
-
-func SetString(f *Field, v string) *Field {
+func (f *Field) SetString(v string) *Field {
 	f.Type = StringKind
 	f.StringValue = &v
 	return f
 }
 
-func SetBool(f *Field, v bool) *Field {
+func (f *Field) SetBool(v bool) *Field {
 	f.Type = BoolKind
 	var b int64
 	if v {
@@ -163,45 +37,45 @@ func SetBool(f *Field, v bool) *Field {
 	return f
 }
 
-func SetInt(f *Field, v int64) *Field {
+func (f *Field) SetInt(v int64) *Field {
 	f.Type = IntKind
 	f.IntValue = &v
 	return f
 }
 
-func SetUint(f *Field, v uint64) *Field {
+func (f *Field) SetUint(v uint64) *Field {
 	f.Type = UintKind
 	f.UintValue = &v
 	return f
 }
 
-func SetFloat(f *Field, v float64) *Field {
+func (f *Field) SetFloat(v float64) *Field {
 	f.Type = FloatKind
 	f.FloatValue = &v
 	return f
 }
 
-func SetTime(f *Field, v time.Time) *Field {
+func (f *Field) SetTime(v time.Time) *Field {
 	f.Type = TimeKind
 	i := uint64(v.UnixNano())
 	f.UintValue = &i
 	return f
 }
-func GetTimeValue(f *Field) time.Time {
+func (f *Field) GetTime() time.Time {
 	if f == nil || f.Type != TimeKind {
 		return time.Time{}
 	}
 	return time.Unix(0, int64(f.GetUintValue()))
 }
 
-func SetDuration(f *Field, v time.Duration) *Field {
+func (f *Field) SetDuration(v time.Duration) *Field {
 	f.Type = DurationKind
 	i := int64(v)
 	f.IntValue = &i
 	return f
 }
 
-func SetIP(f *Field, v net.IP) *Field {
+func (f *Field) SetIP(v net.IP) *Field {
 	if l := len(v); !(l == net.IPv4len || l == net.IPv6len) {
 		return f
 	}
@@ -209,7 +83,7 @@ func SetIP(f *Field, v net.IP) *Field {
 	f.BytesValue = v
 	return f
 }
-func GetIPValue(f *Field) net.IP {
+func (f *Field) GetIP() net.IP {
 	if f == nil || f.Type != IPKind {
 		return nil
 	}
@@ -219,37 +93,50 @@ func GetIPValue(f *Field) net.IP {
 	return f.BytesValue
 }
 
-func SetLevel(f *Field, v Level) *Field {
+func (f *Field) SetLevel(v Level) *Field {
 	f.Type = LevelKind
 	i := uint64(v)
 	f.UintValue = &i
 	return f
 }
-func GetLevelValue(f *Field) Level {
+func (f *Field) GetLevel() Level {
 	if f == nil || f.Type != LevelKind {
 		return LevelUnset
 	}
 	return LevelFromInt(int(f.GetUintValue()))
 }
 
-func GetDurationValue(f *Field) time.Duration {
+func (f *Field) GetDuration() time.Duration {
 	if f == nil || f.Type != DurationKind {
 		return 0
 	}
 	return time.Duration(f.GetIntValue())
 }
 
-func GetBoolValue(f *Field) bool {
+func (f *Field) GetBool() bool {
 	if f == nil || f.Type != BoolKind {
 		return false
 	}
 	return f.GetIntValue() != 0
 }
 
-func SetBytes(f *Field, v []byte) *Field {
+func (f *Field) SetBytes(v []byte) *Field {
 	f.Type = BytesKind
 	f.BytesValue = v
 	return f
+}
+
+func (f *Field) SetMap(v FieldSet) *Field {
+	f.Type = MapKind
+	f.ItemsValue = v
+	return f
+}
+
+func (f *Field) GetString() string {
+	if f == nil {
+		return ""
+	}
+	return f.GetStringValue()
 }
 
 func GetObject(f *Field) any {
@@ -258,7 +145,7 @@ func GetObject(f *Field) any {
 	}
 	switch f.Type {
 	case StringKind:
-		return f.GetStringValue()
+		return f.GetString()
 	case IntKind:
 		return f.GetIntValue()
 	case UintKind:
@@ -266,28 +153,19 @@ func GetObject(f *Field) any {
 	case FloatKind:
 		return f.GetFloatValue()
 	case BoolKind:
-		return f.GetIntValue() != 0
+		return f.GetBool()
 	case BytesKind:
 		return f.GetBytesValue()
 	case TimeKind:
-		return GetTimeValue(f)
+		return f.GetTime()
 	case DurationKind:
-		return GetDurationValue(f)
+		return f.GetDuration()
 	case IPKind:
-		return GetIPValue(f)
+		return f.GetIP()
 	case LevelKind:
-		return GetLevelValue(f)
-
+		return f.GetLevel()
 	}
 	return nil
-}
-
-func (f *WrapField) String() string {
-	return fmt.Sprintf("structField{%v, Value=%v, kind=%v}", f.Key, GetObject(f.Field), f.Type)
-}
-
-func (f *WrapField) Valid() bool {
-	return f != nil && f.Type != InvalidKind
 }
 
 // 从值倒推类型(只能是基本类型)
@@ -347,8 +225,11 @@ func InvertType(f *Field) *Field {
 }
 
 // 转换类型. 转换失败将不会改变
-func As(f *Field, t Kind, layouts ...string) error {
+func As(f *Field, t Kind, layouts []string, loc *time.Location) error {
 	if f.Type == t {
+		if t == TimeKind && loc != nil {
+			f.SetTime(f.GetTime().In(loc))
+		}
 		return nil
 	}
 	switch t {
@@ -366,7 +247,7 @@ func As(f *Field, t Kind, layouts ...string) error {
 		switch f.Type {
 		case StringKind:
 			f.StringValue = nil
-			SetBytes(f, []byte(f.GetStringValue()))
+			f.SetBytes([]byte(f.GetStringValue()))
 			return nil
 		case BytesKind:
 			return nil
@@ -375,9 +256,6 @@ func As(f *Field, t Kind, layouts ...string) error {
 		}
 
 	case TimeKind:
-		if len(layouts) == 0 {
-			return fmt.Errorf("unable convert to timestamp: %s", "layouts is required")
-		}
 		switch f.GetType() {
 		case IntKind:
 			panic("todo convert")
@@ -385,24 +263,12 @@ func As(f *Field, t Kind, layouts ...string) error {
 			panic("todo convert")
 		case FloatKind:
 			panic("todo convert")
-		case StringKind:
-			// 字符串转日期
-			s := f.GetStringValue()
-			for _, l := range layouts {
-				v, err := time.Parse(l, s)
-				if err != nil {
-					fmt.Printf("err: %v\n", err)
-					runtime.Debug(err)
-					continue
-				}
-				f.StringValue = nil
-				SetTime(f, v)
-				return nil
+		case StringKind: // 字符串转日期
+			v, err := ParseTime(f.GetStringValue(), layouts, loc)
+			if err == nil {
+				f.SetTime(v)
 			}
-			// 转换失败
-			return fmt.Errorf("unable convert to timestamp: %q", s)
-		case TimeKind:
-			return nil
+			return err
 		default:
 			panic("todo convert")
 		}
@@ -412,14 +278,49 @@ func As(f *Field, t Kind, layouts ...string) error {
 
 	panic(fmt.Sprintf("todo convert %v->%v", f.GetType(), t))
 }
+
 func Clone(f *Field) *Field {
 	dst := New(f.GetKey())
-	dst.BytesValue = f.BytesValue
+	dst.Type = f.Type
 	dst.Flags = f.Flags
+	if f.ItemsValue != nil {
+		dst.ItemsValue = make([]*Field, len(f.ItemsValue))
+		copy(dst.ItemsValue, f.ItemsValue)
+	}
+	dst.BytesValue = f.BytesValue
 	dst.FloatValue = f.FloatValue
 	dst.IntValue = f.IntValue
-	dst.StringValue = f.StringValue
-	dst.Type = f.Type
 	dst.UintValue = f.UintValue
+	dst.StringValue = f.StringValue
+
 	return dst
+}
+
+func (f *Field) GoString() string {
+	var v string
+	switch f.GetType() {
+	case MapKind:
+		v = "{"
+		for i, f2 := range f.ItemsValue {
+			if i != 0 {
+				v += ","
+			}
+			v += fmt.Sprintf("%#v", f2)
+		}
+		v += "}"
+	case ArrayKind:
+		v = "["
+		for i, f2 := range f.ItemsValue {
+			if i != 0 {
+				v += ","
+			}
+			v += fmt.Sprintf("%#v", f2)
+		}
+		v += "]"
+	case BytesKind:
+		v = "<bytes>"
+	default:
+		v = fmt.Sprintf("%v", GetObject(f))
+	}
+	return fmt.Sprintf("Field(key:%v type: %v value: %v)", f.Key, f.Type, v)
 }

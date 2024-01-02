@@ -47,26 +47,26 @@ func Any(name string, v any) *Field {
 		if f.Key == "level" { // todo 更多可能的名称
 			l := ParseLevel(s)
 			if l != LevelUnset {
-				return SetLevel(f, l)
+				return f.SetLevel(l)
 			}
 		}
-		SetString(f, s)
+		f.SetString(s)
 	case IntKind:
-		SetInt(f, iv.(int64))
+		f.SetInt(iv.(int64))
 	case UintKind:
-		SetUint(f, iv.(uint64))
+		f.SetUint(iv.(uint64))
 	case FloatKind:
-		SetFloat(f, iv.(float64))
+		f.SetFloat(iv.(float64))
 	case BoolKind:
-		SetBool(f, iv.(bool))
+		f.SetBool(iv.(bool))
 	case TimeKind:
-		SetTime(f, iv.(time.Time))
+		f.SetTime(iv.(time.Time))
 	case DurationKind:
-		SetDuration(f, iv.(time.Duration))
+		f.SetDuration(iv.(time.Duration))
 	case IPKind:
-		SetIP(f, iv.(net.IP))
+		f.SetIP(iv.(net.IP))
 	case BytesKind:
-		SetBytes(f, iv.([]byte))
+		f.SetBytes(iv.([]byte))
 	}
 	return f
 }
@@ -81,21 +81,21 @@ func String(name string) (Key, func(string, ...interface{}) *Field) {
 			v = fmt.Sprint(a...)
 		}
 		v = strings.TrimSpace(v)
-		return SetString(New(name), v)
+		return New(name).SetString(v)
 	}
 }
 
 func Bool(name string) (Key, func(bool) *Field) {
 	k := makeOrGetKey(name, BoolKind)
 	return k, func(v bool) *Field {
-		return SetBool(New(name), v)
+		return New(name).SetBool(v)
 	}
 }
 
 func Time(name string) (Key, func(time.Time) *Field) {
 	k := makeOrGetKey(name, TimeKind)
 	return k, func(v time.Time) *Field {
-		return SetTime(New(name), v)
+		return New(name).SetTime(v)
 	}
 }
 
@@ -123,7 +123,7 @@ func Float(name string) (Key, func(interface{}) *Field) {
 func Duration(name string) (Key, func(time.Duration) *Field) {
 	k := makeOrGetKey(name, IntKind)
 	return k, func(v time.Duration) *Field {
-		return SetDuration(New(name), v)
+		return New(name).SetDuration(v)
 	}
 }
 func BuildLevel(name string) (Key, func(interface{}) *Field) {
@@ -142,6 +142,6 @@ func BuildLevel(name string) (Key, func(interface{}) *Field) {
 			f.Type = Type_UNKNOWN // panic
 			return f
 		}
-		return SetLevel(f, LevelFromInt(i))
+		return f.SetLevel(LevelFromInt(i))
 	}
 }

@@ -2,7 +2,7 @@ package field
 
 import "strings"
 
-// // Kind 数据类型。
+// Kind 数据类型。
 type Kind = Type
 
 const (
@@ -17,6 +17,8 @@ const (
 	BytesKind    = Type_BYTES
 	IPKind       = Type_IP
 	LevelKind    = Type_LEVEL
+	ArrayKind    = Type_ARRAY
+	MapKind      = Type_MAP
 )
 
 func ParseType(v any) Type {

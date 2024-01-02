@@ -158,7 +158,7 @@ func ParseW3Tracestate(tracestate string) (fs field.FieldSet, err error) {
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid state item")
 		}
-		f := field.SetString(field.New(kv[0]), kv[1]) // TODO 推断值类型?
+		f := field.New(kv[0]).SetString(kv[1]) // TODO 推断值类型?
 		if f.GetType() == field.StringKind {
 			fs.Set(f)
 		}
