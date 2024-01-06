@@ -26,6 +26,12 @@ func (f *Field) SetString(v string) *Field {
 	f.StringValue = &v
 	return f
 }
+func (f *Field) GetString() string {
+	if f == nil || f.Type != StringKind {
+		return ""
+	}
+	return f.GetStringValue()
+}
 
 func (f *Field) SetBool(v bool) *Field {
 	f.Type = BoolKind
@@ -126,17 +132,17 @@ func (f *Field) SetBytes(v []byte) *Field {
 	return f
 }
 
+func (f *Field) GetBytes() []byte {
+	if f == nil || f.Type != BytesKind {
+		return nil
+	}
+	return f.GetBytesValue()
+}
+
 func (f *Field) SetMap(v FieldSet) *Field {
 	f.Type = MapKind
 	f.ItemsValue = v
 	return f
-}
-
-func (f *Field) GetString() string {
-	if f == nil {
-		return ""
-	}
-	return f.GetStringValue()
 }
 
 func GetObject(f *Field) any {
@@ -284,8 +290,10 @@ func Clone(f *Field) *Field {
 	dst.Type = f.Type
 	dst.Flags = f.Flags
 	if f.ItemsValue != nil {
-		dst.ItemsValue = make([]*Field, len(f.ItemsValue))
-		copy(dst.ItemsValue, f.ItemsValue)
+		dst.ItemsValue = make([]*Field, 0, len(f.ItemsValue))
+		for _, f2 := range f.ItemsValue {
+			dst.ItemsValue = append(dst.ItemsValue, Clone(f2))
+		}
 	}
 	dst.BytesValue = f.BytesValue
 	dst.FloatValue = f.FloatValue

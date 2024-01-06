@@ -1,11 +1,14 @@
 package field
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type FieldValueBuild struct {
 	Value    any    `json:"value"`
 	FieldRef string `json:"fieldRef"`
 	Type     string `json:"type"`
+	Nullable bool   `json:"nullable"`
 }
 
 type FieldsBuild struct {
@@ -30,20 +33,21 @@ func (r *FieldsBuild) Init() error {
 	return nil
 }
 
-func (r *FieldsBuild) Build(f *Field, src FieldSet) (FieldSet, error) {
+func (r *FieldsBuild) Build(src FieldSet) (FieldSet, error) {
 	fs := FieldSet{}
 	for k, fb := range r.Fields {
-		if fb.Value == nil {
-			if f != nil && fb.FieldRef == f.GetKey() {
-				fb.Value = GetObject(f)
-			} else if ff := src.Get(fb.FieldRef); ff != nil {
-				fb.Value = GetObject(ff)
-			}
-		}
-		if fb.Value == nil {
+		if fb.Value != nil {
+			fs.Set(Any(k, fb.Value))
 			continue
 		}
-		fs.Set(Any(k, fb.Value))
+		if ff := src.Get(fb.FieldRef); ff != nil {
+			fs.Set(Clone(ff)) // todo 类型
+			continue
+		}
+		if fb.Nullable {
+			continue
+		}
+		return nil, fmt.Errorf("key 未找到: %v", k)
 	}
 	return fs, nil
 }

@@ -19,6 +19,7 @@ const (
 	QuoteSegment
 	SymbolSegment
 	RangeSegment
+	PathSegment
 	MulSegment
 )
 
@@ -56,6 +57,11 @@ type Multiple []Segment
 func (s Multiple) Type() Kind  { return MulSegment }
 func (s Multiple) Key() string { return "" }
 
+type Path []Segment
+
+func (s Path) Type() Kind  { return PathSegment }
+func (s Path) Key() string { return "" }
+
 type Range [3]int
 
 func (s Range) Type() Kind  { return RangeSegment }
@@ -81,7 +87,7 @@ func String(i Segment) string {
 func Parse(s string) (Segment, error) {
 	// r, _, err = doSplitPath(s, false)
 	var p Segment
-	var r Multiple
+	var r Path
 	for len(s) != 0 {
 		n, i, err := doParse(s)
 		if err != nil {

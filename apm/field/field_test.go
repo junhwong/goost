@@ -1,6 +1,8 @@
 package field
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestSetSort(t *testing.T) {
 	var fs FieldSet
@@ -23,11 +25,12 @@ func TestSetRemove(t *testing.T) {
 	fs = append(fs, &Field{Key: "a"})
 	fs = append(fs, &Field{Key: "e"})
 	fs = append(fs, &Field{Key: "c"})
+	fs = append(fs, &Field{Key: "e"})
 
 	if fs.Remove("e") == nil {
 		t.Fatal()
 	}
-	if fs.Remove("e") != nil {
+	if x := fs.Remove("e"); x != nil {
 		t.Fatal()
 	}
 	var s string

@@ -1,10 +1,9 @@
 package field
 
 import (
-	"fmt"
 	"sort"
-	"strconv"
-	"strings"
+
+	"github.com/junhwong/goost/jsonpath"
 )
 
 // 字段集合
@@ -37,40 +36,75 @@ func (fs *FieldSet) Put(f *Field) (crt, old *Field) {
 	return
 }
 
-func (fs FieldSet) Get(k string) *Field {
-	for _, v := range fs {
-		if v.GetKey() == k {
-			return v
-		}
+func (fs *FieldSet) Append(f *Field) *Field {
+	i, old := fs.get(f.GetKey())
+	if old == nil {
+		*fs = append(*fs, f)
+		return f
 	}
-	return nil
+	if old.GetType() != ArrayKind {
+		n := New(old.Key)
+		n.Type = ArrayKind
+		n.ItemsValue = []*Field{
+			old,
+			f,
+		}
+		tmp := *fs
+		tmp[i] = n
+		return f
+	}
+	old.ItemsValue = append(old.ItemsValue, f)
+	return f
 }
-func (fs FieldSet) At(k string) int {
+
+func (fs FieldSet) get(k string) (int, *Field) {
 	for i, v := range fs {
 		if v.GetKey() == k {
-			return i
+			return i, v
 		}
 	}
-	return -1
+	return -1, nil
 }
 
-func (fs *FieldSet) Remove(k string) *Field {
-	i := fs.At(k)
-	if i < 0 {
-		return nil
-	}
+func (fs FieldSet) Get(k string) *Field {
+	_, f := fs.get(k)
+	return f
+}
+func (fs FieldSet) At(k string) int {
+	i, _ := fs.get(k)
+	return i
+}
 
+func (fs *FieldSet) Remove(k string) (f *Field) {
 	tmp := *fs
-	f := tmp[i]
-	n := len(tmp) - 1
-	for j := i; j < n; j++ {
-		tmp[j] = tmp[j+1]
+	start := 0
+	t := len(tmp)
+
+LOOP:
+	for {
+		for i := start; i < t; i++ {
+			tf := tmp[i]
+			if tf.Key == k {
+				f = tf
+				start = i + 1
+				for j := i; j < t-1; j++ { // 将后面的元素提前
+					tmp[j] = tmp[j+1]
+				}
+				t--
+				continue LOOP
+			}
+		}
+		break
 	}
-	*fs = tmp[:n]
+	if f == nil {
+		return
+	}
+	*fs = tmp[:t]
 	return f
 }
 
 // 清除重复
+// TODO: 优化效率
 func (fs *FieldSet) Unique() FieldSet {
 	if fs == nil {
 		return nil
@@ -83,128 +117,91 @@ func (fs *FieldSet) Unique() FieldSet {
 	return tmp
 }
 
-func (fs FieldSet) GetDive(k string) *Field {
+func (fs FieldSet) Find(keyOrPath string) (FieldSet, error) {
+	if f := fs.Get(keyOrPath); f != nil {
+		return FieldSet{f}, nil
+	}
+	seg, err := jsonpath.Parse(keyOrPath)
+	if err != nil {
+		return nil, err
+	}
+	return fs.doFind(seg, nil), nil
+}
 
-	for _, v := range fs {
-		if v.GetKey() == k {
-			return v
+func (fs FieldSet) doFind(s jsonpath.Segment, n jsonpath.Segment) FieldSet {
+	switch s.Type() {
+	case jsonpath.PathSegment:
+		segs := s.(jsonpath.Path)
+		if len(segs) == 0 {
+			return nil
 		}
-	}
-	return nil
-}
-func (fs FieldSet) getDive(k string) *Field {
-	f := fs.Get(k)
-	if f != nil {
-		return f
-	}
-
-	for _, v := range fs {
-		if v.GetKey() == k {
-			return v
+		r := fs
+		for i := 0; i < len(segs); i++ {
+			n = nil
+			if i+1 < len(segs) {
+				n = segs[i+1]
+			}
+			r = r.doFind(segs[i], n)
 		}
-	}
-	return nil
-}
-
-const ()
-
-func SplitPath(s string) (r []PathSegment, err error) {
-
-	r, _, err = doSplitPath(s, false)
-
-	return
-
-}
-
-func doSplitPath(s string, inp bool) (r []PathSegment, end int, err error) {
-
-	start := 0
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '\'', '"':
-			if i-start != 0 {
-				return nil, -1, fmt.Errorf("字符串索引必须是独立段")
+		return r
+	case jsonpath.MulSegment:
+		var r FieldSet
+		for _, v := range s.(jsonpath.Multiple) {
+			for _, v2 := range fs.doFind(v, n) {
+				r.Set(v2)
 			}
-			ss := s[i+1:]
-			j := strings.IndexAny(ss, string([]byte{s[i]}))
-			if j < 0 {
-				return nil, -1, fmt.Errorf("字符串未结束")
-			}
-			k := ss[:j]
-			r = append(r, PathSegment{S: k, I: -1, Q: true})
-			i += j + 1
-			start = i + 1
-			if len(s) > start && s[start] == '.' {
-				i++
-			}
-		case '.':
-			r = append(r, PathSegment{S: s[start:i], I: -1})
-			start = i + 1
-		case '#':
-			ss := s[i+1:]
-			j := strings.IndexAny(ss, ".[#")
-			if j < 0 {
-				j = len(s) - i - 1
-			}
-			k := ss[:j]
-			n, err := strconv.ParseUint(k, 10, 64)
-			if err != nil {
-				return nil, -1, err
-			}
-			r = append(r, PathSegment{S: k, I: int(n)})
-			i += j
-			start = i
-		case '[':
-			if k := s[start:i]; len(k) > 0 {
-				r = append(r, PathSegment{S: k, I: -1})
-			}
-			cr, ci, err := doSplitPath(s[i+1:], true)
-			if err != nil {
-				return nil, -1, err
-			}
-			if ci <= 0 {
-				return nil, -1, fmt.Errorf("未结束")
-			}
-			if len(cr) == 1 {
-				r = append(r, cr[0])
-			} else {
-				r = append(r, PathSegment{C: cr, I: -1, P: true})
-			}
-			i += ci
-		case ',':
-			if !inp {
-				return nil, -1, fmt.Errorf("只能出现在括号中")
-			}
-		case ']':
-			if !inp {
-				return nil, -1, fmt.Errorf("只能出现在括号中")
-			}
-			end = i + 1
-			return
 		}
+		return r.Unique()
+	case jsonpath.IndexSegment:
+		p := s.(jsonpath.Index)
+		if i := int(p); i > 0 && i < fs.Len() {
+			if n != nil {
+				return fs[i].ItemsValue
+			}
+			return fs[i:i]
+		}
+		// todo 超出索引
+		return nil
+	case jsonpath.KeySegment, jsonpath.QuoteSegment:
+		if f := fs.Get(s.Key()); f != nil {
+			if n != nil {
+				return f.ItemsValue
+			}
+			return FieldSet{f}
+		}
+		return nil
+	case jsonpath.RangeSegment:
+		seg := s.(jsonpath.Range)
+		i := seg[0]
+		if i < 0 {
+			i += fs.Len()
+		}
+		if i < 0 {
+			return nil // todo 超出索引
+		}
+
+		j := seg[0]
+		if j < 0 {
+			j += fs.Len()
+		}
+		if j < 0 || j < i {
+			return nil // todo 超出索引
+		}
+
+		if n != nil {
+			var r FieldSet
+			for _, v := range fs[i:j] {
+				r = append(r, v.ItemsValue...)
+			}
+			return r.Unique()
+		}
+
+		return fs[i:j]
+
+	case jsonpath.SymbolSegment:
+		panic("todo: find SymbolSegment")
+	default:
+		panic("todo: find ")
 	}
 
-	if k := s[start:]; len(k) > 0 {
-		r = append(r, PathSegment{S: k, I: -1})
-	}
-
-	return
-
-}
-
-func readToEnd(s string, end ...byte) {
-
-	for i := 0; i < len(s); i++ {
-
-	}
-	strings.IndexAny(s, "")
-
-}
-
-type PathSegment struct {
-	S string // 键
-	I int    // 数字索引
-	Q bool   // 引号
-	P bool   // 是否解析过了数字
-	C []PathSegment
 }

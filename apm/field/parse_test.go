@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestParseTime(t *testing.T) {
@@ -34,55 +32,4 @@ func TestParseTime(t *testing.T) {
 	fmt.Println(z.Zone())
 	fmt.Printf("z: %v\n", z.UTC())
 	fmt.Printf("z.UnixNano(): %v\n", z.UnixNano())
-}
-
-func TestSplitPath(t *testing.T) {
-	testCases := []struct {
-		desc string
-		err  bool
-	}{
-		{
-			desc: "a",
-		},
-		{
-			desc: "a.b",
-		},
-		{
-			desc: "a..b",
-			err:  true,
-		},
-		{
-			desc: "c#1",
-		},
-		{
-			desc: "c#1.2",
-		},
-		{
-			desc: "c#1.2#3",
-		},
-		{
-			desc: "d[e]",
-		},
-		{
-			desc: `"f"`,
-		},
-		{
-			desc: `"f".g`,
-		},
-		{
-			desc: `a"f".g`,
-			err:  true,
-		},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
-			r, err := SplitPath(tC.desc)
-			if tC.err {
-				assert.NotNil(t, err)
-				return
-			}
-			assert.Nil(t, err)
-			fmt.Printf("r: %v\n", r)
-		})
-	}
 }
