@@ -1,6 +1,8 @@
 package jsonpath
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,6 +14,10 @@ func TestParse(t *testing.T) {
 		err  bool
 		ex   string
 	}{
+		{
+			desc: "中文",
+			ex:   "f:中文",
+		},
 		{
 			desc: "a",
 			ex:   "f:a",
@@ -72,4 +78,18 @@ func TestParse(t *testing.T) {
 			assert.Equal(t, tC.ex, String(r))
 		})
 	}
+}
+
+func TestTT(t *testing.T) {
+	s := `.[]()?@"'\n\t\r中`
+	rs := []rune(s)
+	for _, v := range rs {
+		if v < '1' {
+		}
+		fmt.Printf("v: %v\n", v)
+	}
+	i := strings.IndexAny(s, "文")
+	fmt.Printf("i: %v\n", i)
+	fmt.Printf("s[i:]: %s\n", []byte{s[i], s[i+1]})
+
 }

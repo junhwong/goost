@@ -36,24 +36,25 @@ func (fs *FieldSet) Put(f *Field) (crt, old *Field) {
 	return
 }
 
-func (fs *FieldSet) Append(f *Field) *Field {
-	i, old := fs.get(f.GetKey())
-	if old == nil {
-		*fs = append(*fs, f)
-		return f
+func (fs *FieldSet) SetWith(f *Field, prt *Field) *Field {
+	if prt != nil {
+		// if prt.IsList() {
+		// 	f.Parent = prt
+		// 	prt.ItemsValue = append(prt.ItemsValue, f)
+		// 	return f
+		// }
+		// if prt.Type == MapKind {
+		// 	var ifs FieldSet = prt.ItemsValue
+		// 	f.Parent = prt
+		// 	ifs.Set(f)
+		// 	prt.ItemsValue = ifs
+		// 	return f
+		// }
+		// if prt.Parent != nil {
+		// 	return fs.SetWith(f, prt.Parent)
+		// }
 	}
-	if old.GetType() != ArrayKind {
-		n := New(old.Key)
-		n.Type = ArrayKind
-		n.ItemsValue = []*Field{
-			old,
-			f,
-		}
-		tmp := *fs
-		tmp[i] = n
-		return f
-	}
-	old.ItemsValue = append(old.ItemsValue, f)
+	f, _ = fs.Put(f)
 	return f
 }
 
@@ -156,7 +157,7 @@ func (fs FieldSet) doFind(s jsonpath.Segment, n jsonpath.Segment) FieldSet {
 		p := s.(jsonpath.Index)
 		if i := int(p); i > 0 && i < fs.Len() {
 			if n != nil {
-				return fs[i].ItemsValue
+				return fs[i].Items
 			}
 			return fs[i:i]
 		}
@@ -165,7 +166,7 @@ func (fs FieldSet) doFind(s jsonpath.Segment, n jsonpath.Segment) FieldSet {
 	case jsonpath.KeySegment, jsonpath.QuoteSegment:
 		if f := fs.Get(s.Key()); f != nil {
 			if n != nil {
-				return f.ItemsValue
+				return f.Items
 			}
 			return FieldSet{f}
 		}
@@ -191,7 +192,7 @@ func (fs FieldSet) doFind(s jsonpath.Segment, n jsonpath.Segment) FieldSet {
 		if n != nil {
 			var r FieldSet
 			for _, v := range fs[i:j] {
-				r = append(r, v.ItemsValue...)
+				r = append(r, v.Items...)
 			}
 			return r.Unique()
 		}

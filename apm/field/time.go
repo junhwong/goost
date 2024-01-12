@@ -135,11 +135,12 @@ func ParseTimeLayouts(a []string) []string {
 			layouts = append(layouts, p...)
 		} else {
 			// 2006-01-02T15:04:05.999999999Z07:00
-			l = strings.ReplaceAll(l, "%yyyy", "2006")
-			l = strings.ReplaceAll(l, "%yyyy", "2006")
-			r := regexp.MustCompile("%[a-zA-Z]+")
-			r.ReplaceAllStringFunc(l, func(s string) string {
-				switch s[1:] {
+			r := regexp.MustCompile("%?[a-zA-Z]+")
+			l = r.ReplaceAllStringFunc(l, func(s string) string {
+				if s[0] == '%' {
+					panic("todo")
+				}
+				switch s {
 				case "yyyy":
 					return "2006"
 				case "yy":
@@ -182,6 +183,7 @@ func ParseTime(s string, layouts []string, loc *time.Location) (time.Time, error
 		}
 	}
 	for _, l := range layouts {
+		fmt.Printf("l: %v\n", l)
 		v, err := time.ParseInLocation(l, s, loc)
 		if err != nil {
 			continue

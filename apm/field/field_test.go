@@ -1,14 +1,15 @@
 package field
 
 import (
+	"fmt"
 	"testing"
 )
 
 func TestSetSort(t *testing.T) {
 	var fs FieldSet
-	fs = append(fs, &Field{Key: "a"})
-	fs = append(fs, &Field{Key: "e"})
-	fs = append(fs, &Field{Key: "c"})
+	// fs = append(fs, &Field{Key: "a"})
+	// fs = append(fs, &Field{Key: "e"})
+	// fs = append(fs, &Field{Key: "c"})
 	fs.Sort()
 
 	var s string
@@ -22,10 +23,10 @@ func TestSetSort(t *testing.T) {
 
 func TestSetRemove(t *testing.T) {
 	var fs FieldSet
-	fs = append(fs, &Field{Key: "a"})
-	fs = append(fs, &Field{Key: "e"})
-	fs = append(fs, &Field{Key: "c"})
-	fs = append(fs, &Field{Key: "e"})
+	// fs = append(fs, &Field{Key: "a"})
+	// fs = append(fs, &Field{Key: "e"})
+	// fs = append(fs, &Field{Key: "c"})
+	// fs = append(fs, &Field{Key: "e"})
 
 	if fs.Remove("e") == nil {
 		t.Fatal()
@@ -40,4 +41,77 @@ func TestSetRemove(t *testing.T) {
 	if s != "ac" {
 		t.Fatal()
 	}
+}
+
+func TestTT(t *testing.T) {
+	f := New("")
+
+	f.SetNull(true)
+
+	fmt.Printf("f.IsNull(): %v\n", f.IsNull())
+	f.SetString("hello")
+	// f.SetKind(StringKind, false)
+	// f.SetKind(StringKind, false)
+	// f.SetKind(StringKind, false)
+	f.SetNull(true)
+	fmt.Printf("f.Flags: %v\n", f.Flags)
+	// f.SetNull(false)
+	fmt.Printf("f.IsList(): %v\n", f.IsList())
+
+	fmt.Printf("f.IsNull(): %v\n", f.IsNull())
+
+	fmt.Printf("f.IsList(): %v\n", f.IsList())
+
+	fmt.Printf("f.isKind(StringKind): %v\n", f.isKind(StringKind))
+
+	fmt.Printf("f.GetString(): %v\n", f.GetString())
+
+}
+
+type tmeta struct {
+	key  string
+	kind string
+	its  []*tmeta
+}
+
+type tval struct {
+	sv  string
+	its []*tval
+}
+
+type tfld struct {
+	*tmeta
+	val *tval
+	prt *tfld
+}
+
+func TestTV(t *testing.T) {
+
+	hy := tfld{
+		tmeta: &tmeta{
+			key:  "合约",
+			kind: "record",
+			its: []*tmeta{
+				{key: "交易品种"},
+				{key: "报价单位"},
+			},
+		},
+		val: &tval{
+			its: []*tval{
+				{sv: "黄金"},
+				{sv: "克"},
+			},
+		},
+	}
+
+	fmt.Printf("hy: %#v\n", hy)
+
+	k := tfld{
+		tmeta: hy.tmeta.its[0],
+		val:   hy.val.its[0],
+		prt:   &hy,
+	}
+
+	fmt.Printf("k: %+v\n", k)
+
 }

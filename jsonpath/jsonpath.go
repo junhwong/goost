@@ -3,7 +3,6 @@ package jsonpath
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type Segment interface {
@@ -84,8 +83,8 @@ func String(i Segment) string {
 	return fmt.Sprintf("%s:%v", kindMap[i.Type()], i)
 }
 
-func Parse(s string) (Segment, error) {
-	// r, _, err = doSplitPath(s, false)
+func Parse(in string) (Segment, error) {
+	s := []rune(in)
 	var p Segment
 	var r Path
 	for len(s) != 0 {
@@ -145,20 +144,30 @@ func Parse(s string) (Segment, error) {
 
 }
 
-func doParse(s string) (Segment, int, error) {
+func indexOf(s []rune, c rune) int {
+	for i, v := range s {
+		if v == c {
+			return i
+		}
+	}
+	return -1
+}
+
+func doParse(s []rune) (Segment, int, error) {
 	if len(s) == 0 {
 		return nil, 0, nil
 	}
 	c := s[0]
 	switch c {
 	case '\'', '"':
-		j := strings.Index(s[1:], string([]byte{c}))
+
+		j := indexOf(s[1:], c)
 		if j < 0 {
 			return nil, 1, fmt.Errorf("字符串未结束, 期待: %q", c)
 		}
 		j += 2
 		return Quote(s[:j]), j, nil
-	case '.', '@', '$':
+	case '.', '@', '$', '*':
 		for j := 0; j < len(s); j++ {
 			if s[j] != c {
 				return Symbol(s[:j]), j, nil
@@ -252,118 +261,34 @@ func doParse(s string) (Segment, int, error) {
 		}
 		return nil, 1, fmt.Errorf("不是有效的段, 期待: ]")
 	case '?', '(', ')':
-		panic("todo 解析:" + s)
+		panic("todo 解析表达式:" + string(s))
 	default:
 		end := -1 //len(s)
+	F:
 		for i := 0; i < len(s); i++ {
 			c := s[i]
-			if c >= 'A' && c <= 'Z' {
+			switch { // https://symbl.cc/cn/unicode/table/#linear-b-syllabary
+			case c >= 0 && c <= 44:
+				break F
+			case c >= 46 && c <= 47:
+				break F
+			case c >= 58 && c <= 64:
+				break F
+			case c >= 91 && c <= 94:
+				break F
+			case c == 96:
+				break F
+			case c >= 123 && c <= 127:
+				break F
+			default:
 				end = i
-			} else if c >= 'a' && c <= 'z' {
-				end = i
-			} else if c >= '0' && c <= '9' {
-				end = i
-			} else if c == '_' {
-				end = i
-			} else {
-				break
 			}
 		}
-		// fmt.Printf("s[i]: %s\n", []byte{s[i]})
-		// 	fmt.Printf("s[:i-1]: %v\n", s[:i-1])
+
 		if end != -1 {
 			end++
 			return Key(s[:end]), end, nil
 		}
 	}
 	return nil, len(s), fmt.Errorf("非法的段: %q", s)
-}
-
-func doSplitPath(s string, inp bool) (r []Segment, end int, err error) {
-
-	start := 0
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '\'', '"':
-			if i-start != 0 {
-				return nil, -1, fmt.Errorf("字符串索引必须是独立段")
-			}
-			ss := s[i+1:]
-			j := strings.IndexAny(ss, string([]byte{s[i]}))
-			if j < 0 {
-				return nil, -1, fmt.Errorf("字符串未结束")
-			}
-			k := ss[:j]
-			r = append(r, Quote(k))
-			i += j + 1
-			start = i + 1
-			if len(s) <= start {
-				continue
-			}
-		case '.':
-			if k := s[start:i]; len(k) > 0 {
-				r = append(r, Key(k))
-			}
-			start = i + 1
-			for j := i + 1; j < len(s); j++ {
-				if s[i] != '.' {
-					if j-i != 0 {
-						fmt.Println("dffffff:", j-i)
-					}
-					start = j
-					break
-				}
-			}
-			// r = append(r, PathSegment{S: s[start:i], I: -1})
-			// start = i + 1
-		case '#':
-			ss := s[i+1:]
-			j := strings.IndexAny(ss, ".[#")
-			if j < 0 {
-				j = len(s) - i - 1
-			}
-			k := ss[:j]
-			n, err := strconv.ParseInt(k, 10, 64)
-			if err != nil {
-				return nil, -1, err
-			}
-			r = append(r, Index(n))
-			i += j
-			start = i
-		case '[':
-			if k := s[start:i]; len(k) > 0 {
-				r = append(r, Key(k))
-			}
-			cr, ci, err := doSplitPath(s[i+1:], true)
-			if err != nil {
-				return nil, -1, err
-			}
-			if ci <= 0 {
-				return nil, -1, fmt.Errorf("未结束")
-			}
-			if len(cr) == 1 {
-				r = append(r, cr[0])
-			} else {
-				r = append(r, Multiple(cr))
-			}
-			i += ci
-		case ',':
-			if !inp {
-				return nil, -1, fmt.Errorf("只能出现在括号中")
-			}
-		case ']':
-			if !inp {
-				return nil, -1, fmt.Errorf("只能出现在括号中")
-			}
-			end = i + 1
-			return
-		}
-	}
-
-	if k := s[start:]; len(k) > 0 {
-		r = append(r, Key(k))
-	}
-
-	return
-
 }

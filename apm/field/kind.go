@@ -17,8 +17,7 @@ const (
 	BytesKind    = Type_BYTES
 	IPKind       = Type_IP
 	LevelKind    = Type_LEVEL
-	ArrayKind    = Type_ARRAY
-	MapKind      = Type_MAP
+	MapKind      = Type_RECORD
 )
 
 func ParseType(v any) Type {

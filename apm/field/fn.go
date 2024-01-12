@@ -10,14 +10,15 @@ import (
 
 // TODO 从池中获取或创建字段对象
 func New(name string) *Field {
-	return &Field{Key: name}
+	return &Field{Schema: &Schema{Key: name}, Value: &Value{}}
 }
+
 func Release(f *Field) {
 	if f == nil {
 		return
 	}
-	f.Key = ""
-	f.Reset()
+	f.Schema.Reset()
+	f.Value.Reset()
 }
 
 // 构造一个动态字段
