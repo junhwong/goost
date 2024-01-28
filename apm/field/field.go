@@ -4,62 +4,68 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/junhwong/goost/apm/field/loglevel"
+	"github.com/spf13/cast"
 )
 
 type Field struct {
 	*Schema
 	*Value
-	Index  int
-	Items  FieldSet
-	Parent *Field
+	Index  int      // 索引
+	Items  []*Field // 子元素
+	Parent *Field   // 父元素
 }
 
 const (
-	_         int32 = 1 << iota //
-	NullFlag                    // 空值
-	ListFlag                    // 列表
-	TableFlag                   // 表格
-	// RES                       // 是资源
-	// ATTR                      // 是属性
-	// BDG                       // 是传播
-	// BDY                       // 是内容
-	// SRC                       // 源
+	_          int32 = 1 << iota //
+	ColumnFlag                   // 列, 但子类型必须完全相同. 如表格中的列
+	TableFlag                    // 表格, 子元素必须完全是Column
 )
 
-// func IsKey(f *Field) bool { return (Flags(f.GetFlags()) & FlagKey) == FlagKey }
-
 // 设置类型.
-func (f *Field) SetKind(t Kind, isList bool) *Field {
+func (f *Field) SetKind(t Type, isColumn, isTable bool) *Field {
 	f.Type = t
-	f.Flags &^= ListFlag
-	if isList {
-		f.Flags |= ListFlag
+
+	f.Flags &^= ColumnFlag
+	if isColumn {
+		f.Flags |= ColumnFlag
 	}
-	if t != MapKind {
-		f.ItemsSchema = nil
+	f.Flags &^= TableFlag
+	if isTable {
+		f.Flags |= TableFlag
 	}
 	return f
 }
 
-// 是否是列表
+func (f *Field) setPK(t Type) {
+	f.SetKind(t, false, false)
+}
+
+// 是否null
 func (f *Field) IsNull() bool {
-	return (f.GetFlags() & NullFlag) == NullFlag
+	return f == nil || f.Value == nil || f.NullValue
 }
 
 func (f *Field) SetNull(b bool) *Field {
-	f.Flags &^= NullFlag
-	if b {
-		f.Flags |= NullFlag
-	}
+	f.NullValue = b
 	return f
 }
 
-// 是否是列表
+// 是否是集合
 func (f *Field) IsList() bool {
-	return (f.GetFlags() & ListFlag) == ListFlag
+	return f.Type == GroupKind || f.Type == ArrayKind || f.IsColumn() || f.IsTable()
 }
 
-func (f *Field) reset() {
+func (f *Field) IsColumn() bool {
+	return (f.GetFlags() & ColumnFlag) == ColumnFlag
+}
+
+func (f *Field) IsTable() bool {
+	return (f.GetFlags() & TableFlag) == TableFlag
+}
+
+func (f *Field) resetValue() {
 	f.SetNull(false)
 	f.IntValue = nil
 	f.UintValue = nil
@@ -68,15 +74,17 @@ func (f *Field) reset() {
 	f.BytesValue = nil
 	f.ItemsValue = nil
 	f.Items = nil
+	f.ItemsSchema = nil
 }
 
 func (f *Field) SetString(v string) *Field {
-	f.SetKind(StringKind, false)
-	f.reset()
+	f.resetValue()
+	f.setPK(StringKind)
 
 	f.StringValue = &v
 	return f
 }
+
 func (f *Field) GetString() string {
 	if !f.isKind(StringKind) {
 		return ""
@@ -85,8 +93,8 @@ func (f *Field) GetString() string {
 }
 
 func (f *Field) SetBool(v bool) *Field {
-	f.SetKind(BoolKind, false)
-	f.reset()
+	f.resetValue()
+	f.setPK(BoolKind)
 
 	var b int64
 	if v {
@@ -97,31 +105,53 @@ func (f *Field) SetBool(v bool) *Field {
 }
 
 func (f *Field) SetInt(v int64) *Field {
-	f.SetKind(IntKind, false)
-	f.reset()
+	f.resetValue()
+	f.setPK(IntKind)
 
 	f.IntValue = &v
 	return f
 }
 
+func (f *Field) GetInt() int64 {
+	if !f.isKind(IntKind) {
+		return 0
+	}
+	return f.GetIntValue()
+}
+
 func (f *Field) SetUint(v uint64) *Field {
-	f.SetKind(UintKind, false)
-	f.reset()
+	f.resetValue()
+	f.setPK(UintKind)
 
 	f.UintValue = &v
 	return f
 }
 
+func (f *Field) GetUint() int64 {
+	if !f.isKind(UintKind) {
+		return 0
+	}
+	return int64(f.GetUintValue())
+}
+
 func (f *Field) SetFloat(v float64) *Field {
-	f.SetKind(FloatKind, false)
-	f.reset()
+	f.resetValue()
+	f.setPK(FloatKind)
+
 	f.FloatValue = &v
 	return f
 }
+func (f *Field) GetFloat() float64 {
+	if !f.isKind(FloatKind) {
+		return 0
+	}
+	return f.GetFloatValue()
+}
 
 func (f *Field) SetTime(v time.Time) *Field {
-	f.SetKind(TimeKind, false)
-	f.reset()
+	f.resetValue()
+	f.setPK(TimeKind)
+
 	f.SetNull(v.IsZero())
 
 	i := uint64(v.UnixNano())
@@ -138,16 +168,17 @@ func (f *Field) GetTime() time.Time {
 }
 
 func (f *Field) SetDuration(v time.Duration) *Field {
-	f.SetKind(DurationKind, false)
-	f.reset()
+	f.resetValue()
+	f.setPK(DurationKind)
+
 	i := int64(v)
 	f.IntValue = &i
 	return f
 }
 
 func (f *Field) SetIP(v net.IP) *Field {
-	f.SetKind(IPKind, false)
-	f.reset()
+	f.resetValue()
+	f.setPK(IPKind)
 
 	l := len(v)
 	f.SetNull(!(l == net.IPv4len || l == net.IPv6len))
@@ -166,21 +197,21 @@ func (f *Field) GetIP() net.IP {
 	return f.BytesValue
 }
 
-func (f *Field) SetLevel(v Level) *Field {
-	f.SetKind(LevelKind, false)
-	f.reset()
+func (f *Field) SetLevel(v loglevel.Level) *Field {
+	f.resetValue()
+	f.setPK(LevelKind)
 
 	i := uint64(v)
 	f.UintValue = &i
 
 	return f
 }
-func (f *Field) GetLevel() Level {
+func (f *Field) GetLevel() loglevel.Level {
 	if !f.isKind(LevelKind) {
-		return LevelUnset
+		return loglevel.Unset
 	}
 
-	return LevelFromInt(int(f.GetUintValue()))
+	return loglevel.FromInt(int(f.GetUintValue()))
 }
 
 func (f *Field) GetDuration() time.Duration {
@@ -198,8 +229,9 @@ func (f *Field) GetBool() bool {
 }
 
 func (f *Field) SetBytes(v []byte) *Field {
-	f.SetKind(BytesKind, false)
-	f.reset()
+	f.resetValue()
+	f.setPK(BytesKind)
+
 	f.SetNull(v == nil)
 
 	f.BytesValue = v
@@ -207,8 +239,8 @@ func (f *Field) SetBytes(v []byte) *Field {
 	return f
 }
 
-func (f *Field) isKind(t Kind) bool {
-	if f == nil || f.IsList() { // todo || f.IsNull()
+func (f *Field) isKind(t Type) bool {
+	if f == nil {
 		return false
 	}
 	return f.Type == t
@@ -221,43 +253,85 @@ func (f *Field) GetBytes() []byte {
 	return f.GetBytesValue()
 }
 
-func (f *Field) SetList(t Kind, v []*Field) error {
-	f.SetKind(t, true)
-	f.reset()
-	f.SetNull(v == nil)
+func (f *Field) GetItem(k string) *Field {
+	if f.Type != GroupKind {
+		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.Type))
+	}
+	return Get(f.Items, k)
+}
 
-	for i, v2 := range v {
-		// v2.Schema.ParentSchema = f.Schema
-		// v2.Value.ParentValue = f.Value
-		if v2.Type != t {
-			return fmt.Errorf("元素%d的类型不匹配: %v,%v", i, t, v2.Type)
+func (f *Field) RemoveItem(k string) (dst *Field) {
+	for {
+		found := f.GetItem(k)
+		if found == nil {
+			break
 		}
-		f.Append(v2)
+		dst = found.Remove()
+	}
+	return
+}
+
+func (f *Field) SetArray(t Type, v []*Field, isColumn ...bool) error {
+	b := false
+	if len(isColumn) > 0 {
+		b = isColumn[len(isColumn)-1]
+	}
+	f.resetValue()
+	if !b {
+		t = ArrayKind
+	}
+	f.SetKind(t, b, false)
+	f.SetNull(v == nil)
+	if f.IsNull() {
+		return nil
+	}
+
+	for _, v2 := range v {
+		if err := f.Append(v2); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (f *Field) SetNest(v []*Field, isTable bool) *Field {
-	f.SetKind(MapKind, false)
-	f.reset()
-	f.SetNull(v == nil)
+func (f *Field) SetRecord(v []*Field, isTable ...bool) *Field {
+	b := false
+	if len(isTable) > 0 {
+		b = isTable[len(isTable)-1]
+	}
 
-	for _, v2 := range v {
-		f.Set(v2)
+	f.resetValue()
+	f.SetKind(GroupKind, false, b)
+	f.SetNull(v == nil)
+	if f.IsNull() {
+		return f
+	}
+
+	for _, it := range v {
+		f.Set(it)
 	}
 
 	return f
 }
 
 func (f *Field) Set(n *Field) {
-	if !f.isKind(MapKind) {
-		panic(fmt.Errorf("标识re: %v,%v", f.Type, n.Type))
+	if n == nil {
+		return
+	}
+	if n.Name == "" { // todo 验证名称
+		panic(fmt.Errorf("元素必须包含名称"))
+	}
+	if f.Type != GroupKind {
+		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.Type))
+	}
+	if f.IsTable() && !n.IsColumn() {
+		panic(fmt.Errorf("表格元素必须是Serial类型"))
 	}
 	f.SetNull(false)
 	n.Parent = f
 	for i, s := range f.ItemsSchema {
-		if s.Key == n.Key {
+		if s.Name == n.Name {
 			n.Index = i
 			f.ItemsSchema[i] = n.Schema
 			f.ItemsValue[i] = n.Value
@@ -272,49 +346,61 @@ func (f *Field) Set(n *Field) {
 }
 
 func (f *Field) Append(n *Field) error {
-	if !f.IsList() || !n.isKind(f.Type) {
+	if !(f.Type == ArrayKind || (f.IsColumn() && n.isKind(f.Type))) {
 		panic(fmt.Errorf("元素的类型不匹配: %v,%v", f.Type, n.Type))
 	}
+
 	f.SetNull(false)
 	n.Parent = f
 	n.Index = len(f.Items)
+	f.ItemsSchema = append(f.ItemsSchema, n.Schema)
 	f.ItemsValue = append(f.ItemsValue, n.Value)
 	f.Items = append(f.Items, n)
 	return nil
 }
 
+// 从树中移除自身
 func (f *Field) Remove() *Field {
 	if f == nil || f.Parent == nil {
 		return f
 	}
-	f = f.Parent
-	if !(f.Type == MapKind || f.IsList()) {
-		return f
+	self := f
+	index := self.Index
+	f = self.Parent
+	self.Parent = nil
+	self.Index = -1
+
+	if !(f.Type == GroupKind || f.IsList()) {
+		return self
 	}
 
-	if f.Type == MapKind {
-		is, _, ok := RemoveAt(f.Index, f.ItemsSchema)
+	if f.Type == GroupKind {
+		is, _, ok := RemoveAt(index, f.ItemsSchema)
 		if ok {
 			f.ItemsSchema = is
 		}
 	}
 
-	itvs, _, ok := RemoveAt(f.Index, f.ItemsValue)
+	itvs, _, ok := RemoveAt(index, f.ItemsValue)
 	if ok {
 		f.ItemsValue = itvs
 	}
 
-	its, found, ok := RemoveAt(f.Index, f.Items)
+	its, _, ok := RemoveAt(index, f.Items)
 	if ok {
 		f.Items = its
 	}
 	for i, v := range f.Items {
 		v.Index = i
 	}
-	return found
+
+	return self
 }
 
 func RemoveAt[T any](i int, tmp []T) ([]T, T, bool) {
+	// slices.DeleteFunc(tmp, func(t T) bool {
+	// 	return true
+	// })
 	t := len(tmp)
 	var found T
 
@@ -328,7 +414,7 @@ func RemoveAt[T any](i int, tmp []T) ([]T, T, bool) {
 	return tmp[:t-1], found, true
 }
 
-func GetObject(f *Field) any {
+func GetValue(f *Field) any {
 	if f == nil || f.Type == InvalidKind {
 		return nil
 	}
@@ -341,11 +427,36 @@ func GetObject(f *Field) any {
 			if f2.Type == InvalidKind {
 				continue
 			}
-			objs = append(objs, GetObject(f2))
+			objs = append(objs, GetValue(f2))
 		}
 		return objs
 	}
 
+	switch f.Type {
+	case GroupKind:
+		obj := map[string]any{}
+		for _, f2 := range f.Items {
+			if f2.Type == InvalidKind {
+				continue
+			}
+			obj[f2.Name] = GetValue(f2)
+		}
+		return obj
+	default:
+		return GetPrimitiveValue(f)
+	}
+}
+
+func GetPrimitiveValue(f *Field) any {
+	if f == nil || f.Type == InvalidKind {
+		return nil
+	}
+	if f.IsNull() {
+		return nil
+	}
+	if f.IsList() {
+		return nil
+	}
 	switch f.Type {
 	case StringKind:
 		return f.GetString()
@@ -367,15 +478,8 @@ func GetObject(f *Field) any {
 		return f.GetIP()
 	case LevelKind:
 		return f.GetLevel()
-	case MapKind:
-		obj := map[string]any{}
-		for _, f2 := range f.Items {
-			if f2.Type == InvalidKind {
-				continue
-			}
-			obj[f2.GetKey()] = GetObject(f2)
-		}
-		return obj
+	case GroupKind:
+		return nil
 	default:
 		panic(fmt.Sprintf("未定义:%#v", f))
 	}
@@ -438,7 +542,7 @@ func InvertType(f *Field) *Field {
 }
 
 // 转换类型. 转换失败将不会改变
-func As(f *Field, t Kind, layouts []string, loc *time.Location) error {
+func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 	if f.Type == t {
 		if t == TimeKind && loc != nil {
 			f.SetTime(f.GetTime().In(loc))
@@ -447,15 +551,49 @@ func As(f *Field, t Kind, layouts []string, loc *time.Location) error {
 	}
 	switch t {
 	case IntKind:
-		panic("todo convert")
+		obj := GetPrimitiveValue(f)
+		v, err := cast.ToInt64E(obj)
+		if err != nil {
+			return err
+		}
+		f.SetInt(v)
+		return nil
 	case UintKind:
-		panic("todo convert")
+		obj := GetPrimitiveValue(f)
+		v, err := cast.ToUint64E(obj)
+		if err != nil {
+			return err
+		}
+		f.SetUint(v)
+		return nil
 	case FloatKind:
-		panic("todo convert")
+		obj := GetPrimitiveValue(f)
+		v, err := cast.ToFloat64E(obj)
+		if err != nil {
+			return err
+		}
+		f.SetFloat(v)
+		return nil
 	case StringKind:
-		panic("todo convert")
+		switch f.Type {
+		case StringKind:
+		default:
+			obj := GetPrimitiveValue(f)
+			v, err := cast.ToStringE(obj)
+			if err != nil {
+				return err
+			}
+			f.SetString(v)
+		}
+		return nil
 	case BoolKind:
-		panic("todo convert")
+		obj := GetPrimitiveValue(f)
+		v, err := cast.ToBoolE(obj)
+		if err != nil {
+			return err
+		}
+		f.SetBool(v)
+		return nil
 	case BytesKind:
 		switch f.Type {
 		case StringKind:
@@ -495,24 +633,39 @@ func As(f *Field, t Kind, layouts []string, loc *time.Location) error {
 }
 
 func Clone(f *Field) *Field {
-	dst := New(f.GetKey())
-
+	if f == nil {
+		return nil
+	}
+	dst := New(f.Name)
+	dst.Index = f.Index
+	dst.Parent = f.Parent
 	dst.Type = f.Type
 	dst.Flags = f.Flags
-	// sch := *f.Schema
-	// dst.Schema = &sch
-	// if f.Schema.ItemsValue != nil {
-	// 	ItemsValueCopy := make([]*Schema, len(f.Schema.ItemsValue))
-	// 	copy(ItemsValueCopy, f.Schema.ItemsValue)
-	// 	dst.Schema.ItemsValue = ItemsValueCopy
-
-	// }
-
-	dst.BytesValue = f.BytesValue
-	dst.FloatValue = f.FloatValue
+	dst.NullValue = f.NullValue
+	if f.NullValue {
+		return dst
+	}
 	dst.IntValue = f.IntValue
 	dst.UintValue = f.UintValue
+	dst.FloatValue = f.FloatValue
 	dst.StringValue = f.StringValue
+	dst.BytesValue = f.BytesValue
+
+	if len(f.Items) == 0 {
+		return dst
+	}
+	dst.Items = make([]*Field, 0, len(f.Items))
+	dst.ItemsSchema = make([]*Schema, 0, len(f.ItemsSchema))
+	dst.ItemsValue = make([]*Value, 0, len(f.ItemsValue))
+
+	for i, f2 := range f.Items {
+		f2 := Clone(f2)
+		f2.Index = i
+		f2.Parent = dst
+		dst.Items = append(dst.Items, f2)
+		dst.ItemsSchema = append(dst.ItemsSchema, f2.Schema)
+		dst.ItemsValue = append(dst.ItemsValue, f2.Value)
+	}
 
 	return dst
 }
@@ -521,7 +674,7 @@ func (f *Field) GoString() string {
 	var v string
 
 	switch f.GetType() {
-	case MapKind:
+	case GroupKind:
 		v = "{\n"
 		for i, f2 := range f.Items {
 			if i != 0 {
@@ -544,7 +697,7 @@ func (f *Field) GoString() string {
 			v += "\n]"
 			break
 		}
-		v = fmt.Sprintf("%v", GetObject(f))
+		v = fmt.Sprintf("%v", GetValue(f))
 	}
-	return fmt.Sprintf("Field(key:%v type: %v value: %v)", f.Key, f.Type, v)
+	return fmt.Sprintf("Field(Name:%v type: %v value: %v)", f.Name, f.Type, v)
 }

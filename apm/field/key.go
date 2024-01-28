@@ -18,19 +18,19 @@ import (
 // - https://www.w3.org/TR/trace-context/#key
 type Key interface {
 	Name() string
-	Kind() Kind
+	Kind() Type
 }
 
 type key struct {
 	name string
-	kind Kind
+	kind Type
 }
 
 func (k key) Name() string {
 	return k.name
 }
 
-func (k key) Kind() Kind {
+func (k key) Kind() Type {
 	return k.kind
 }
 func (k key) String() string {
@@ -68,7 +68,7 @@ func GetKey(name string) Key {
 	return key
 }
 
-func makeOrGetKey(name string, kind Kind, sec ...Kind) Key {
+func makeOrGetKey(name string, kind Type, sec ...Type) Key {
 	if !IsValidKey(name) {
 		panic(fmt.Sprintf("Invalid key name: %s", name))
 	}

@@ -8,9 +8,10 @@ import (
 	"github.com/spf13/cast"
 )
 
-func InferPrimitiveValue(v any) (any, Kind) {
+// 推导数值
+func InferNumberValue(v any) (any, Type) {
 	if v == nil {
-		return nil, InvalidKind
+		return v, InvalidKind
 	}
 	switch v := v.(type) {
 	case int:
@@ -24,14 +25,29 @@ func InferPrimitiveValue(v any) (any, Kind) {
 	case int64:
 		return v, IntKind
 	case *int:
+		if v == nil {
+			return nil, IntKind
+		}
 		return int64(*v), IntKind
 	case *int8:
+		if v == nil {
+			return nil, IntKind
+		}
 		return int64(*v), IntKind
 	case *int16:
+		if v == nil {
+			return nil, IntKind
+		}
 		return int64(*v), IntKind
 	case *int32:
+		if v == nil {
+			return nil, IntKind
+		}
 		return int64(*v), IntKind
 	case *int64:
+		if v == nil {
+			return nil, IntKind
+		}
 		return *v, IntKind
 
 	case uint:
@@ -45,14 +61,29 @@ func InferPrimitiveValue(v any) (any, Kind) {
 	case uint64:
 		return v, UintKind
 	case *uint:
+		if v == nil {
+			return nil, UintKind
+		}
 		return uint64(*v), UintKind
 	case *uint8:
+		if v == nil {
+			return nil, UintKind
+		}
 		return uint64(*v), UintKind
 	case *uint16:
+		if v == nil {
+			return nil, UintKind
+		}
 		return uint64(*v), UintKind
 	case *uint32:
+		if v == nil {
+			return nil, UintKind
+		}
 		return uint64(*v), UintKind
 	case *uint64:
+		if v == nil {
+			return nil, UintKind
+		}
 		return *v, UintKind
 
 	case float32:
@@ -60,39 +91,70 @@ func InferPrimitiveValue(v any) (any, Kind) {
 	case float64:
 		return v, FloatKind
 	case *float32:
+		if v == nil {
+			return nil, FloatKind
+		}
 		return float64(*v), FloatKind
 	case *float64:
+		if v == nil {
+			return nil, FloatKind
+		}
 		return *v, FloatKind
+	}
+	return v, InvalidKind
+}
 
+// 推导基本类型的值
+func InferPrimitiveValue(v any) (any, Type) {
+
+	switch v := v.(type) {
 	case bool:
 		return v, BoolKind
 	case *bool:
+		if v == nil {
+			return nil, BoolKind
+		}
 		return *v, BoolKind
 
 	case string:
 		return v, StringKind
 	case *string:
+		if v == nil {
+			return nil, StringKind
+		}
 		return *v, StringKind
 
 	case time.Time:
 		return v, TimeKind
 	case *time.Time:
+		if v == nil {
+			return nil, TimeKind
+		}
 		return *v, TimeKind
 
 	case time.Duration:
 		return v, DurationKind
 	case *time.Duration:
+		if v == nil {
+			return nil, DurationKind
+		}
 		return *v, DurationKind
 	case []byte:
 		return v, BytesKind
 	case net.IP:
 		return v, IPKind
+	case reflect.Value:
+		return InferPrimitiveValueByReflect(v)
+	default:
+		if v, k := InferNumberValue(v); k != InvalidKind {
+			return v, k
+		}
 	}
-	return nil, InvalidKind
+	return v, InvalidKind
 }
 
 // 反射获取重新定义基础类型的值
-func InferPrimitiveValueByReflect(rv reflect.Value) (any, Kind) {
+func InferPrimitiveValueByReflect(rv reflect.Value) (any, Type) {
 	if rv.Kind() == reflect.Pointer {
 		rv = rv.Elem()
 	}
@@ -118,9 +180,8 @@ func InferPrimitiveValueByReflect(rv reflect.Value) (any, Kind) {
 	case reflect.Struct:
 		v := rv.Interface()
 		if rv.Type().String() == "time.Time" {
-			if n, err := cast.ToTimeE(v); err == nil {
-				return n, TimeKind
-			}
+			n, _ := cast.ToTimeE(v)
+			return n, TimeKind
 		}
 	}
 	return nil, InvalidKind

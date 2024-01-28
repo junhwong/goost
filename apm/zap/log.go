@@ -7,6 +7,7 @@ import (
 
 	"github.com/junhwong/goost/apm"
 	"github.com/junhwong/goost/apm/field"
+	"github.com/junhwong/goost/apm/field/loglevel"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -15,11 +16,12 @@ func New(adapter apm.Adapter, fs ...*field.Field) *zap.Logger {
 	core := &ioCore{
 		log: adapter,
 		// fields: []zapcore.Field{zap.String(apm.LogAdapterKey.Name(), "zap")},
+		Field: *field.NewRoot(),
 	}
-	core.fs.Set(apm.LogAdapter("zap"))
+	core.Set(apm.LogAdapter("zap"))
 	for _, v := range fs {
 		if v != nil {
-			core.fs.Set(v)
+			core.Set(v)
 		}
 	}
 
@@ -32,7 +34,7 @@ func New(adapter apm.Adapter, fs ...*field.Field) *zap.Logger {
 type ioCore struct {
 	log   apm.Adapter
 	level zapcore.Level
-	fs    field.FieldSet
+	field.Field
 }
 
 func (c *ioCore) Enabled(l zapcore.Level) bool { return true }
@@ -40,11 +42,11 @@ func (c *ioCore) With(fields []zapcore.Field) zapcore.Core {
 	cc := &ioCore{
 		log:   c.log,
 		level: c.level,
-		fs:    c.fs,
 	}
+	cc.Field = *field.Clone(&c.Field)
 	for _, v := range transform(fields) {
 		if v != nil {
-			cc.fs.Set(v)
+			cc.Set(v)
 		}
 	}
 	return cc
@@ -64,40 +66,40 @@ func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		Method: ent.Caller.Function,
 		Ok:     true,
 	}
-	var fs field.FieldSet
-	for _, v := range c.fs {
+	apmLvl := loglevel.Debug
+	switch ent.Level {
+	case zapcore.InfoLevel:
+		apmLvl = loglevel.Info
+	case zapcore.WarnLevel:
+		apmLvl = loglevel.Warn
+	case zapcore.ErrorLevel:
+		apmLvl = loglevel.Error
+	case zapcore.DPanicLevel:
+		apmLvl = loglevel.Warn
+	case zapcore.PanicLevel:
+		apmLvl = loglevel.Error
+	case zapcore.FatalLevel:
+		apmLvl = loglevel.Fatal
+	}
+
+	dst := &apm.FieldsEntry{
+		CallerInfo: info,
+		Field:      *field.NewRoot(),
+	}
+	dst.Set(apm.Time(ent.Time))
+	dst.Set(apm.LevelField(apmLvl))
+	for _, v := range c.Items {
 		if v != nil {
-			fs.Set(v)
+			dst.Set(v)
 		}
 	}
 	for _, v := range transform(fields) {
 		if v != nil {
-			fs.Set(v)
+			dst.Set(v)
 		}
 	}
 
-	apmLvl := field.LevelDebug
-	switch ent.Level {
-	case zapcore.InfoLevel:
-		apmLvl = field.LevelInfo
-	case zapcore.WarnLevel:
-		apmLvl = field.LevelWarn
-	case zapcore.ErrorLevel:
-		apmLvl = field.LevelError
-	case zapcore.DPanicLevel:
-		apmLvl = field.LevelWarn
-	case zapcore.PanicLevel:
-		apmLvl = field.LevelError
-	case zapcore.FatalLevel:
-		apmLvl = field.LevelFatal
-	}
-
-	c.log.Dispatch(&apm.FieldsEntry{
-		Time:       ent.Time,
-		Level:      apmLvl,
-		Fields:     fs,
-		CallerInfo: info,
-	})
+	c.log.Dispatch(dst)
 	// buf, err := c.enc.EncodeEntry(ent, fields)
 
 	return nil
@@ -108,7 +110,7 @@ func (c *ioCore) Sync() error {
 	return nil
 }
 
-func transform(fields []zapcore.Field) (fs field.FieldSet) {
+func transform(fields []zapcore.Field) (fs []*field.Field) {
 
 	for _, f := range fields {
 		// if f.Key == "start time" || f.Key == "time spent" || f.Key == "response type" {

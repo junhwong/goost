@@ -6,39 +6,43 @@ import (
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
+	"github.com/junhwong/goost/apm/field/loglevel"
 )
 
 // Level type.
-type Level = field.Level
 
 type Entry interface {
-	GetLevel() (v field.Level)
+	GetLevel() (v loglevel.Level)
 	GetTime() (v time.Time)
 	GetMessage() (v string)
-	GetFields() field.FieldSet
+	GetFields() []*field.Field
 	GetCallerInfo() *CallerInfo
 }
 
 type FieldsEntry struct {
-	Time       time.Time
-	Level      field.Level
-	Fields     field.FieldSet
+	field.Field
 	CallerInfo *CallerInfo
 	calldepth  int // 1
 	ctx        context.Context
 	mu         sync.Mutex
 }
 
-func (e *FieldsEntry) GetLevel() (v Level) {
-	return e.Level
+func (e *FieldsEntry) GetLevel() (v loglevel.Level) {
+	if f := field.Get(e.Items, LevelKey.Name()); f != nil {
+		return f.GetLevel()
+	}
+	return loglevel.Unset
 }
 
 func (e *FieldsEntry) GetTime() (v time.Time) {
-	return e.Time
+	if f := field.Get(e.Items, TimeKey.Name()); f != nil {
+		return f.GetTime()
+	}
+	return time.Time{}
 }
 
-func (e *FieldsEntry) GetFields() field.FieldSet {
-	return e.Fields
+func (e *FieldsEntry) GetFields() []*field.Field {
+	return e.Items
 }
 
 func (e *FieldsEntry) GetCallerInfo() *CallerInfo {
@@ -48,9 +52,9 @@ func (e *FieldsEntry) GetCallerInfo() *CallerInfo {
 	return nil
 }
 
-func (e *FieldsEntry) GetMessage() (v string) {
-	if f := e.Fields.Get(MessageKey.Name()); f != nil {
-		return f.GetStringValue()
+func (e *FieldsEntry) GetMessage() string {
+	if f := field.Get(e.Items, MessageKey.Name()); f != nil {
+		return f.GetString()
 	}
-	return
+	return ""
 }

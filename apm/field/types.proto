@@ -7,7 +7,8 @@ option go_package = "apm/field";
 // 必须是通用且最具需要规范定义的类型
 enum Type {
   UNKNOWN = 0;   // 未知
-  RECORD = 1;    // 字典
+  GROUP = 1;     // 字典
+  ARRAY = 2;     // 任意类型. 只适合 list使用
   STRING = 3;    // 字符串
   BOOL = 4;      // 布尔值 int64 0, ~0
   INT = 5;       // 整数 int64
@@ -18,25 +19,11 @@ enum Type {
   BYTES = 10;    // 二进制
   // 日志级别  uint64. see:
   // https://opentelemetry.io/docs/reference/specification/logs/data-model/#severity-fields
-  LEVEL = 11;
+  LOGLEVEL = 11;
   IP = 12;   // IP. v4或v6 BYTES
   URL = 13;  // URL. STRING
   UUID = 14; // uuid. STRING
 }
-
-// // 字段
-// message Field {
-//   string key = 1;                   // 名称
-//   Type type = 2;                    // 类型
-//   int32 flags = 3;                  // 标志位.
-//   optional int64 intValue = 11;     // 基值. 整数
-//   optional uint64 uintValue = 12;   // 基值. 无符号整数
-//   optional double floatValue = 13;  // 基值. 浮点数
-//   optional string stringValue = 14; // 基值. 字符串
-//   optional bytes bytesValue = 15;   // 基值. 二进制
-//   repeated Field itemsValue = 21;   // 子项
-//   optional Field parent = 99;       // 父级,运行时组织结构
-// }
 
 message Value {
   bool nullValue = 10;
@@ -46,17 +33,13 @@ message Value {
   optional string stringValue = 14; // 基值. 字符串
   optional bytes bytesValue = 15;   // 基值. 二进制
   repeated Value itemsValue = 21;   // 子项
-  // optional Value parentValue = 99;  // 父级,运行时组织结构
 }
 
 message Schema {
-  string key = 1;  // 名称
-  Type type = 2;   // 类型
-  int32 flags = 3; // 标志位.
-  bool list = 4;
-  bool null = 5;
+  string name = 1;                  // 名称
+  Type type = 2;                    // 类型
+  int32 flags = 3;                  // 标志位.
   repeated Schema itemsSchema = 21; // 子项
-  // optional Schema parentSchema = 99; // 父级,运行时组织结构
 }
 
 enum DataType {

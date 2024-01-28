@@ -3,6 +3,8 @@ package apm
 import (
 	"sync"
 	"sync/atomic"
+
+	"github.com/junhwong/goost/apm/field"
 )
 
 var (
@@ -16,7 +18,7 @@ var (
 
 func init() {
 	initOnce.Do(func() {
-		defaultEntry = &FieldsEntry{calldepth: 1} // 0 Default() ok
+		defaultEntry = &FieldsEntry{calldepth: 1, Field: *field.NewRoot()}
 
 		handler, _ := Console()
 		handler.HandlerPriority -= 999

@@ -2,9 +2,6 @@ package field
 
 import "strings"
 
-// Kind 数据类型。
-type Kind = Type
-
 const (
 	InvalidKind  = Type_UNKNOWN
 	StringKind   = Type_STRING
@@ -16,8 +13,9 @@ const (
 	DurationKind = Type_DURATION
 	BytesKind    = Type_BYTES
 	IPKind       = Type_IP
-	LevelKind    = Type_LEVEL
-	MapKind      = Type_RECORD
+	LevelKind    = Type_LOGLEVEL
+	GroupKind    = Type_GROUP
+	ArrayKind    = Type_ARRAY
 )
 
 func ParseType(v any) Type {
@@ -42,6 +40,5 @@ func ParseType(v any) Type {
 	if _, ok := Type_name[n]; ok {
 		return Type(n)
 	}
-
-	return Type_UNKNOWN
+	return InvalidKind
 }

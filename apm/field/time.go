@@ -183,7 +183,6 @@ func ParseTime(s string, layouts []string, loc *time.Location) (time.Time, error
 		}
 	}
 	for _, l := range layouts {
-		fmt.Printf("l: %v\n", l)
 		v, err := time.ParseInLocation(l, s, loc)
 		if err != nil {
 			continue

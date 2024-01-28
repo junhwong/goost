@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/junhwong/goost/apm/field"
+	"github.com/junhwong/goost/apm/field/loglevel"
 	"github.com/spf13/cast"
 )
 
@@ -28,23 +29,23 @@ func cutstr(v interface{}, l int) string {
 	return s
 }
 
-func getColor(lvl Level, supportColor bool) (start, end string) {
+func getColor(lvl loglevel.Level, supportColor bool) (start, end string) {
 	// https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
 	// https://juejin.cn/post/6920241597846126599
 	switch lvl {
-	case field.LevelDebug:
+	case loglevel.Debug:
 		start = "\033[1;30;49m" // 34
 		end = "\033[0m"
-	case field.LevelInfo:
+	case loglevel.Info:
 		start = "\033[1;32;49m"
 		end = "\033[0m"
-	case field.LevelWarn:
+	case loglevel.Warn:
 		start = "\033[1;33;49m"
 		end = "\033[0m"
-	case field.LevelError:
+	case loglevel.Error:
 		start = "\033[1;31;49m"
 		end = "\033[0m"
-	case field.LevelFatal:
+	case loglevel.Fatal:
 		start = "\033[1;91;49m"
 		end = "\033[0m"
 	default:
@@ -120,7 +121,7 @@ func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		// key, val := f.Unwrap()
 		// fmt.Printf("key: %v\n", key)
 		// key == nil || val == nil ||
-		if _, ok := skipFields[f.GetKey()]; ok {
+		if _, ok := skipFields[f.GetName()]; ok {
 			if fn := tf.Skipped; fn != nil {
 				fn(f)
 			}
@@ -138,14 +139,14 @@ func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 		// 	continue
 		// }
 
-		switch f.GetKey() {
+		switch f.GetName() {
 		// case TraceIDKey: // TODO: 开发者选项
 		// 	continue
 		case TracebackCallerKey.Name(), ErrorStackTraceKey.Name(), TracebackPathKey.Name(),
 			TracebackLineNoKey.Name(): // TODO: 调用者选项
 			continue
 		}
-		name := f.GetKey()
+		name := f.GetName()
 
 		// if name == "error.method" {
 		// 	if s, _ := val.(string); len(s) > 0 {
@@ -165,7 +166,7 @@ func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 
 		// 	}
 		// }
-		val := field.GetObject(f)
+		val := field.GetValue(f)
 		if e, _ := val.(error); e != nil {
 			val = e.Error()
 		}

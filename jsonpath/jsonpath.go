@@ -35,6 +35,7 @@ type Index int
 
 func (s Index) Type() Kind  { return IndexSegment }
 func (i Index) Key() string { return strconv.Itoa(int(i)) }
+func (i Index) Index() int  { return int(i) }
 
 type Key string
 
@@ -63,8 +64,9 @@ func (s Path) Key() string { return "" }
 
 type Range [3]int
 
-func (s Range) Type() Kind  { return RangeSegment }
-func (s Range) Key() string { return "" }
+func (s Range) Type() Kind     { return RangeSegment }
+func (s Range) Key() string    { return "" }
+func (s Range) ToSlice() []int { return s[:] }
 
 func String(i Segment) string {
 	if i == nil {

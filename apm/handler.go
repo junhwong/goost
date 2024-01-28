@@ -7,7 +7,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/junhwong/goost/apm/field"
+	"github.com/junhwong/goost/apm/field/loglevel"
 )
 
 // 日志项处理器
@@ -81,7 +81,7 @@ func (h SimpleHandler) Handle(entry Entry, next, end func()) {
 
 	if out == nil {
 		out = os.Stdout
-		if lvl := entry.GetLevel(); lvl >= field.LevelError && lvl < field.LevelTrace {
+		if lvl := entry.GetLevel(); lvl >= loglevel.Error && lvl < loglevel.Trace2 {
 			out = os.Stderr
 		}
 	}

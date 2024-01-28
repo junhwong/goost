@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
+	"github.com/junhwong/goost/apm/field/loglevel"
 )
 
 type SpanFactory interface {
@@ -113,7 +114,7 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	if span.FieldsEntry == nil {
 		return
 	}
-	span.duration = time.Since(span.Time)
+	span.duration = time.Since(span.GetTime())
 	for _, fn := range span.endCalls {
 		if fn != nil {
 			fn(span)
@@ -147,23 +148,23 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	}
 
 	if span.failed {
-		span.Fields.Set(SpanStatusCode(string(SpanStatusError)))
+		span.Set(SpanStatusCode(string(SpanStatusError)))
 
 		if len(span.failedDesc) > 0 {
-			span.Fields.Set(SpanStatusDescription(string(span.failedDesc)))
+			span.Set(SpanStatusDescription(string(span.failedDesc)))
 		}
 	}
 
 	span.do([]any{span.ctx}, func() {
-		span.Level = field.LevelTrace
-		span.Fields.Set(SpanName(name))
-		span.Fields.Set(SpanID(span.SpanID))
+		span.Set(LevelField(loglevel.Trace2))
+		span.Set(SpanName(name))
+		span.Set(SpanID(span.SpanID))
 		if len(span.SpanParentID) > 0 {
-			span.Fields.Set(SpanParentID(span.SpanParentID))
+			span.Set(SpanParentID(span.SpanParentID))
 		}
 
-		span.Fields.Set(Duration(span.duration)) // Latency
-		span.Fields.Set(TraceIDField(span.TranceID))
+		span.Set(Duration(span.duration)) // Latency
+		span.Set(TraceIDField(span.TranceID))
 	})
 
 	span.FieldsEntry = nil

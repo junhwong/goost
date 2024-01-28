@@ -144,7 +144,7 @@ func ParseW3Traceparent(traceparent string) (version byte, traceID, parentSpanID
 // 示例: `rojo=00f067aa0ba902b7,congo=t61rcWkgMzE`.
 //
 // see: https://www.w3.org/TR/trace-context/#tracestate-header
-func ParseW3Tracestate(tracestate string) (fs field.FieldSet, err error) {
+func ParseW3Tracestate(tracestate string) (fs []*field.Field, err error) {
 	arr := strings.Split(tracestate, ",")
 	if len(arr) == 0 {
 		return nil, nil
@@ -160,7 +160,7 @@ func ParseW3Tracestate(tracestate string) (fs field.FieldSet, err error) {
 		}
 		f := field.New(kv[0]).SetString(kv[1]) // TODO 推断值类型?
 		if f.GetType() == field.StringKind {
-			fs.Set(f)
+			fs = append(fs, f)
 		}
 	}
 	return

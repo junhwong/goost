@@ -33,15 +33,17 @@ func (r *FieldsBuild) Init() error {
 	return nil
 }
 
-func (r *FieldsBuild) Build(src FieldSet) (FieldSet, error) {
-	fs := FieldSet{}
+func (r *FieldsBuild) Build(src []*Field) ([]*Field, error) {
+	fs := []*Field{}
 	for k, fb := range r.Fields {
 		if fb.Value != nil {
-			fs.Set(Any(k, fb.Value))
+			fs = append(fs, Any(k, fb.Value))
 			continue
 		}
-		if ff := src.Get(fb.FieldRef); ff != nil {
-			fs.Set(Clone(ff)) // todo 类型
+		if ff := Get(src, fb.FieldRef); ff != nil {
+			rf := Clone(ff)
+			rf.Name = k
+			fs = append(fs, rf)
 			continue
 		}
 		if fb.Nullable {
