@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/junhwong/goost/apm/field/loglevel"
+	"github.com/spf13/cast"
 )
 
 // TODO 从池中获取或创建字段对象
@@ -66,7 +67,59 @@ func SetPrimitiveValue(f *Field, v any, k Type) *Field {
 func Any(name string, v any, allows ...Type) *Field {
 	iv, k := InferPrimitiveValue(v)
 	if k == InvalidKind {
-		iv, k = InferPrimitiveValueByReflect(reflect.ValueOf(v))
+		rv := reflect.ValueOf(v)
+		if rv.Kind() == reflect.Pointer {
+			rv = rv.Elem()
+		}
+		switch rv.Kind() {
+		case reflect.Array, reflect.Slice:
+			fs := []*Field{}
+			var t Type
+			same := false
+			for i := 0; i < rv.Len(); i++ {
+				f := Any("", rv.Index(i))
+				fs = append(fs, f)
+				if len(fs) > 0 && t != f.Type {
+					same = true
+				}
+				t = f.Type
+			}
+			f := New(name)
+			if len(fs) == 0 {
+				return f
+			}
+			if err := f.SetArray(t, fs, same); err != nil {
+				fmt.Printf("err: %v\n", err)
+			}
+			return f
+		case reflect.Map:
+			fs := []*Field{}
+			iter := rv.MapRange()
+			for iter.Next() {
+				kk, kt := InferPrimitiveValue(iter.Key())
+				if kk == nil || kt == InvalidKind {
+					continue
+				}
+				if !(kt == StringKind || kt == IntKind) {
+					continue
+				}
+				f := Any(cast.ToString(kk), iter.Value())
+				if f.Type == InvalidKind {
+					continue
+				}
+				fs = append(fs, f)
+			}
+			f := New(name)
+			if len(fs) == 0 {
+				return f
+			}
+			if err := f.SetGroup(fs, false); err != nil {
+				fmt.Printf("err: %v\n", err)
+			}
+			return f
+		default:
+			iv, k = InferPrimitiveValueByReflect(rv)
+		}
 	}
 	if k == InvalidKind {
 		if err, _ := v.(error); err != nil {

@@ -46,13 +46,13 @@ const (
 
 var levelMap = map[Level]string{
 
-	Trace:  "trace1",
-	Trace2: "trace",
+	Trace:  "trace",
+	Trace2: "trace2",
 	Metric: "metric",
 	Trace4: "trace4",
 
-	Debug2: "debug1",
 	Debug:  "debug",
+	Debug2: "debug2",
 	Debug3: "debug3",
 	Debug4: "debug4",
 
@@ -129,9 +129,9 @@ func FromInt(v int) Level {
 func Parse(s string) Level {
 	s = strings.ReplaceAll(strings.TrimSpace(s), "LogLevel.", "")
 	switch strings.ToUpper(s) {
-	case "T1", "FINEST":
+	case "T1", "FINEST", "T", "TRACE":
 		return Trace
-	case "T2", "T", "TRACE":
+	case "T2":
 		return Trace2
 	case "T3", "M", "METRIC":
 		return Metric

@@ -3,6 +3,7 @@ package field
 import (
 	"fmt"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/junhwong/goost/apm/field/loglevel"
@@ -53,7 +54,7 @@ func (f *Field) SetNull(b bool) *Field {
 }
 
 // 是否是集合
-func (f *Field) IsList() bool {
+func (f *Field) IsCollection() bool {
 	return f.Type == GroupKind || f.Type == ArrayKind || f.IsColumn() || f.IsTable()
 }
 
@@ -127,11 +128,11 @@ func (f *Field) SetUint(v uint64) *Field {
 	return f
 }
 
-func (f *Field) GetUint() int64 {
+func (f *Field) GetUint() uint64 {
 	if !f.isKind(UintKind) {
 		return 0
 	}
-	return int64(f.GetUintValue())
+	return f.GetUintValue()
 }
 
 func (f *Field) SetFloat(v float64) *Field {
@@ -295,24 +296,30 @@ func (f *Field) SetArray(t Type, v []*Field, isColumn ...bool) error {
 	return nil
 }
 
-func (f *Field) SetRecord(v []*Field, isTable ...bool) *Field {
+func (f *Field) SetGroup(v []*Field, isTable ...bool) error {
 	b := false
 	if len(isTable) > 0 {
 		b = isTable[len(isTable)-1]
 	}
 
+	// old := f.Items
+
 	f.resetValue()
 	f.SetKind(GroupKind, false, b)
 	f.SetNull(v == nil)
 	if f.IsNull() {
-		return f
+		return nil
 	}
+
+	// for _, it := range old {
+	// 	f.Set(it)
+	// }
 
 	for _, it := range v {
 		f.Set(it)
 	}
 
-	return f
+	return nil
 }
 
 func (f *Field) Set(n *Field) {
@@ -370,7 +377,7 @@ func (f *Field) Remove() *Field {
 	self.Parent = nil
 	self.Index = -1
 
-	if !(f.Type == GroupKind || f.IsList()) {
+	if !(f.Type == GroupKind || f.IsCollection()) {
 		return self
 	}
 
@@ -397,6 +404,21 @@ func (f *Field) Remove() *Field {
 	return self
 }
 
+func (f *Field) Sort(less func(a, b *Field) int) {
+	if f == nil || !f.IsCollection() {
+		return
+	}
+	slices.SortFunc(f.Items, less)
+	for i, it := range f.Items {
+		if it.Index == i {
+			continue
+		}
+		it.Index = i
+		f.ItemsSchema[it.Index] = it.Schema
+		f.ItemsValue[it.Index] = it.Value
+	}
+}
+
 func RemoveAt[T any](i int, tmp []T) ([]T, T, bool) {
 	// slices.DeleteFunc(tmp, func(t T) bool {
 	// 	return true
@@ -421,7 +443,7 @@ func GetValue(f *Field) any {
 	if f.IsNull() {
 		return nil
 	}
-	if f.IsList() {
+	if f.IsCollection() {
 		var objs []any
 		for _, f2 := range f.Items {
 			if f2.Type == InvalidKind {
@@ -454,7 +476,7 @@ func GetPrimitiveValue(f *Field) any {
 	if f.IsNull() {
 		return nil
 	}
-	if f.IsList() {
+	if f.IsCollection() {
 		return nil
 	}
 	switch f.Type {
@@ -543,6 +565,18 @@ func InvertType(f *Field) *Field {
 
 // 转换类型. 转换失败将不会改变
 func As(f *Field, t Type, layouts []string, loc *time.Location) error {
+	if f.Parent != nil && f.IsColumn() && f.Parent.Type != t {
+		return fmt.Errorf("必须与父级类型一致")
+	}
+	if f.IsColumn() {
+		f.Type = t
+		for _, it := range f.Items {
+			if err := As(it, t, layouts, loc); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if f.Type == t {
 		if t == TimeKind && loc != nil {
 			f.SetTime(f.GetTime().In(loc))
@@ -686,7 +720,7 @@ func (f *Field) GoString() string {
 	case BytesKind:
 		v = "<bytes>"
 	default:
-		if f.IsList() {
+		if f.IsCollection() {
 			v = "[\n"
 			for i, f2 := range f.Items {
 				if i != 0 {

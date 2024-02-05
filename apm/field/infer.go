@@ -106,7 +106,9 @@ func InferNumberValue(v any) (any, Type) {
 
 // 推导基本类型的值
 func InferPrimitiveValue(v any) (any, Type) {
-
+	if v == nil {
+		return nil, InvalidKind
+	}
 	switch v := v.(type) {
 	case bool:
 		return v, BoolKind
@@ -145,16 +147,40 @@ func InferPrimitiveValue(v any) (any, Type) {
 		return v, IPKind
 	case reflect.Value:
 		return InferPrimitiveValueByReflect(v)
-	default:
-		if v, k := InferNumberValue(v); k != InvalidKind {
-			return v, k
-		}
 	}
-	return v, InvalidKind
+
+	v, k := InferNumberValue(v)
+	if k != InvalidKind {
+		return v, k
+	}
+
+	rv := reflect.ValueOf(v)
+	if v, k := InferPrimitiveValueByReflect(rv); k != InvalidKind {
+		return v, k
+	}
+
+	rt := reflect.TypeOf(v)
+	prt := false
+	if rt.Kind() == reflect.Pointer {
+		rt = rt.Elem()
+		prt = true
+	}
+	if rt.Kind() == reflect.Invalid {
+		return nil, InvalidKind
+	}
+	v, k = InferPrimitiveValueByReflect(reflect.Zero(rt)) // 创建默认值
+	if prt {
+		return nil, k
+	}
+	return v, k
 }
 
 // 反射获取重新定义基础类型的值
 func InferPrimitiveValueByReflect(rv reflect.Value) (any, Type) {
+	if rv.Kind() == reflect.Invalid {
+		return rv, InvalidKind
+	}
+	rrv := rv
 	if rv.Kind() == reflect.Pointer {
 		rv = rv.Elem()
 	}
@@ -184,5 +210,5 @@ func InferPrimitiveValueByReflect(rv reflect.Value) (any, Type) {
 			return n, TimeKind
 		}
 	}
-	return nil, InvalidKind
+	return rrv, InvalidKind
 }

@@ -56,11 +56,11 @@ func TestTT(t *testing.T) {
 	f.SetNull(true)
 	fmt.Printf("f.Flags: %v\n", f.Flags)
 	// f.SetNull(false)
-	fmt.Printf("f.IsList(): %v\n", f.IsList())
+	fmt.Printf("f.IsList(): %v\n", f.IsCollection())
 
 	fmt.Printf("f.IsNull(): %v\n", f.IsNull())
 
-	fmt.Printf("f.IsList(): %v\n", f.IsList())
+	fmt.Printf("f.IsList(): %v\n", f.IsCollection())
 
 	fmt.Printf("f.isKind(StringKind): %v\n", f.isKind(StringKind))
 
