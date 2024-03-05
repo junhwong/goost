@@ -2,7 +2,6 @@ package field
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 )
 
@@ -10,9 +9,14 @@ type cust int
 
 func TestNullPtr(t *testing.T) {
 	var x *cust
-	fmt.Println(InferPrimitiveValueByReflect(reflect.ValueOf(x)))
+	// fmt.Println(InferPrimitiveValueByReflect(reflect.ValueOf(x)))
 	// fmt.Println(InferPrimitiveValueByReflect(reflect.Value{}))
-	fmt.Println(InferPrimitiveValue(x))
+	fmt.Println(Any("", x))
+
+	// var y *int
+	// // fmt.Println(InferPrimitiveValueByReflect(reflect.ValueOf(y)))
+	// // fmt.Println(InferPrimitiveValueByReflect(reflect.Value{}))
+	// fmt.Println(InferPrimitiveValue(y))
 }
 
 // 2,400,000,000

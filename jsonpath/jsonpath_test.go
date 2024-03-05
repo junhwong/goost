@@ -1,6 +1,7 @@
 package jsonpath
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
@@ -15,67 +16,134 @@ func TestParse(t *testing.T) {
 		ex   string
 	}{
 		{
+			desc: `$.foo`,
+		},
+		{
+			desc: `@foo`,
+			err:  true,
+		},
+		{
+			desc: "foo[]",
+		},
+		{
+			desc: "foo[].bar",
+			err:  true,
+		},
+		{
+			desc: "foo[][0]",
+			err:  true,
+		},
+		{
+			desc: "foo[6]",
+		},
+		{
+			desc: "foo[-1]",
+		},
+		{
+			desc: "[1:20]",
+		},
+		{
+			desc: "[5]",
+		},
+		{
+			desc: "[:]",
+		},
+		{
+			desc: "[::]",
+			err:  true,
+		},
+		{
+			desc: "[:2]",
+		},
+		{
+			desc: "[1:]",
+		},
+		{
+			desc: "[0:2]",
+			ex:   "[:2]",
+		},
+		{
+			desc: "[1:-1]",
+			ex:   "[1:]",
+		},
+		// {
+		// 	desc: "[1:2:3]",
+		// },
+		{
+			desc: "foo[bar]",
+			err:  true,
+		},
+		{
+			desc: "foo.[bar]",
+		},
+		{
+			desc: "foo.[]",
+			err:  true,
+		},
+		{
 			desc: "中文",
-			ex:   "f:中文",
 		},
 		{
-			desc: "a",
-			ex:   "f:a",
+			desc: "foo",
 		},
 		{
-			desc: "a.b",
-			ex:   "m:(f:a,f:b)",
+			desc: "foo.bar",
 		},
 		{
-			desc: "a..b",
-			ex:   "m:(f:a,s:..,f:b)",
+			desc: "foo..bar",
 		},
 		{
-			desc: "c#1",
-			ex:   "m:(f:c,i:1)",
+			desc: "foo.*",
 		},
 		{
-			desc: "c#1#2",
-			ex:   "m:(f:c,i:1,i:2)",
-		},
-		{
-			desc: "c#1.2",
-			ex:   "m:(f:c,i:1,f:2)",
-		},
-		{
-			desc: "c#1.2#3",
-			ex:   "m:(f:c,i:1,f:2,i:3)",
-		},
-		{
-			desc: "d[1]",
-			ex:   "m:(f:d,i:1)",
-		},
-		{
-			desc: `"f"`,
-			ex:   `q:"f"`,
-		},
-		{
-			desc: `"f".g`,
-			ex:   `m:(q:"f",f:g)`,
-		},
-		{
-			desc: `a"f".g`,
+			desc: "foo.*.x",
 			err:  true,
 		},
 		{
-			desc: `"f"a.g`,
+			desc: `"foo"`,
+		},
+		{
+			desc: `"foo".bar`,
+		},
+		{
+			desc: `foo"bar"`,
 			err:  true,
+		},
+		{
+			desc: `"foo"bar`,
+			err:  true,
+		},
+		{
+			desc: `[?()]`,
+			err:  true,
+		},
+		{
+			desc: `[?(foo<5)]`,
 		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			r, err := Parse(tC.desc)
+			ex := tC.desc
+			r, err := Parse(ex)
 			if tC.err {
 				assert.NotNil(t, err)
 				return
 			}
-			assert.Nil(t, err)
-			assert.Equal(t, tC.ex, String(r))
+			if !assert.Nil(t, err) {
+				return
+			}
+			buf := bytes.NewBuffer(nil)
+			buf.Reset()
+			v := &printer{Out: buf}
+			v.Visit = func(e Expr) {
+				Visit(e, v, v.SetError)
+			}
+			v.Visit(r)
+			assert.Nil(t, v.Error())
+			if tC.ex != "" {
+				ex = tC.ex
+			}
+			assert.Equal(t, ex, buf.String())
 		})
 	}
 }
@@ -91,5 +159,7 @@ func TestTT(t *testing.T) {
 	i := strings.IndexAny(s, "文")
 	fmt.Printf("i: %v\n", i)
 	fmt.Printf("s[i:]: %s\n", []byte{s[i], s[i+1]})
-
+	// @..*
 }
+
+///

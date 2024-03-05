@@ -1,9 +1,12 @@
 package field
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/junhwong/goost/jsonpath"
 )
 
 func TestParseTime(t *testing.T) {
@@ -32,4 +35,83 @@ func TestParseTime(t *testing.T) {
 	fmt.Println(z.Zone())
 	fmt.Printf("z: %v\n", z.UTC())
 	fmt.Printf("z.UnixNano(): %v\n", z.UnixNano())
+}
+
+func TestXXX(t *testing.T) {
+
+	s := `{
+		"store": {
+			"book": [{
+					"category": "reference",
+					"author": "Nigel Rees",
+					"title": "Sayings of the Century",
+					"price": 8.95
+				}, {
+					"category": "fiction",
+					"author": "Evelyn Waugh",
+					"title": "Sword of Honour",
+					"price": 12.99
+				}, {
+					"category": "fiction",
+					"author": "Herman Melville",
+					"title": "Moby Dick",
+					"isbn": "0-553-21311-3",
+					"price": 8.99
+				}, {
+					"category": "fiction",
+					"author": "J. R. R. Tolkien",
+					"title": "The Lord of the Rings",
+					"isbn": "0-395-19395-8",
+					"price": 22.99
+				}
+			],
+			"bicycle": {
+				"color": "red",
+				"price": 19.95
+			}
+		}
+	}`
+
+	var v any
+	err := json.Unmarshal([]byte(s), &v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// fmt.Printf("v: %v                                                                                                   \n", v)
+	root := NewRoot()
+	f := Any("x", v)
+	root.Set(f)
+
+	// fmt.Printf("f: %#v\n", f)
+
+	{
+		r, err := Find(root, "x.store.book[0].title")
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Printf("r: %#v\n", r[0])
+		return
+	}
+	// {
+	// 	expr, _ := jsonpath.Parse("x2.xxxxxxxx1")
+	// 	err := Apply(expr, root, func(f *Field) {
+	// 		f.SetString("hello")
+	// 	})
+	// 	if err != nil {
+	// 		t.Fatal(err)
+	// 	}
+	// 	fmt.Printf("root: %#v\n", root)
+	// }
+
+	{
+		expr, _ := jsonpath.Parse("x3.[]")
+		err := Apply(expr, root, func(f *Field) {
+			f.SetString("hello")
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Printf("root: %#v\n", root)
+	}
 }

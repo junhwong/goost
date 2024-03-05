@@ -58,10 +58,16 @@ func (f *Field) IsCollection() bool {
 	return f.Type == GroupKind || f.Type == ArrayKind || f.IsColumn() || f.IsTable()
 }
 
+func (f *Field) IsArray() bool {
+	return f.Type == ArrayKind || f.IsColumn()
+}
+
+// 是否是列或统一类型的数组.
 func (f *Field) IsColumn() bool {
 	return (f.GetFlags() & ColumnFlag) == ColumnFlag
 }
 
+// 是否是表格类型. 行:列
 func (f *Field) IsTable() bool {
 	return (f.GetFlags() & TableFlag) == TableFlag
 }
@@ -164,7 +170,6 @@ func (f *Field) GetTime() time.Time {
 	if !f.isKind(TimeKind) {
 		return time.Time{}
 	}
-
 	return time.Unix(0, int64(f.GetUintValue()))
 }
 
@@ -693,6 +698,61 @@ func Clone(f *Field) *Field {
 	dst.ItemsValue = make([]*Value, 0, len(f.ItemsValue))
 
 	for i, f2 := range f.Items {
+		f2 := Clone(f2)
+		f2.Index = i
+		f2.Parent = dst
+		dst.Items = append(dst.Items, f2)
+		dst.ItemsSchema = append(dst.ItemsSchema, f2.Schema)
+		dst.ItemsValue = append(dst.ItemsValue, f2.Value)
+	}
+
+	return dst
+}
+
+func CloneInto(src, dst *Field) *Field {
+	if src == nil {
+		return nil
+	}
+	dst.Type = src.Type
+	dst.Flags = src.Flags
+	dst.NullValue = src.NullValue
+	if src.NullValue {
+		return dst
+	}
+	if v := src.IntValue; v != nil {
+		v := *v
+		src.IntValue = &v
+	}
+	if v := src.UintValue; v != nil {
+		v := *v
+		src.UintValue = &v
+	}
+	if v := src.FloatValue; v != nil {
+		v := *v
+		src.FloatValue = &v
+	}
+	if v := src.IntValue; v != nil {
+		v := *v
+		src.IntValue = &v
+	}
+	if v := src.StringValue; v != nil {
+		v := *v
+		src.StringValue = &v
+	}
+	if v := src.BytesValue; len(v) != 0 {
+		vCopy := make([]byte, len(v))
+		copy(vCopy, v)
+		src.BytesValue = vCopy
+	}
+
+	if len(src.Items) == 0 {
+		return dst
+	}
+	dst.Items = make([]*Field, 0, len(src.Items))
+	dst.ItemsSchema = make([]*Schema, 0, len(src.ItemsSchema))
+	dst.ItemsValue = make([]*Value, 0, len(src.ItemsValue))
+
+	for i, f2 := range src.Items {
 		f2 := Clone(f2)
 		f2.Index = i
 		f2.Parent = dst

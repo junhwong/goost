@@ -25,7 +25,7 @@ func Release(f *Field) {
 }
 
 func NewRoot() *Field {
-	f := New("@")
+	f := New("$")
 	f.SetKind(GroupKind, false, false)
 	f.SetNull(false)
 	return f
@@ -65,84 +65,114 @@ func SetPrimitiveValue(f *Field, v any, k Type) *Field {
 }
 
 func Any(name string, v any, allows ...Type) *Field {
-	iv, k := InferPrimitiveValue(v)
-	if k == InvalidKind {
-		rv := reflect.ValueOf(v)
-		if rv.Kind() == reflect.Pointer {
-			rv = rv.Elem()
-		}
-		switch rv.Kind() {
-		case reflect.Array, reflect.Slice:
-			fs := []*Field{}
-			var t Type
-			same := false
-			for i := 0; i < rv.Len(); i++ {
-				f := Any("", rv.Index(i))
-				fs = append(fs, f)
-				if len(fs) > 0 && t != f.Type {
-					same = true
-				}
-				t = f.Type
-			}
-			f := New(name)
-			if len(fs) == 0 {
-				return f
-			}
-			if err := f.SetArray(t, fs, same); err != nil {
-				fmt.Printf("err: %v\n", err)
-			}
-			return f
-		case reflect.Map:
-			fs := []*Field{}
-			iter := rv.MapRange()
-			for iter.Next() {
-				kk, kt := InferPrimitiveValue(iter.Key())
-				if kk == nil || kt == InvalidKind {
-					continue
-				}
-				if !(kt == StringKind || kt == IntKind) {
-					continue
-				}
-				f := Any(cast.ToString(kk), iter.Value())
-				if f.Type == InvalidKind {
-					continue
-				}
-				fs = append(fs, f)
-			}
-			f := New(name)
-			if len(fs) == 0 {
-				return f
-			}
-			if err := f.SetGroup(fs, false); err != nil {
-				fmt.Printf("err: %v\n", err)
-			}
-			return f
-		default:
-			iv, k = InferPrimitiveValueByReflect(rv)
-		}
-	}
-	if k == InvalidKind {
-		if err, _ := v.(error); err != nil {
-			iv = err.Error()
-			k = StringKind
-		}
-	}
-
-	allow := k != InvalidKind
-	if !allow {
-		allows = nil
-	}
-	for _, t := range allows {
-		if t == k {
-			allow = true
-			break
-		}
-	}
 	f := New(name)
-	if !allow {
+	if v == nil {
 		return f
 	}
+
+	allow := func(iv any, k Type) bool {
+		b := k != InvalidKind
+		if !b || len(allows) == 0 {
+			return b
+		}
+		for _, t := range allows {
+			if t == k {
+				return true
+			}
+		}
+		return false
+	}
+
+	iv, k := InferPrimitiveValue(v)
+	if k != InvalidKind {
+		if !allow(iv, k) {
+			return f
+		}
+		return SetPrimitiveValue(f, iv, k)
+	}
+
+	var rv reflect.Value
+	switch v := v.(type) {
+	case reflect.Value:
+		rv = v
+	default:
+		rv = reflect.ValueOf(v)
+	}
+	rt := rv.Type()
+	prt := false
+	if rt.Kind() == reflect.Pointer {
+		rt = rt.Elem()
+		rv = rv.Elem()
+		prt = true
+	}
+	if rt.Kind() == reflect.Invalid {
+		return f
+	}
+
+	switch rv.Kind() {
+	case reflect.Array, reflect.Slice:
+		fs := []*Field{}
+		var t Type
+		same := false
+		for i := 0; i < rv.Len(); i++ {
+			it := Any("", rv.Index(i).Interface())
+			fs = append(fs, it)
+			if len(fs) > 0 && t != it.Type {
+				same = true
+			}
+			t = it.Type
+		}
+		if len(fs) == 0 {
+			return f
+		}
+		if err := f.SetArray(t, fs, same); err != nil {
+			fmt.Printf("err: %v\n", err)
+		}
+		return f
+	case reflect.Map:
+		fs := []*Field{}
+		iter := rv.MapRange()
+		for iter.Next() {
+			kk, kt := InferPrimitiveValue(iter.Key())
+			if kk == nil || kt == InvalidKind {
+				continue
+			}
+			if !(kt == StringKind || kt == IntKind) {
+				continue
+			}
+			it := Any(cast.ToString(kk), iter.Value().Interface())
+			if it.Type == InvalidKind {
+				continue
+			}
+			fs = append(fs, it)
+		}
+		if len(fs) == 0 {
+			return f
+		}
+		if err := f.SetGroup(fs, false); err != nil {
+			fmt.Printf("err: %v\n", err)
+		}
+		return f
+	case reflect.Struct:
+		panic("todo")
+		return f
+	case reflect.Func, reflect.Chan:
+		return f
+	}
+	if prt { // 创建默认值,
+		iv, k = InferPrimitiveValueByReflect(reflect.Zero(rt))
+	}
 	if k == InvalidKind {
+		iv, k = InferPrimitiveValueByReflect(rv)
+	}
+
+	// if k == InvalidKind {
+	// 	if err, _ := v.(error); err != nil {
+	// 		iv = err.Error()
+	// 		k = StringKind
+	// 	}
+	// }
+	if !allow(iv, k) {
 		return f
 	}
 	return SetPrimitiveValue(f, iv, k)

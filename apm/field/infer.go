@@ -150,6 +150,7 @@ func InferPrimitiveValue(v any) (any, Type) {
 	}
 
 	v, k := InferNumberValue(v)
+	return v, k
 	if k != InvalidKind {
 		return v, k
 	}

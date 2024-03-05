@@ -1,6 +1,7 @@
 package field
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -105,9 +106,9 @@ func (m *Marshaler) write(f *Field) {
 		m.writeBytes(strconv.AppendUint(nil, v, 10))
 	case FloatKind:
 		v := f.GetFloat()
-		b := strconv.AppendFloat(nil, v, 'f', -1, 64)
-		if len(b) == 1 && b[0] == '0' { // 保留数据类型
-			b = []byte("0.0")
+		b := strconv.AppendFloat(nil, v, 'f', -1, 64) // -1
+		if bytes.LastIndex(b, []byte{'.'}) == -1 {    // 保留数据类型
+			b = append(b, '.', '0')
 		}
 		m.writeBytes(b)
 	case BoolKind:
