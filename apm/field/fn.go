@@ -125,7 +125,7 @@ func Any(name string, v any, allows ...Type) *Field {
 		if len(fs) == 0 {
 			return f
 		}
-		if err := f.SetArray(t, fs, same); err != nil {
+		if err := f.SetArray(fs, same); err != nil {
 			fmt.Printf("err: %v\n", err)
 		}
 		return f

@@ -210,10 +210,10 @@ func Find(root *Field, nameOrPath string) ([]*Field, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FindWithPath(seg, root)
+	return FindWith(seg, root)
 }
 
-func FindWithPath(p jsonpath.Expr, root *Field) ([]*Field, error) {
+func FindWith(p jsonpath.Expr, root *Field) ([]*Field, error) {
 	v := &explorer{readonly: true, root: root, current: root.Items, parent: []*Field{root}}
 	v.Visit = func(e jsonpath.Expr) {
 		jsonpath.Visit(e, v, v.SetError)

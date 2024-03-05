@@ -277,22 +277,28 @@ func (f *Field) RemoveItem(k string) (dst *Field) {
 	return
 }
 
-func (f *Field) SetArray(t Type, v []*Field, isColumn ...bool) error {
+func (f *Field) SetArray(v []*Field, isColumn ...bool) error {
+	f.resetValue()
 	b := false
 	if len(isColumn) > 0 {
 		b = isColumn[len(isColumn)-1]
 	}
-	f.resetValue()
-	if !b {
-		t = ArrayKind
-	}
-	f.SetKind(t, b, false)
+	f.SetKind(ArrayKind, b, false)
 	f.SetNull(v == nil)
 	if f.IsNull() {
 		return nil
 	}
 
 	for _, v2 := range v {
+		if f.Type == ArrayKind {
+			f.Type = v2.Type
+		}
+		if b && f.Type == ArrayKind {
+			return fmt.Errorf("Column必须是一致的类型")
+		}
+		if !b && f.Type != v2.Type {
+			f.Type = ArrayKind
+		}
 		if err := f.Append(v2); err != nil {
 			return err
 		}
@@ -671,6 +677,7 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 	panic(fmt.Sprintf("todo convert %v->%v", f.GetType(), t))
 }
 
+// 克隆对象
 func Clone(f *Field) *Field {
 	if f == nil {
 		return nil
@@ -678,37 +685,10 @@ func Clone(f *Field) *Field {
 	dst := New(f.Name)
 	dst.Index = f.Index
 	dst.Parent = f.Parent
-	dst.Type = f.Type
-	dst.Flags = f.Flags
-	dst.NullValue = f.NullValue
-	if f.NullValue {
-		return dst
-	}
-	dst.IntValue = f.IntValue
-	dst.UintValue = f.UintValue
-	dst.FloatValue = f.FloatValue
-	dst.StringValue = f.StringValue
-	dst.BytesValue = f.BytesValue
-
-	if len(f.Items) == 0 {
-		return dst
-	}
-	dst.Items = make([]*Field, 0, len(f.Items))
-	dst.ItemsSchema = make([]*Schema, 0, len(f.ItemsSchema))
-	dst.ItemsValue = make([]*Value, 0, len(f.ItemsValue))
-
-	for i, f2 := range f.Items {
-		f2 := Clone(f2)
-		f2.Index = i
-		f2.Parent = dst
-		dst.Items = append(dst.Items, f2)
-		dst.ItemsSchema = append(dst.ItemsSchema, f2.Schema)
-		dst.ItemsValue = append(dst.ItemsValue, f2.Value)
-	}
-
-	return dst
+	return CloneInto(f, dst)
 }
 
+// 克隆类容,不改变层级
 func CloneInto(src, dst *Field) *Field {
 	if src == nil {
 		return nil
@@ -716,33 +696,33 @@ func CloneInto(src, dst *Field) *Field {
 	dst.Type = src.Type
 	dst.Flags = src.Flags
 	dst.NullValue = src.NullValue
-	if src.NullValue {
+	if dst.NullValue {
 		return dst
 	}
 	if v := src.IntValue; v != nil {
 		v := *v
-		src.IntValue = &v
+		dst.IntValue = &v
 	}
 	if v := src.UintValue; v != nil {
 		v := *v
-		src.UintValue = &v
+		dst.UintValue = &v
 	}
 	if v := src.FloatValue; v != nil {
 		v := *v
-		src.FloatValue = &v
+		dst.FloatValue = &v
 	}
 	if v := src.IntValue; v != nil {
 		v := *v
-		src.IntValue = &v
+		dst.IntValue = &v
 	}
 	if v := src.StringValue; v != nil {
 		v := *v
-		src.StringValue = &v
+		dst.StringValue = &v
 	}
 	if v := src.BytesValue; len(v) != 0 {
 		vCopy := make([]byte, len(v))
 		copy(vCopy, v)
-		src.BytesValue = vCopy
+		dst.BytesValue = vCopy
 	}
 
 	if len(src.Items) == 0 {
