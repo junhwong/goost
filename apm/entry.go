@@ -28,14 +28,14 @@ type FieldsEntry struct {
 }
 
 func (e *FieldsEntry) GetLevel() (v loglevel.Level) {
-	if f := field.Get(e.Items, LevelKey.Name()); f != nil {
+	if f := field.GetLast(e.Items, LevelKey.Name()); f != nil {
 		return f.GetLevel()
 	}
 	return loglevel.Unset
 }
 
 func (e *FieldsEntry) GetTime() (v time.Time) {
-	if f := field.Get(e.Items, TimeKey.Name()); f != nil {
+	if f := field.GetLast(e.Items, TimeKey.Name()); f != nil {
 		return f.GetTime()
 	}
 	return time.Time{}
@@ -53,7 +53,7 @@ func (e *FieldsEntry) GetCallerInfo() *CallerInfo {
 }
 
 func (e *FieldsEntry) GetMessage() string {
-	if f := field.Get(e.Items, MessageKey.Name()); f != nil {
+	if f := field.GetLast(e.Items, MessageKey.Name()); f != nil {
 		return f.GetString()
 	}
 	return ""

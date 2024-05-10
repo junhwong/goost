@@ -40,7 +40,7 @@ func (r *FieldsBuild) Build(src []*Field) ([]*Field, error) {
 			fs = append(fs, Any(k, fb.Value))
 			continue
 		}
-		if ff := Get(src, fb.FieldRef); ff != nil {
+		if ff := GetLast(src, fb.FieldRef); ff != nil {
 			rf := Clone(ff)
 			rf.Name = k
 			fs = append(fs, rf)

@@ -4,35 +4,45 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"time"
 )
 
 type Marshaler struct {
-	err        error
-	Writer     io.Writer
+	err error
+	w   io.Writer
+	n   int64
+
 	OmitEmpty  bool
 	NameFilter func(string) string
+	NameLess   func(a, b *Field) int
 }
 
-func (m *Marshaler) Marshal(f *Field, w io.Writer) error {
-	m.Writer = w
+func (m *Marshaler) Marshal(f *Field, w io.Writer) (int64, error) {
+	m.w = w
 	m.err = nil
+	m.n = 0
 	m.write(f)
-	return m.err
+	return m.n, m.err
 }
 func (m *Marshaler) writeByte(c byte) {
 	if m.err != nil {
 		return
 	}
-	_, m.err = m.Writer.Write([]byte{c})
+	n, err := m.w.Write([]byte{c})
+	m.err = err
+	m.n += int64(n)
 }
 func (m *Marshaler) writeBytes(p []byte) {
 	if m.err != nil {
 		return
 	}
-	_, m.err = m.Writer.Write(p)
+	n, err := m.w.Write(p)
+	m.err = err
+	m.n += int64(n)
 }
 
 func (m *Marshaler) write(f *Field) {
@@ -44,7 +54,46 @@ func (m *Marshaler) write(f *Field) {
 		return
 	}
 
-	if f.Type == ArrayKind || f.IsColumn() {
+	if f.IsGroup() {
+		if f.IsNull() {
+			m.writeBytes([]byte("null"))
+			return
+		}
+		has := false
+		m.writeByte('{')
+		items := f.Items
+		if m.NameLess != nil {
+			items = make([]*Field, len(items))
+			copy(items, f.Items)
+			slices.SortFunc(items, m.NameLess)
+		}
+		for _, it := range items {
+			if it.Type == InvalidKind {
+				continue
+			}
+			name := it.GetName()
+			if m.NameFilter != nil {
+				name = m.NameFilter(name)
+			}
+			fmt.Printf("nameeeee: %v\n", name)
+			if name == "-" {
+				continue
+			}
+			if has {
+				m.writeByte(',')
+			}
+
+			has = true
+			m.writeBytes([]byte(`"`))
+			m.writeBytes([]byte(name))
+			m.writeBytes([]byte(`":`))
+			m.write(it)
+		}
+		m.writeByte('}')
+		return
+	}
+
+	if f.IsArray() {
 		if f.IsNull() {
 			m.writeBytes([]byte("null"))
 			return
@@ -62,38 +111,6 @@ func (m *Marshaler) write(f *Field) {
 			m.write(it)
 		}
 		m.writeByte(']')
-		return
-	}
-
-	if f.Type == GroupKind {
-		if f.IsNull() {
-			m.writeBytes([]byte("null"))
-			return
-		}
-		has := false
-		m.writeByte('{')
-		for _, it := range f.Items {
-			if it.Type == InvalidKind {
-				continue
-			}
-			name := it.GetName()
-			if name != "" && m.NameFilter != nil {
-				name = m.NameFilter(name)
-			}
-			if name == "" {
-				continue
-			}
-			if has {
-				m.writeByte(',')
-			}
-
-			has = true
-			m.writeBytes([]byte(`"`))
-			m.writeBytes([]byte(name))
-			m.writeBytes([]byte(`":`))
-			m.write(it)
-		}
-		m.writeByte('}')
 		return
 	}
 
@@ -143,7 +160,7 @@ func (m *Marshaler) write(f *Field) {
 	case BytesKind:
 		v := f.GetBytes()
 		m.writeBytes([]byte(`"base64:`))
-		e := base64.NewEncoder(base64.StdEncoding, m.Writer)
+		e := base64.NewEncoder(base64.StdEncoding, m.w)
 		_, m.err = e.Write(v)
 		e.Close()
 		m.writeBytes([]byte(`"`))

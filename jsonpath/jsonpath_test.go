@@ -19,6 +19,9 @@ func TestParse(t *testing.T) {
 			desc: `$.foo`,
 		},
 		{
+			desc: `$.foo.*`,
+		},
+		{
 			desc: `@foo`,
 			err:  true,
 		},

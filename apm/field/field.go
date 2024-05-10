@@ -58,6 +58,7 @@ func (f *Field) IsCollection() bool {
 	return f.Type == GroupKind || f.Type == ArrayKind || f.IsColumn() || f.IsTable()
 }
 
+// 是否是数组
 func (f *Field) IsArray() bool {
 	return f.Type == ArrayKind || f.IsColumn()
 }
@@ -70,6 +71,11 @@ func (f *Field) IsColumn() bool {
 // 是否是表格类型. 行:列
 func (f *Field) IsTable() bool {
 	return (f.GetFlags() & TableFlag) == TableFlag
+}
+
+// 是否是字典类型.
+func (f *Field) IsGroup() bool {
+	return f.Type == GroupKind
 }
 
 func (f *Field) resetValue() {
@@ -263,7 +269,7 @@ func (f *Field) GetItem(k string) *Field {
 	if f.Type != GroupKind {
 		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.Type))
 	}
-	return Get(f.Items, k)
+	return GetLast(f.Items, k)
 }
 
 func (f *Field) RemoveItem(k string) (dst *Field) {
@@ -288,17 +294,11 @@ func (f *Field) SetArray(v []*Field, isColumn ...bool) error {
 	if f.IsNull() {
 		return nil
 	}
+	if b {
+		f.Type = v[0].Type
+	}
 
 	for _, v2 := range v {
-		if f.Type == ArrayKind {
-			f.Type = v2.Type
-		}
-		if b && f.Type == ArrayKind {
-			return fmt.Errorf("Column必须是一致的类型")
-		}
-		if !b && f.Type != v2.Type {
-			f.Type = ArrayKind
-		}
 		if err := f.Append(v2); err != nil {
 			return err
 		}
@@ -343,9 +343,10 @@ func (f *Field) Set(n *Field) {
 	if f.Type != GroupKind {
 		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.Type))
 	}
-	if f.IsTable() && !n.IsColumn() {
-		panic(fmt.Errorf("表格元素必须是Serial类型"))
-	}
+	// todo ?
+	// if f.IsTable() && !n.IsColumn() {
+	// 	panic(fmt.Errorf("表格元素必须是Serial类型"))
+	// }
 	f.SetNull(false)
 	n.Parent = f
 	for i, s := range f.ItemsSchema {
@@ -364,10 +365,16 @@ func (f *Field) Set(n *Field) {
 }
 
 func (f *Field) Append(n *Field) error {
-	if !(f.Type == ArrayKind || (f.IsColumn() && n.isKind(f.Type))) {
-		panic(fmt.Errorf("元素的类型不匹配: %v,%v", f.Type, n.Type))
+	if !f.IsArray() {
+		panic(fmt.Errorf("元素的类型不是数组: %v", f.Type))
 	}
 
+	if !f.IsNull() && !(f.IsColumn() && n.isKind(f.Type)) {
+		panic(fmt.Errorf("元素的类型是列,但与列的类型不匹配: %v,%v,%v", f.Type, n.Type, f.IsColumn()))
+	}
+	if f.IsNull() { // 补齐类型
+		f.Type = n.Type
+	}
 	f.SetNull(false)
 	n.Parent = f
 	n.Index = len(f.Items)
