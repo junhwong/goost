@@ -48,6 +48,7 @@ func (l *FieldsEntry) With(options ...WithOption) Interface {
 	}
 	return cl
 }
+
 func (s *FieldsEntry) SetAttributes(a ...*field.Field) {
 	for _, f := range a {
 		s.Set(f)

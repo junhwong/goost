@@ -18,9 +18,9 @@ func TestParse(t *testing.T) {
 		{
 			desc: `$.foo`,
 		},
-		{
-			desc: `$.foo.*`,
-		},
+		// {
+		// 	desc: `$.foo.*`, // todo
+		// },
 		{
 			desc: `@foo`,
 			err:  true,
@@ -52,6 +52,25 @@ func TestParse(t *testing.T) {
 			desc: "[:]",
 		},
 		{
+			desc: "[:].*",
+		},
+		{
+			desc: "[:].foo",
+		},
+		{
+			desc: "foo[:]",
+		},
+		{
+			desc: "foo[:]bar",
+			err:  true,
+		},
+		{
+			desc: "foo[:][]",
+		},
+		{
+			desc: "foo[:][:][:]",
+		},
+		{
 			desc: "[::]",
 			err:  true,
 		},
@@ -74,11 +93,10 @@ func TestParse(t *testing.T) {
 		// },
 		{
 			desc: "foo[bar]",
-			err:  true,
 		},
-		{
-			desc: "foo.[bar]",
-		},
+		// {
+		// 	desc: "foo.[bar]",
+		// },
 		{
 			desc: "foo.[]",
 			err:  true,

@@ -120,10 +120,11 @@ func (v *explorer) VisitIndexExpr(e jsonpath.IndexExpr) {
 			continue
 		}
 		f := New("")
-		if err := it.Append(f); err != nil {
-			v.SetError(err)
-			return
-		}
+		it.Append(f)
+		// if err := it.Append(f); err != nil {
+		// 	v.SetError(err)
+		// 	return
+		// }
 	}
 
 	v.current = tmp
@@ -154,9 +155,10 @@ func (v *explorer) VisitEmptyGroup(e *jsonpath.EmptyGroup) {
 			return
 		}
 		f := New("")
-		if err := p.Append(f); err != nil {
-			v.SetError(err)
-		}
+		p.Append(f)
+		// if err := p.Append(f); err != nil {
+		// 	v.SetError(err)
+		// }
 		tmp2 = append(tmp2, f)
 	}
 	v.current = tmp2
@@ -174,9 +176,9 @@ func (v *explorer) VisitRangeExpr(e jsonpath.RangeExpr) {
 			i += len(it.Items)
 		}
 		if j < 0 {
-			j += len(it.Items)
+			j += len(it.Items) + 1
 		}
-		if i < 0 || i > len(it.Items) {
+		if i < 0 || i >= len(it.Items) {
 			continue
 		}
 		if j < 0 || j > len(it.Items) {

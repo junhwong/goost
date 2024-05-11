@@ -2,6 +2,7 @@ package apm
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/junhwong/goost/apm/field"
 )
@@ -98,15 +99,27 @@ func WithFields(fs ...*field.Field) withFieldsOption {
 	})
 }
 
-// 设置字段
-func WithExternalTrace(traceID, spanID HexID) funcSpanOption {
-	if len(traceID) != 16 {
-		// panic("apm: invalid external traceID")
+// 设置外部 trance parent
+func WithExternalTrace(traceID, parentSpanID string) funcSpanOption {
+	if traceID == "" {
 		return nil
 	}
 	return funcSpanOption(func(target *spanImpl) {
-		target.TranceID = traceID.String()
-		target.SpanParentID = spanID.Low().String()
+		tid, err := ParseHexID(traceID)
+		if err != nil {
+			target.warnnings = append(target.warnnings, fmt.Errorf("invalid parent trace-id %q: %v", traceID, err))
+		} else if tid.Equal(ZeroHexID) {
+			target.warnnings = append(target.warnnings, fmt.Errorf("invalid parent trace-id %q: %v", traceID, err))
+			return
+		} else {
+			target.TranceID = tid.String()
+		}
+		sid, err := ParseHexID(parentSpanID)
+		if err != nil {
+			target.warnnings = append(target.warnnings, fmt.Errorf("invalid parent span-id %q: %v", traceID, err))
+		} else if !sid.Equal(ZeroHexID) {
+			target.SpanParentID = sid.Low().String()
+		}
 	})
 }
 
@@ -163,18 +176,19 @@ func Start(ctx context.Context, options ...SpanOption) (context.Context, Span) {
 //			Close(closer, s)
 //		})
 //	}
+type ctxkey string
 
 const (
-	nameInContextKey = "$apm.nameInContextKey"
-	spanInContextKey = "$apm.spanInContextKey"
-	callerContextKey = "$apm.callerContextKey"
+	nameInContextKey ctxkey = "github.com/junhwong/goost$apm.nameInContextKey"
+	spanInContextKey ctxkey = "github.com/junhwong/goost$apm.spanInContextKey"
+	callerContextKey ctxkey = "github.com/junhwong/goost$apm.callerContextKey"
 )
 
 func WithName(ctx context.Context, s string) context.Context {
 	if setter, _ := ctx.(interface {
 		Set(key string, value interface{})
 	}); setter != nil {
-		setter.Set(nameInContextKey, s)
+		setter.Set(string(nameInContextKey), s)
 		return ctx
 	}
 	return context.WithValue(ctx, nameInContextKey, s)
@@ -185,9 +199,9 @@ func NameFrom(ctx context.Context) (s string) {
 }
 
 func SpanContextFrom(ctx context.Context) SpanContext {
-	_, span := SpanFrom(ctx)
+	span, _ := ctx.Value(spanInContextKey).(*spanImpl)
 	if span != nil {
-		return span.SpanContext()
+		return span
 	}
 	return nil
 }
@@ -195,7 +209,7 @@ func SpanContextFrom(ctx context.Context) SpanContext {
 func SpanFrom(ctx context.Context, cotr ...func() (canCreateNew bool, opts []SpanOption)) (context.Context, Span) {
 	span, _ := ctx.Value(spanInContextKey).(*spanImpl)
 	if span != nil {
-		return ctx, &spanRef{span}
+		return ctx, span // &spanRef{span}
 	}
 
 	var fn func() (bool, []SpanOption)
@@ -212,16 +226,16 @@ func SpanFrom(ctx context.Context, cotr ...func() (canCreateNew bool, opts []Spa
 	return Start(ctx, opts...)
 }
 
-type spanRef struct {
-	*spanImpl
-}
+// type spanRef struct {
+// 	*spanImpl
+// }
 
-func (r *spanRef) End(options ...EndSpanOption) {
-	r.endCalls = append(r.endCalls, func(Span) {
-		for _, opt := range options {
-			if opt != nil {
-				opt.applyEndSpanOption(r.spanImpl)
-			}
-		}
-	})
-}
+// func (r *spanRef) End(options ...EndSpanOption) {
+// 	r.endCalls = append(r.endCalls, func(Span) {
+// 		for _, opt := range options {
+// 			if opt != nil {
+// 				opt.applyEndSpanOption(r.spanImpl)
+// 			}
+// 		}
+// 	})
+// }

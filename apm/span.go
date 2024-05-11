@@ -2,6 +2,7 @@ package apm
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"time"
 
@@ -9,11 +10,13 @@ import (
 	"github.com/junhwong/goost/apm/field/loglevel"
 )
 
+// 用于构造一个新的 Span
 type SpanFactory interface {
 	NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span)
 }
 
 type Span interface {
+	context.Context
 	Logger
 	End(options ...EndSpanOption)                  // 结束该Span。
 	FailIf(err error, description ...string) error // 如果`err`不为`nil`, 则标记失败并返回err。
@@ -24,11 +27,12 @@ type Span interface {
 	Duration() time.Duration                       // 返回执行时间. 注意: 只有在 End 后才能最后决定.
 }
 
+// 与 Span 关联的上下文
 type SpanContext interface {
-	IsFirst() bool
-	GetTranceID() string
-	GetSpanID() string
-	GetSpanParentID() string
+	IsFirst() bool           // 是否是第一个 Span
+	GetTranceID() string     // 获取当前 TranceID
+	GetSpanID() string       // 获取当前 SpanID
+	GetSpanParentID() string // 获取当前 SpanParentID
 }
 
 type SpanStatus string
@@ -45,6 +49,7 @@ var (
 )
 
 type spanImpl struct {
+	context.Context
 	*FieldsEntry
 	failed       bool
 	failedDesc   string
@@ -56,6 +61,8 @@ type spanImpl struct {
 	first        bool
 	getName      func() string
 	endCalls     []func(Span)
+	cancel       context.CancelFunc
+	warnnings    []error
 }
 
 func (e *FieldsEntry) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
@@ -89,42 +96,71 @@ func (e *FieldsEntry) NewSpan(ctx context.Context, options ...SpanOption) (conte
 	} else {
 		span.first = true
 		span.TranceID = NewHexID().String()
+		span.SpanParentID = make(HexID, 16).Low().String()
 	}
 
-	// 适配 gin.Context 这类可变 Context
+	// if setter, ok := ctx.(interface {
+	// 	Set(key string, value interface{})
+	// }); ok {
+	// 	setter.Set(string(spanInContextKey), span)
+	// } else {
+	// 	ctx = context.WithValue(ctx, spanInContextKey, span)
+	// }
+
+	span.Context, span.cancel = context.WithCancel(ctx)
+
+	// 适配 gin.Context 这类可变 Context, 以贯穿其生命周期
 	if setter, ok := ctx.(interface {
 		Set(key string, value interface{})
 	}); ok {
-		setter.Set(spanInContextKey, span)
-	} else {
-		ctx = context.WithValue(ctx, spanInContextKey, span)
+		setter.Set(string(spanInContextKey), span)
+	} else if setter, ok := ctx.(interface {
+		SetAttribute(key string, value interface{})
+	}); ok {
+		setter.SetAttribute(string(spanInContextKey), span)
 	}
-	span.ctx = ctx
+
+	// 打印跟踪
+	if len(span.warnnings) != 0 {
+		for _, it := range span.warnnings {
+			span.Warn(it)
+		}
+	}
+	span.warnnings = nil
 
 	return ctx, span
 }
 
-func (span *spanImpl) End(options ...EndSpanOption) {
-	if span.FieldsEntry == nil {
-		return
+// 从写 Context.Value 方法
+func (span *spanImpl) Value(key any) any {
+	if reflect.DeepEqual(key, spanInContextKey) {
+		return span
 	}
-	span.mu.Lock()
-	defer span.mu.Unlock()
+	return span.Context.Value(key)
+}
 
+func (span *spanImpl) End(options ...EndSpanOption) {
+	span.mu.Lock()
 	if span.FieldsEntry == nil {
+		span.mu.Unlock()
 		return
 	}
+	defer span.mu.Unlock()
+	defer span.cancel()
+
 	span.duration = time.Since(span.GetTime())
 	for _, fn := range span.endCalls {
 		if fn != nil {
 			fn(span)
 		}
 	}
+
 	for _, option := range options {
 		if option != nil {
 			option.applyEndSpanOption(span)
 		}
 	}
+
 	name := span.name
 	if span.getName != nil {
 		name = span.getName()

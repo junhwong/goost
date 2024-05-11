@@ -125,9 +125,7 @@ func Any(name string, v any, allows ...Type) *Field {
 		if len(fs) == 0 {
 			return f
 		}
-		if err := f.SetArray(fs, same); err != nil {
-			fmt.Printf("err: %v\n", err)
-		}
+		f.SetArray(fs, same)
 		return f
 	case reflect.Map:
 		fs := []*Field{}
@@ -149,9 +147,7 @@ func Any(name string, v any, allows ...Type) *Field {
 		if len(fs) == 0 {
 			return f
 		}
-		if err := f.SetGroup(fs, false); err != nil {
-			fmt.Printf("err: %v\n", err)
-		}
+		f.SetGroup(fs, false)
 		return f
 	case reflect.Struct:
 		panic("todo")

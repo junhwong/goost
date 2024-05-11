@@ -72,6 +72,7 @@ segment:
   | index                       { $$ = $1 }
   | selector                    { $$ = $1}
   | segment index               { $$ = &BinaryExpr{Left:$1, Right: $2, Op: OPEN_BRACKET} }
+  | segment selector            { $$ = &BinaryExpr{Left:$1, Right: $2, Op: OPEN_BRACKET} }
   | segment DOT segment         { $$ = &BinaryExpr{Left:$1, Right: $3, Op: DOT} }
   ;
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"slices"
 	"strconv"
@@ -12,13 +11,17 @@ import (
 )
 
 type Marshaler struct {
-	err error
-	w   io.Writer
-	n   int64
+	err  error
+	w    io.Writer
+	n    int64
+	buf  *bytes.Buffer
+	enc  *json.Encoder
+	benc io.WriteCloser
 
-	OmitEmpty  bool
+	OmitEmpty  bool // todo 实现
 	NameFilter func(string) string
 	NameLess   func(a, b *Field) int
+	EscapeHTML bool
 }
 
 func (m *Marshaler) Marshal(f *Field, w io.Writer) (int64, error) {
@@ -75,7 +78,6 @@ func (m *Marshaler) write(f *Field) {
 			if m.NameFilter != nil {
 				name = m.NameFilter(name)
 			}
-			fmt.Printf("nameeeee: %v\n", name)
 			if name == "-" {
 				continue
 			}
@@ -133,15 +135,33 @@ func (m *Marshaler) write(f *Field) {
 		m.writeBytes(strconv.AppendBool(nil, v))
 	case StringKind:
 		v := f.GetString()
-		data, err := json.Marshal(v) // 防止转义
-		if err != nil {
+		if v == "" {
+			m.writeBytes([]byte(`""`))
+			return
+		}
+		if m.buf == nil {
+			m.buf = bytes.NewBuffer(nil)
+		}
+		if m.enc == nil {
+			m.enc = json.NewEncoder(m.buf)
+		}
+
+		m.enc.SetEscapeHTML(m.EscapeHTML)
+		m.buf.Reset()
+
+		if err := m.enc.Encode(v); err != nil {
 			m.err = err
 			return
 		}
+
+		var data []byte
+		data = m.buf.Bytes()
+		n := len(data) - 1
+		if data[n] == '\n' { // json.NewEncoder 会增加一个换行
+			data = data[:n]
+		}
 		m.writeBytes(data)
-		// m.writeBytes([]byte(`"`))
-		// m.writeBytes([]byte(v))
-		// m.writeBytes([]byte(`"`))
+
 	case TimeKind:
 		v := f.GetTime()
 		m.writeBytes([]byte(`"`))
@@ -160,9 +180,15 @@ func (m *Marshaler) write(f *Field) {
 	case BytesKind:
 		v := f.GetBytes()
 		m.writeBytes([]byte(`"base64:`))
-		e := base64.NewEncoder(base64.StdEncoding, m.w)
-		_, m.err = e.Write(v)
-		e.Close()
+		if m.buf == nil {
+			m.buf = bytes.NewBuffer(nil)
+		}
+		if m.benc == nil {
+			m.benc = base64.NewEncoder(base64.StdEncoding, m.buf)
+		}
+		m.buf.Reset()
+		_, m.err = m.benc.Write(v)
+		m.writeBytes(m.buf.Bytes())
 		m.writeBytes([]byte(`"`))
 	default:
 		panic("todo:" + f.Type.String())

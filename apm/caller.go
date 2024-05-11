@@ -74,7 +74,7 @@ func WithCaller(ctx context.Context, depth ...int) context.Context {
 	if setter, ok := ctx.(interface {
 		Set(key string, value interface{})
 	}); ok {
-		setter.Set(callerContextKey, &info)
+		setter.Set(string(callerContextKey), &info)
 	} else {
 		ctx = context.WithValue(ctx, callerContextKey, &info)
 	}

@@ -14,8 +14,11 @@ import (
 	"github.com/junhwong/goost/apm/field"
 )
 
+var ZeroHexID = make(HexID, 16)
+
 // 符合 W3C 规范的 TraceID 或 SpanID.
-// https://www.w3.org/TR/trace-context/#trace-id
+//
+// see: https://www.w3.org/TR/trace-context/#trace-id
 type HexID []byte
 
 func (id HexID) Bytes() []byte { return id }
@@ -36,6 +39,17 @@ func (id HexID) String() string {
 		return "<invalid>"
 	}
 	return fmt.Sprintf("%x", id.Bytes())
+}
+func (id HexID) Equal(b HexID) bool {
+	if len(id) != len(b) {
+		return false
+	}
+	for i := range b {
+		if b[i] != id[i] {
+			return false
+		}
+	}
+	return true
 }
 
 var seededIDGen = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -68,12 +82,19 @@ func ParseHexID(h string) (HexID, error) {
 	}
 	switch len(decoded) {
 	case 16:
+		return ZeroHexID, nil
 	case 8:
 		decoded = append(make([]byte, 8), decoded...)
 	default:
 		return nil, errInvalidHexID
 	}
-	return decoded, nil
+	for i := range decoded {
+		if decoded[i] != ZeroHexID[i] {
+			return decoded, nil
+		}
+	}
+
+	return ZeroHexID, nil
 }
 
 // Deprecated: Drivers
@@ -108,9 +129,13 @@ func GetTraceID(ctx context.Context) (traceID, spanID string) {
 // 示例: `00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01`.
 //
 // see: https://www.w3.org/TR/trace-context/#traceparent-header
-func ParseW3Traceparent(traceparent string) (version byte, traceID, parentSpanID HexID, flags byte, err error) {
+func ParseW3Traceparent(traceparent string) (version byte, traceID, parentSpanID string, flags byte, err error) {
+	if traceparent == "" {
+		return
+	}
 	arr := strings.Split(traceparent, "-")
 	if len(arr) != 4 {
+		err = fmt.Errorf("invalid format")
 		return
 	}
 	decoded, ex := hex.DecodeString(arr[0])
@@ -126,15 +151,18 @@ func ParseW3Traceparent(traceparent string) (version byte, traceID, parentSpanID
 	}
 	flags = decoded[0]
 
-	traceID, err = ParseHexID(arr[1])
-	if err != nil {
-		return
-	}
+	traceID = arr[1]
+	parentSpanID = arr[2]
 
-	parentSpanID, err = ParseHexID(arr[2])
-	if err != nil {
-		return
-	}
+	// traceID, err = ParseHexID(arr[1])
+	// if err != nil {
+	// 	return
+	// }
+
+	// parentSpanID, err = ParseHexID(arr[2])
+	// if err != nil {
+	// 	return
+	// }
 
 	return
 }

@@ -39,6 +39,7 @@ func (f *Field) SetKind(t Type, isColumn, isTable bool) *Field {
 	return f
 }
 
+// 设置简单类型
 func (f *Field) setPK(t Type) {
 	f.SetKind(t, false, false)
 }
@@ -53,17 +54,17 @@ func (f *Field) SetNull(b bool) *Field {
 	return f
 }
 
-// 是否是集合
+// 是否是集合(array或group)
 func (f *Field) IsCollection() bool {
-	return f.Type == GroupKind || f.Type == ArrayKind || f.IsColumn() || f.IsTable()
+	return f.IsArray() || f.IsGroup()
 }
 
-// 是否是数组
+// 是否是数组(array或column)
 func (f *Field) IsArray() bool {
 	return f.Type == ArrayKind || f.IsColumn()
 }
 
-// 是否是列或统一类型的数组.
+// 是否是列(统一类型的数组).
 func (f *Field) IsColumn() bool {
 	return (f.GetFlags() & ColumnFlag) == ColumnFlag
 }
@@ -115,6 +116,13 @@ func (f *Field) SetBool(v bool) *Field {
 	}
 	f.IntValue = &b
 	return f
+}
+
+func (f *Field) GetBool() bool {
+	if !f.isKind(BoolKind) {
+		return false
+	}
+	return f.GetIntValue() != 0
 }
 
 func (f *Field) SetInt(v int64) *Field {
@@ -188,6 +196,13 @@ func (f *Field) SetDuration(v time.Duration) *Field {
 	return f
 }
 
+func (f *Field) GetDuration() time.Duration {
+	if !f.isKind(DurationKind) {
+		return 0
+	}
+	return time.Duration(f.GetIntValue())
+}
+
 func (f *Field) SetIP(v net.IP) *Field {
 	f.resetValue()
 	f.setPK(IPKind)
@@ -226,20 +241,6 @@ func (f *Field) GetLevel() loglevel.Level {
 	return loglevel.FromInt(int(f.GetUintValue()))
 }
 
-func (f *Field) GetDuration() time.Duration {
-	if !f.isKind(DurationKind) {
-		return 0
-	}
-	return time.Duration(f.GetIntValue())
-}
-
-func (f *Field) GetBool() bool {
-	if !f.isKind(BoolKind) {
-		return false
-	}
-	return f.GetIntValue() != 0
-}
-
 func (f *Field) SetBytes(v []byte) *Field {
 	f.resetValue()
 	f.setPK(BytesKind)
@@ -251,13 +252,6 @@ func (f *Field) SetBytes(v []byte) *Field {
 	return f
 }
 
-func (f *Field) isKind(t Type) bool {
-	if f == nil {
-		return false
-	}
-	return f.Type == t
-}
-
 func (f *Field) GetBytes() []byte {
 	if !f.isKind(BytesKind) {
 		return nil
@@ -265,25 +259,31 @@ func (f *Field) GetBytes() []byte {
 	return f.GetBytesValue()
 }
 
+func (f *Field) isKind(t Type) bool {
+	if f == nil {
+		return false
+	}
+	return f.Type == t
+}
+
 func (f *Field) GetItem(k string) *Field {
-	if f.Type != GroupKind {
+	if !f.IsGroup() {
 		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.Type))
 	}
 	return GetLast(f.Items, k)
 }
 
 func (f *Field) RemoveItem(k string) (dst *Field) {
-	for {
-		found := f.GetItem(k)
-		if found == nil {
-			break
-		}
-		dst = found.Remove()
+	if !f.IsGroup() {
+		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.Type))
+	}
+	for _, it := range Get(f.Items, k) {
+		dst = it.Remove()
 	}
 	return
 }
 
-func (f *Field) SetArray(v []*Field, isColumn ...bool) error {
+func (f *Field) SetArray(v []*Field, isColumn ...bool) {
 	f.resetValue()
 	b := false
 	if len(isColumn) > 0 {
@@ -292,61 +292,66 @@ func (f *Field) SetArray(v []*Field, isColumn ...bool) error {
 	f.SetKind(ArrayKind, b, false)
 	f.SetNull(v == nil)
 	if f.IsNull() {
-		return nil
+		return
 	}
 	if b {
 		f.Type = v[0].Type
 	}
 
-	for _, v2 := range v {
-		if err := f.Append(v2); err != nil {
-			return err
-		}
+	for _, it := range v {
+		f.Append(it)
 	}
 
-	return nil
 }
 
-func (f *Field) SetGroup(v []*Field, isTable ...bool) error {
+// 将元素添加到数组末尾
+func (f *Field) Append(n *Field) {
+	if !f.IsArray() {
+		panic(fmt.Errorf("元素的类型不是数组: %v", f.Type))
+	}
+
+	if !f.IsNull() && !(!f.IsColumn() || n.isKind(f.Type)) {
+		panic(fmt.Errorf("元素的类型是列,但与列的类型不匹配: %v,%v,%v", f.Type, n.Type, f.IsColumn()))
+	}
+	if f.IsNull() { // 补齐类型
+		f.Type = n.Type
+	}
+	f.SetNull(false)
+	n.Parent = f
+	n.Index = len(f.Items)
+	f.ItemsSchema = append(f.ItemsSchema, n.Schema)
+	f.ItemsValue = append(f.ItemsValue, n.Value)
+	f.Items = append(f.Items, n)
+}
+
+func (f *Field) SetGroup(v []*Field, isTable ...bool) {
 	b := false
 	if len(isTable) > 0 {
 		b = isTable[len(isTable)-1]
 	}
-
-	// old := f.Items
-
 	f.resetValue()
 	f.SetKind(GroupKind, false, b)
 	f.SetNull(v == nil)
 	if f.IsNull() {
-		return nil
+		return
 	}
-
-	// for _, it := range old {
-	// 	f.Set(it)
-	// }
 
 	for _, it := range v {
 		f.Set(it)
 	}
 
-	return nil
 }
 
 func (f *Field) Set(n *Field) {
 	if n == nil {
-		return
+		panic(fmt.Errorf("n connat be nil"))
 	}
 	if n.Name == "" { // todo 验证名称
 		panic(fmt.Errorf("元素必须包含名称"))
 	}
-	if f.Type != GroupKind {
+	if !f.IsGroup() {
 		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.Type))
 	}
-	// todo ?
-	// if f.IsTable() && !n.IsColumn() {
-	// 	panic(fmt.Errorf("表格元素必须是Serial类型"))
-	// }
 	f.SetNull(false)
 	n.Parent = f
 	for i, s := range f.ItemsSchema {
@@ -364,58 +369,36 @@ func (f *Field) Set(n *Field) {
 	f.Items = append(f.Items, n)
 }
 
-func (f *Field) Append(n *Field) error {
-	if !f.IsArray() {
-		panic(fmt.Errorf("元素的类型不是数组: %v", f.Type))
-	}
-
-	if !f.IsNull() && !(f.IsColumn() && n.isKind(f.Type)) {
-		panic(fmt.Errorf("元素的类型是列,但与列的类型不匹配: %v,%v,%v", f.Type, n.Type, f.IsColumn()))
-	}
-	if f.IsNull() { // 补齐类型
-		f.Type = n.Type
-	}
-	f.SetNull(false)
-	n.Parent = f
-	n.Index = len(f.Items)
-	f.ItemsSchema = append(f.ItemsSchema, n.Schema)
-	f.ItemsValue = append(f.ItemsValue, n.Value)
-	f.Items = append(f.Items, n)
-	return nil
-}
-
 // 从树中移除自身
 func (f *Field) Remove() *Field {
 	if f == nil || f.Parent == nil {
 		return f
 	}
 	self := f
-	index := self.Index
-	f = self.Parent
+	index, f := self.Index, self.Parent
 	self.Parent = nil
 	self.Index = -1
 
-	if !(f.Type == GroupKind || f.IsCollection()) {
+	if !f.IsCollection() {
 		return self
 	}
 
-	if f.Type == GroupKind {
-		is, _, ok := RemoveAt(index, f.ItemsSchema)
-		if ok {
-			f.ItemsSchema = is
-		}
+	iss, _, ok := RemoveAt(index, f.ItemsSchema)
+	if ok {
+		f.ItemsSchema = iss
 	}
 
-	itvs, _, ok := RemoveAt(index, f.ItemsValue)
+	ivs, _, ok := RemoveAt(index, f.ItemsValue)
 	if ok {
-		f.ItemsValue = itvs
+		f.ItemsValue = ivs
 	}
 
-	its, _, ok := RemoveAt(index, f.Items)
+	is, _, ok := RemoveAt(index, f.Items)
 	if ok {
-		f.Items = its
+		f.Items = is
 	}
-	for i, v := range f.Items {
+
+	for i, v := range f.Items { // 重新设置索引
 		v.Index = i
 	}
 
