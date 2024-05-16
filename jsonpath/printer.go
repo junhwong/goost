@@ -65,7 +65,7 @@ func (v *printer) VisitIndexExpr(e IndexExpr) {
 	v.Write([]byte{']'})
 }
 func (v *printer) VisitEmptyGroup(e *EmptyGroup) {
-	v.Visit(e.Owner)
+	// v.Visit(e.Owner)
 	v.Write([]byte{'['})
 	v.Write([]byte{']'})
 }

@@ -26,7 +26,7 @@ func TestParse(t *testing.T) {
 			err:  true,
 		},
 		{
-			desc: "foo[]",
+			desc: "$.foo[]",
 		},
 		{
 			desc: "foo[].bar",
@@ -37,109 +37,105 @@ func TestParse(t *testing.T) {
 			err:  true,
 		},
 		{
-			desc: "foo[6]",
+			desc: "$.foo[6]",
 		},
 		{
-			desc: "foo[-1]",
+			desc: "$.foo[-1]",
 		},
 		{
-			desc: "[1:20]",
+			desc: "$.[1:20]",
 		},
 		{
-			desc: "[5]",
+			desc: "$.[5]",
 		},
 		{
-			desc: "[:]",
+			desc: "$.[:]",
 		},
 		{
-			desc: "[:].*",
+			desc: "$.[:].*",
 		},
 		{
-			desc: "[:].foo",
+			desc: "$.[:].foo",
 		},
 		{
-			desc: "foo[:]",
+			desc: "$.foo[:]",
 		},
 		{
-			desc: "foo[:]bar",
+			desc: "$.foo[:]bar",
 			err:  true,
 		},
 		{
-			desc: "foo[:][]",
+			desc: "$.foo[:][]",
 		},
 		{
-			desc: "foo[:][:][:]",
+			desc: "$.foo[:][:][:]",
 		},
 		{
-			desc: "[::]",
+			desc: "$.[::]",
 			err:  true,
 		},
 		{
-			desc: "[:2]",
+			desc: "$.[:2]",
 		},
 		{
-			desc: "[1:]",
+			desc: "$.[1:]",
 		},
 		{
-			desc: "[0:2]",
-			ex:   "[:2]",
+			desc: "$.[0:2]",
+			ex:   "$.[:2]",
 		},
 		{
-			desc: "[1:-1]",
-			ex:   "[1:]",
+			desc: "$.[1:-1]",
+			ex:   "$.[1:]",
 		},
 		// {
 		// 	desc: "[1:2:3]",
 		// },
 		{
-			desc: "foo[bar]",
-		},
-		// {
-		// 	desc: "foo.[bar]",
-		// },
-		{
-			desc: "foo.[]",
+			desc: "$.foo[bar]",
 			err:  true,
 		},
 		{
-			desc: "中文",
+			desc: "$.foo.[]",
 		},
 		{
-			desc: "foo",
+			desc: "$.中文",
 		},
 		{
-			desc: "foo.bar",
+			desc: "$.foo",
 		},
 		{
-			desc: "foo..bar",
+			desc: "$.foo.bar",
 		},
 		{
-			desc: "foo.*",
+			desc: "$.foo..bar",
 		},
 		{
-			desc: "foo.*.x",
+			desc: "$.foo.*",
+		},
+		{
+			desc: "$.foo.*.x",
+		},
+		{
+			desc: `$."foo"`,
+		},
+		{
+			desc: `$."foo".bar`,
+		},
+		{
+			desc: `$.foo"bar"`,
 			err:  true,
 		},
 		{
-			desc: `"foo"`,
-		},
-		{
-			desc: `"foo".bar`,
-		},
-		{
-			desc: `foo"bar"`,
+			desc: `$."foo"bar`,
 			err:  true,
 		},
 		{
-			desc: `"foo"bar`,
+			desc: `$.[?()]`,
 			err:  true,
 		},
 		{
-			desc: `[?()]`,
-			err:  true,
-		},
-		{
-			desc: `[?(foo<5)]`,
+			desc: `$.[?(@.foo<5)]`,
 		},
 	}
 	for _, tC := range testCases {

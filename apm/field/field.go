@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/junhwong/goost/apm/field/loglevel"
-	"github.com/spf13/cast"
 )
 
 type Field struct {
@@ -283,7 +282,7 @@ func (f *Field) RemoveItem(k string) (dst *Field) {
 	return
 }
 
-func (f *Field) SetArray(v []*Field, isColumn ...bool) {
+func (f *Field) SetArray(v []*Field, isColumn ...bool) *Field {
 	f.resetValue()
 	b := false
 	if len(isColumn) > 0 {
@@ -292,7 +291,7 @@ func (f *Field) SetArray(v []*Field, isColumn ...bool) {
 	f.SetKind(ArrayKind, b, false)
 	f.SetNull(v == nil)
 	if f.IsNull() {
-		return
+		return f
 	}
 	if b {
 		f.Type = v[0].Type
@@ -301,7 +300,7 @@ func (f *Field) SetArray(v []*Field, isColumn ...bool) {
 	for _, it := range v {
 		f.Append(it)
 	}
-
+	return f
 }
 
 // 将元素添加到数组末尾
@@ -331,7 +330,7 @@ func (f *Field) SetGroup(v []*Field, isTable ...bool) {
 	}
 	f.resetValue()
 	f.SetKind(GroupKind, false, b)
-	f.SetNull(v == nil)
+	f.SetNull(v == nil) //len(v) == 0
 	if f.IsNull() {
 		return
 	}
@@ -346,15 +345,12 @@ func (f *Field) Set(n *Field) {
 	if n == nil {
 		panic(fmt.Errorf("n connat be nil"))
 	}
-	if n.Name == "" { // todo 验证名称
-		panic(fmt.Errorf("元素必须包含名称"))
-	}
 	if !f.IsGroup() {
 		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.Type))
 	}
 	f.SetNull(false)
 	n.Parent = f
-	for i, s := range f.ItemsSchema {
+	for i, s := range f.Items {
 		if s.Name == n.Name {
 			n.Index = i
 			f.ItemsSchema[i] = n.Schema
@@ -508,165 +504,6 @@ func GetPrimitiveValue(f *Field) any {
 	}
 }
 
-// 从值倒推类型(只能是基本类型)
-func InvertType(f *Field) *Field {
-	switch f.Type {
-	case IntKind:
-		if f.IntValue == nil {
-			f.Type = InvalidKind
-		}
-	case UintKind:
-		if f.UintValue == nil {
-			f.Type = InvalidKind
-		}
-	case FloatKind:
-		if f.FloatValue == nil {
-			f.Type = InvalidKind
-		}
-	case StringKind:
-		if f.StringValue == nil {
-			f.Type = InvalidKind
-		}
-	case BoolKind:
-		if f.IntValue == nil {
-			f.Type = InvalidKind
-		}
-	case BytesKind:
-		if f.BytesValue == nil {
-			f.Type = InvalidKind
-		}
-	case TimeKind:
-		if f.UintValue == nil {
-			f.Type = InvalidKind
-		}
-	case DurationKind:
-		if f.IntValue == nil {
-			f.Type = InvalidKind
-		}
-	default:
-		f.Type = InvalidKind
-	}
-	if f.Type != InvalidKind {
-		return f
-	}
-	switch {
-	case f.BytesValue != nil:
-		f.Type = BytesKind
-	case f.FloatValue != nil:
-		f.Type = FloatKind
-	case f.IntValue != nil:
-		f.Type = IntKind
-	case f.UintValue != nil:
-		f.Type = UintKind
-	case f.StringValue != nil:
-		f.Type = StringKind
-	}
-	return f
-}
-
-// 转换类型. 转换失败将不会改变
-func As(f *Field, t Type, layouts []string, loc *time.Location) error {
-	if f.Parent != nil && f.IsColumn() && f.Parent.Type != t {
-		return fmt.Errorf("必须与父级类型一致")
-	}
-	if f.IsColumn() {
-		f.Type = t
-		for _, it := range f.Items {
-			if err := As(it, t, layouts, loc); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if f.Type == t {
-		if t == TimeKind && loc != nil {
-			f.SetTime(f.GetTime().In(loc))
-		}
-		return nil
-	}
-	switch t {
-	case IntKind:
-		obj := GetPrimitiveValue(f)
-		v, err := cast.ToInt64E(obj)
-		if err != nil {
-			return err
-		}
-		f.SetInt(v)
-		return nil
-	case UintKind:
-		obj := GetPrimitiveValue(f)
-		v, err := cast.ToUint64E(obj)
-		if err != nil {
-			return err
-		}
-		f.SetUint(v)
-		return nil
-	case FloatKind:
-		obj := GetPrimitiveValue(f)
-		v, err := cast.ToFloat64E(obj)
-		if err != nil {
-			return err
-		}
-		f.SetFloat(v)
-		return nil
-	case StringKind:
-		switch f.Type {
-		case StringKind:
-		default:
-			obj := GetPrimitiveValue(f)
-			v, err := cast.ToStringE(obj)
-			if err != nil {
-				return err
-			}
-			f.SetString(v)
-		}
-		return nil
-	case BoolKind:
-		obj := GetPrimitiveValue(f)
-		v, err := cast.ToBoolE(obj)
-		if err != nil {
-			return err
-		}
-		f.SetBool(v)
-		return nil
-	case BytesKind:
-		switch f.Type {
-		case StringKind:
-			f.SetBytes([]byte(f.GetStringValue()))
-			return nil
-		case BytesKind:
-			return nil
-		default:
-			panic("todo convert")
-		}
-
-	case TimeKind:
-		switch f.GetType() {
-		case IntKind:
-			panic("todo convert")
-		case UintKind:
-			panic("todo convert")
-		case FloatKind:
-			panic("todo convert")
-		case StringKind: // 字符串转日期
-			v, err := ParseTime(f.GetString(), layouts, loc)
-			if err == nil {
-				f.SetTime(v)
-			} else {
-				f.SetNull(true)
-				fmt.Printf("field:转换为时间戳失败: %v\n", err)
-			}
-			return err
-		default:
-			panic("todo convert")
-		}
-	case DurationKind:
-		panic("todo convert1")
-	}
-
-	panic(fmt.Sprintf("todo convert %v->%v", f.GetType(), t))
-}
-
 // 克隆对象
 func Clone(f *Field) *Field {
 	if f == nil {
@@ -718,11 +555,14 @@ func CloneInto(src, dst *Field) *Field {
 	if len(src.Items) == 0 {
 		return dst
 	}
-	dst.Items = make([]*Field, 0, len(src.Items))
-	dst.ItemsSchema = make([]*Schema, 0, len(src.ItemsSchema))
-	dst.ItemsValue = make([]*Value, 0, len(src.ItemsValue))
+	items := make([]*Field, len(src.Items))
+	copy(items, src.Items)
 
-	for i, f2 := range src.Items {
+	dst.Items = make([]*Field, 0, len(items))
+	dst.ItemsSchema = make([]*Schema, 0, len(items))
+	dst.ItemsValue = make([]*Value, 0, len(items))
+
+	for i, f2 := range items {
 		f2 := Clone(f2)
 		f2.Index = i
 		f2.Parent = dst
@@ -735,33 +575,5 @@ func CloneInto(src, dst *Field) *Field {
 }
 
 func (f *Field) GoString() string {
-	var v string
-
-	switch f.GetType() {
-	case GroupKind:
-		v = "{\n"
-		for i, f2 := range f.Items {
-			if i != 0 {
-				v += ",\n\n"
-			}
-			v += fmt.Sprintf("\t%#v", f2)
-		}
-		v += "\n}"
-	case BytesKind:
-		v = "<bytes>"
-	default:
-		if f.IsCollection() {
-			v = "[\n"
-			for i, f2 := range f.Items {
-				if i != 0 {
-					v += ",\n\n"
-				}
-				v += fmt.Sprintf("\t%#v", f2)
-			}
-			v += "\n]"
-			break
-		}
-		v = fmt.Sprintf("%v", GetValue(f))
-	}
-	return fmt.Sprintf("Field(Name:%v type: %v value: %v)", f.Name, f.Type, v)
+	return toString(f, 0)
 }

@@ -29,22 +29,48 @@ func (v *explorer) VisitBinaryExpr(e *jsonpath.BinaryExpr) {
 		}
 		v.parent = currentCopy
 
-		var r []*Field
+		var tmp []*Field
 		for _, f := range currentCopy {
 			v.current = f.Items
 			v.Visit(e.Right)
 			if v.Error() != nil {
 				return
 			}
-			r = append(r, v.current...)
+			tmp = append(tmp, v.current...)
 		}
-		v.current = r
+		v.current = tmp
 	case jsonpath.DOTDOT:
-		panic("todo")
+		if !v.readonly {
+			v.SetError(fmt.Errorf("..操作符不能写入"))
+		}
+
+		var tmp []*Field
+		for _, it := range v.current {
+			vsub := &explorer{readonly: true, root: v.root, current: readItems(it)}
+			vsub.Visit = func(e jsonpath.Expr) {
+				jsonpath.Visit(e, vsub, vsub.SetError)
+			}
+			vsub.Visit(e.Right)
+			if err := vsub.Error(); err != nil {
+				v.SetError(err)
+				return
+			}
+			tmp = append(tmp, vsub.current...)
+		}
+		v.current = tmp
+		return
 	default:
 		v.Err = fmt.Errorf("未定义的操作符:%q", jsonpath.GetOp(e.Op))
 	}
 
+}
+
+func readItems(f *Field) (r []*Field) {
+	r = append(r, f)
+	for _, it := range f.Items {
+		r = append(r, readItems(it)...)
+	}
+	return
 }
 
 func (v *explorer) VisitSymbol(e jsonpath.Symbol) {
@@ -62,7 +88,11 @@ func (v *explorer) VisitMemberExpr(e jsonpath.MemberExpr) {
 	k := string(e)
 	var tmp []*Field
 	for _, f := range v.current {
-		if f.Name == k { // todo 判断当前是否是素组元素
+		// if f.Parent != nil && !f.Parent.IsGroup() {
+		// 	v.SetError(fmt.Errorf("member访问必须是group"))
+		// 	return
+		// }
+		if f.Name == k {
 			tmp = append(tmp, f)
 		}
 	}
@@ -73,10 +103,12 @@ func (v *explorer) VisitMemberExpr(e jsonpath.MemberExpr) {
 			return
 		}
 
-		p := v.parent // todo
+		p := v.parent
 		if len(p) == 0 {
-			p = v.parent
+			v.SetError(fmt.Errorf("member创建成员必须有parent"))
+			return
 		}
+
 		for _, f := range p {
 			if f.Type == InvalidKind { // 新创建
 				f.SetKind(GroupKind, false, false)
@@ -99,13 +131,22 @@ func (v *explorer) VisitStringExpr(e jsonpath.StringExpr) {
 	v.Visit(jsonpath.MemberExpr(k))
 }
 
+// 改变类型为数组
+func (v *explorer) changeToArray(it *Field) bool {
+	if it.IsArray() {
+		return true
+	}
+	if v.readonly {
+		return false
+	}
+
+	it.SetArray(nil) // todo 强制设置为数组,搞个开关
+	return true
+}
 func (v *explorer) VisitIndexExpr(e jsonpath.IndexExpr) {
 	var tmp []*Field
 	for _, it := range v.current {
-		if !v.readonly && it.Type == InvalidKind {
-			it.SetKind(ArrayKind, false, false)
-		}
-		if !it.IsArray() {
+		if !v.changeToArray(it) {
 			continue
 		}
 		i := int(e)
@@ -116,52 +157,45 @@ func (v *explorer) VisitIndexExpr(e jsonpath.IndexExpr) {
 			tmp = append(tmp, it.Items[i])
 			continue
 		}
-		if i != len(it.Items) || v.readonly {
-			continue
-		}
-		f := New("")
-		it.Append(f)
-		// if err := it.Append(f); err != nil {
-		// 	v.SetError(err)
-		// 	return
+		// todo 超出索引是否创建
+		// if i != len(it.Items) || v.readonly {
+		// 	continue
 		// }
+
 	}
 
 	v.current = tmp
 }
 
 func (v *explorer) VisitEmptyGroup(e *jsonpath.EmptyGroup) {
+	// if e.Owner != nil {
+	// 	v.Visit(e.Owner)
+	// 	if v.Error() != nil {
+	// 		return
+	// 	}
+	// }
+
 	if v.readonly {
-		v.current = nil
+		v.SetError(fmt.Errorf("EmptyArray just working a write mode"))
 		return
 	}
 
-	v.Visit(e.Owner)
-	if v.Error() != nil {
-		return
-	}
 	var tmp []*Field
 	for _, it := range v.current {
-		if it.Type == InvalidKind {
-			it.SetKind(ArrayKind, false, false)
-			tmp = append(tmp, it)
-		} else if it.IsArray() {
-			tmp = append(tmp, it)
-		}
-	}
-	var tmp2 []*Field
-	for _, p := range tmp {
-		if v.Error() != nil {
-			return
+		if !it.IsArray() {
+			it.SetArray(nil) // todo 强制设置为数组,搞个开关
+			// tmp = append(tmp, it)
+			// continue
 		}
 		f := New("")
-		p.Append(f)
-		// if err := p.Append(f); err != nil {
-		// 	v.SetError(err)
-		// }
-		tmp2 = append(tmp2, f)
+		if !it.IsNull() { // 临时处理 hack column类型验证
+			f.Type = it.Items[0].Type
+		}
+		it.Append(f)
+		f.Type = InvalidKind
+		tmp = append(tmp, f)
 	}
-	v.current = tmp2
+	v.current = tmp
 }
 
 func (v *explorer) VisitRangeExpr(e jsonpath.RangeExpr) {

@@ -95,6 +95,22 @@ func Any(name string, v any, allows ...Type) *Field {
 	switch v := v.(type) {
 	case reflect.Value:
 		rv = v
+	case map[string]any:
+		if !allow(iv, GroupKind) {
+			return f
+		}
+
+		fs := []*Field{}
+		for kk, vv := range v {
+
+			it := Any(kk, vv)
+			if it.Type == InvalidKind {
+				continue
+			}
+			fs = append(fs, it)
+		}
+		f.SetGroup(fs, false)
+		return f
 	default:
 		rv = reflect.ValueOf(v)
 	}
@@ -122,12 +138,12 @@ func Any(name string, v any, allows ...Type) *Field {
 			}
 			t = it.Type
 		}
-		if len(fs) == 0 {
-			return f
-		}
 		f.SetArray(fs, same)
 		return f
 	case reflect.Map:
+		if !allow(iv, GroupKind) {
+			return f
+		}
 		fs := []*Field{}
 		iter := rv.MapRange()
 		for iter.Next() {
@@ -138,14 +154,12 @@ func Any(name string, v any, allows ...Type) *Field {
 			if !(kt == StringKind || kt == IntKind) {
 				continue
 			}
+
 			it := Any(cast.ToString(kk), iter.Value().Interface())
 			if it.Type == InvalidKind {
 				continue
 			}
 			fs = append(fs, it)
-		}
-		if len(fs) == 0 {
-			return f
 		}
 		f.SetGroup(fs, false)
 		return f

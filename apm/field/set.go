@@ -13,7 +13,7 @@ func Find(root *Field, nameOrPath string) ([]*Field, error) {
 }
 
 func FindWith(p jsonpath.Expr, root *Field) ([]*Field, error) {
-	v := &explorer{readonly: true, root: root, current: root.Items, parent: []*Field{root}}
+	v := &explorer{readonly: true, root: root, current: []*Field{root}, parent: []*Field{}}
 	v.Visit = func(e jsonpath.Expr) {
 		jsonpath.Visit(e, v, v.SetError)
 	}
@@ -53,7 +53,30 @@ func RidOf(fs []*Field, name string) (nf, r []*Field) {
 }
 
 func Apply(expr jsonpath.Expr, root *Field, apply func(*Field)) error {
-	v := &explorer{root: root, current: root.Items, parent: []*Field{root}}
+	p := []*Field{root}
+	// r := root.Items
+	// if !root.IsCollection() { // todo 确认当前
+	// 	r = p
+	// }
+	v := &explorer{root: root, current: p, parent: nil}
+	v.Visit = func(e jsonpath.Expr) {
+		jsonpath.Visit(e, v, v.SetError)
+	}
+	v.Visit(expr)
+	if err := v.Error(); err != nil {
+		return err
+	}
+	for _, f := range v.current {
+		apply(f)
+	}
+	return nil
+}
+func ApplyWithCurrent(expr jsonpath.Expr, root *Field, current []*Field, apply func(*Field)) error {
+	// r := root.Items
+	// if !root.IsCollection() { // todo 确认当前
+	// 	r = p
+	// }
+	v := &explorer{root: root, current: current, parent: nil}
 	v.Visit = func(e jsonpath.Expr) {
 		jsonpath.Visit(e, v, v.SetError)
 	}
