@@ -170,7 +170,17 @@ func ParseTimeLayouts(a []string) []string {
 	return layouts
 }
 
+var defloc *time.Location
+
+func init() {
+	defloc = time.FixedZone(time.Now().Zone())
+}
+
 func ParseTime(s string, layouts []string, loc *time.Location) (time.Time, error) {
+	if loc == nil {
+		loc = defloc
+	}
+
 	if len(layouts) == 0 {
 		for _, v := range timeLayoutMap {
 			for _, l := range v {
@@ -182,6 +192,7 @@ func ParseTime(s string, layouts []string, loc *time.Location) (time.Time, error
 			}
 		}
 	}
+
 	for _, l := range layouts {
 		v, err := time.ParseInLocation(l, s, loc)
 		if err != nil {
@@ -189,6 +200,7 @@ func ParseTime(s string, layouts []string, loc *time.Location) (time.Time, error
 		}
 		return v, nil
 	}
+
 	// 转换失败
 	return time.Time{}, fmt.Errorf("unable convert to time: %q", s)
 }

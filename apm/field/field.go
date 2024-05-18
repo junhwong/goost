@@ -174,8 +174,16 @@ func (f *Field) SetTime(v time.Time) *Field {
 
 	f.SetNull(v.IsZero())
 
-	i := uint64(v.UnixNano())
-	f.UintValue = &i
+	// 1970
+	// 1678-2262
+	if v.Year() < 1678 { // 处理时间范围
+		v = v.AddDate(1678-v.Year(), 0, 0)
+	}
+	if v.Year() >= 2262 { // 大于范围
+		v = time.Time{}
+	}
+	i := v.UnixNano()
+	f.IntValue = &i
 
 	return f
 }
@@ -183,7 +191,16 @@ func (f *Field) GetTime() time.Time {
 	if !f.isKind(TimeKind) {
 		return time.Time{}
 	}
-	return time.Unix(0, int64(f.GetUintValue()))
+	v := time.Unix(0, f.GetIntValue())
+	if v.Year() <= 1678 { // 处理时间范围
+		v = v.AddDate(-v.Year(), 0, 0)
+	}
+	if v.Year() >= 2262 { // 大于范围
+		return time.Time{}
+	}
+	v = v.In(defloc)
+
+	return v
 }
 
 func (f *Field) SetDuration(v time.Duration) *Field {
