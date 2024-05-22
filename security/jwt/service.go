@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/junhwong/goost/idworker"
+	// "github.com/junhwong/goost/idworker"
 	"github.com/junhwong/goost/security"
 	"github.com/spf13/cast"
 
@@ -181,7 +181,7 @@ func (p *providerImpl) newClaims(timeout time.Duration) *claimsImpl {
 		provider: p,
 		timeout:  timeout,
 	}
-	c.Set("jti", fmt.Sprint(idworker.NextId()))
+	// c.Set("jti", fmt.Sprint(idworker.NextId()))
 	return c
 }
 func (p *providerImpl) NewClaims(timeout time.Duration) ClaimsBuilder {
@@ -189,7 +189,7 @@ func (p *providerImpl) NewClaims(timeout time.Duration) ClaimsBuilder {
 		provider: p,
 		timeout:  timeout,
 	}
-	c.Set("jti", fmt.Sprint(idworker.NextId()))
+	// c.Set("jti", fmt.Sprint(idworker.NextId()))
 	return c
 }
 
