@@ -127,6 +127,14 @@ func TestParse(t *testing.T) {
 			err:  true,
 		},
 		{
+			desc: `$foo`,
+			err:  true,
+		},
+		{
+			desc: `$__foo`,
+			err:  true,
+		},
+		{
 			desc: `$."foo"bar`,
 			err:  true,
 		},
