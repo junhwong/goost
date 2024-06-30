@@ -20,7 +20,7 @@ func init() {
 	initOnce.Do(func() {
 		defaultEntry = &FieldsEntry{calldepth: 1, Field: *field.NewRoot()}
 
-		handler, _ := Console()
+		handler, _ := NewConsole()
 		handler.HandlerPriority -= 999
 		d := &syncDispatcher{}
 		d.AddHandlers(handler)
@@ -87,6 +87,13 @@ func AddHandlers(handlers ...Handler) {
 func RemoveHandlers(handlers ...Handler) {
 	if d := GetDispatcher(); d != nil {
 		d.RemoveHandlers(handlers...)
+	}
+}
+
+func SetHandlers(handlers ...Handler) {
+	if d := GetDispatcher(); d != nil {
+		d.RemoveHandlers(d.GetHandlers()...)
+		d.AddHandlers(handlers...)
 	}
 }
 

@@ -30,7 +30,7 @@ func (x handlerSlice) Less(i, j int) bool { return x[i].Priority() > x[j].Priori
 func (x handlerSlice) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
 func (x handlerSlice) Sort()              { sort.Sort(x) }
 
-func Console() (*SimpleHandler, *TextFormatter) {
+func NewConsole() (*SimpleHandler, *TextFormatter) {
 	text := &TextFormatter{SkipFields: []string{"log.component"}}
 	if a := os.Getenv("GOOST_APM_CONSOLE_COLOR"); a == "1" {
 		text.Color = true

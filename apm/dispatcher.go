@@ -123,11 +123,16 @@ type asyncDispatcher struct {
 }
 
 func (d *asyncDispatcher) Dispatch(e Entry) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
+	if e == nil {
+		return
+	}
+
+	// d.mu.RLock()
+	// defer d.mu.RUnlock()
 
 	d.queue <- e
 }
+
 func (d *asyncDispatcher) doFlush() error {
 
 	for {
