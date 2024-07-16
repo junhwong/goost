@@ -113,7 +113,7 @@ func (v *explorer) VisitMemberExpr(e jsonpath.MemberExpr) {
 			if f.Type == InvalidKind { // 新创建
 				f.SetKind(GroupKind, false, false)
 			}
-			n := New(k)
+			n := Make(k)
 			f.Set(n)
 			tmp = append(tmp, n)
 		}
@@ -187,7 +187,7 @@ func (v *explorer) VisitEmptyGroup(e *jsonpath.EmptyGroup) {
 			// tmp = append(tmp, it)
 			// continue
 		}
-		f := New("")
+		f := Make("")
 		if !it.IsNull() { // 临时处理 hack column类型验证
 			f.Type = it.Items[0].Type
 		}

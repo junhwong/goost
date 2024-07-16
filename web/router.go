@@ -118,7 +118,7 @@ func (r *ginRouter) enterHandler(ctx Context) {
 	// "os.arch":"x86_64","os.platform":"linux","os.release":"ubuntu","os.version":"8.0"
 
 	panic("todo")
-	_, span := apm.Start(apm.WithName(ctx, method+" "+path)) // apm.WithTrimFieldPrefix("__web."),
+	_, span := apm.Start(apm.ContextWithName(ctx, method+" "+path)) // apm.WithTrimFieldPrefix("__web."),
 	// apm.WithFields(
 	// 	clientIP(ctx.ClientIP()),
 	// 	httpMethod(method),

@@ -41,12 +41,12 @@ func Get(fs []*Field, name string) (r []*Field) {
 }
 
 // 剔除与名称相符的项
-func RidOf(fs []*Field, name string) (nf, r []*Field) {
+func RidOf(fs []*Field, name string) (others, taget []*Field) {
 	for _, it := range fs {
 		if it.Name == name {
-			r = append(r, it)
+			taget = append(taget, it)
 		} else {
-			nf = append(nf, it)
+			others = append(others, it)
 		}
 	}
 	return

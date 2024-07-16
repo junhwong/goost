@@ -65,7 +65,7 @@ func (info CallerInfo) Caller() string {
 	return p
 }
 
-func WithCaller(ctx context.Context, depth ...int) context.Context {
+func ContextWithCaller(ctx context.Context, depth ...int) context.Context {
 	d := 2
 	if len(depth) > 0 {
 		d = depth[len(depth)-1]
@@ -80,6 +80,7 @@ func WithCaller(ctx context.Context, depth ...int) context.Context {
 	}
 	return ctx
 }
+
 func CallerFrom(ctx context.Context) *CallerInfo {
 	obj, _ := ctx.Value(callerContextKey).(*CallerInfo)
 	return obj

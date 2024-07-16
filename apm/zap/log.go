@@ -12,11 +12,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func New(adapter apm.Adapter, fs ...*field.Field) *zap.Logger {
+func New(fs ...*field.Field) *zap.Logger {
 	core := &ioCore{
-		log: adapter,
+		// log: adapter,
 		// fields: []zapcore.Field{zap.String(apm.LogAdapterKey.Name(), "zap")},
-		Field: *field.NewRoot(),
+		Field: *field.MakeRoot(),
 	}
 	core.Set(apm.LogAdapter("zap"))
 	for _, v := range fs {
@@ -32,7 +32,7 @@ func New(adapter apm.Adapter, fs ...*field.Field) *zap.Logger {
 
 // Core
 type ioCore struct {
-	log   apm.Adapter
+	// log   apm.Adapter
 	level zapcore.Level
 	field.Field
 }
@@ -40,7 +40,7 @@ type ioCore struct {
 func (c *ioCore) Enabled(l zapcore.Level) bool { return true }
 func (c *ioCore) With(fields []zapcore.Field) zapcore.Core {
 	cc := &ioCore{
-		log:   c.log,
+		// log:   c.log,
 		level: c.level,
 	}
 	cc.Field = *field.Clone(&c.Field)
@@ -60,12 +60,18 @@ func (c *ioCore) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Che
 }
 
 func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	info := &apm.CallerInfo{
-		File:   ent.Caller.File,
-		Line:   ent.Caller.Line,
-		Method: ent.Caller.Function,
-		Ok:     true,
-	}
+	// info := &apm.CallerInfo{
+	// 	File:   ent.Caller.File,
+	// 	Line:   ent.Caller.Line,
+	// 	Method: ent.Caller.Function,
+	// 	Ok:     true,
+	// }
+
+	info := field.Make("source")
+	info.Set(field.Make("file").SetString(ent.Caller.File))
+	info.Set(field.Make("line").SetInt(int64(ent.Caller.Line)))
+	info.Set(field.Make("func").SetString(ent.Caller.Function))
+
 	apmLvl := loglevel.Debug
 	switch ent.Level {
 	case zapcore.InfoLevel:
@@ -82,12 +88,7 @@ func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 		apmLvl = loglevel.Fatal
 	}
 
-	dst := &apm.FieldsEntry{
-		CallerInfo: info,
-		Field:      *field.NewRoot(),
-	}
-	dst.Set(apm.Time(ent.Time))
-	dst.Set(apm.LevelField(apmLvl))
+	dst := field.MakeRoot()
 	for _, v := range c.Items {
 		if v != nil {
 			dst.Set(v)
@@ -98,8 +99,10 @@ func (c *ioCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 			dst.Set(v)
 		}
 	}
-
-	c.log.Dispatch(dst)
+	dst.Set(apm.Time(ent.Time))
+	dst.Set(apm.LevelField(apmLvl))
+	dst.Set(info)
+	apm.Dispatch(dst)
 	// buf, err := c.enc.EncodeEntry(ent, fields)
 
 	return nil

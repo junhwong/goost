@@ -2,93 +2,65 @@ package apm
 
 import (
 	"bytes"
-	"fmt"
+	"strings"
 	"time"
+
+	"github.com/junhwong/goost/apm/field"
 )
 
 var _ Formatter = (*JsonFormatter)(nil)
 
 // JSON 格式
 type JsonFormatter struct {
-	TimeLayout string
-	SkipFields []string
+	field.JsonMarshaler
+
+	TimeName    string
+	LevelName   string
+	MessageName string
+	SkipFields  []string
 }
 
-func (f *JsonFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
-	writeByte := func(c byte) {
-		if err != nil {
-			return
+func NewJsonFormatter() *JsonFormatter {
+	f := &JsonFormatter{
+		JsonMarshaler: field.JsonMarshaler{
+			EscapeHTML: true,
+			OmitEmpty:  true,
+			TimeLayout: time.RFC3339Nano,
+		},
+		LevelName:   "level",
+		MessageName: "msg",
+		TimeName:    "time",
+	}
+
+	f.NameFilter = func(s string) string {
+		switch s {
+		case TimeKey.Name():
+			return f.TimeName
+		case LevelKey.Name():
+			return f.LevelName
+		case MessageKey.Name():
+			return f.MessageName
 		}
-		err = dest.WriteByte(c)
-	}
-	fprintf := func(format string, a ...interface{}) {
-		if err != nil {
-			return
+
+		if strings.HasPrefix(s, "__") {
+			return "-"
 		}
-		_, err = fmt.Fprintf(dest, format, a...)
-	}
-	// skipFields := sets.NewString(TimeKey.Name(), MessageKey.Name(), LevelKey.Name())
-	// for _, v := range f.SkipFields {
-	// 	skipFields.Insert(v)
-	// }
 
-	writeByte('{')
-
-	fprintf(`"level":%q`, entry.GetLevel().String())
-
-	if t := entry.GetTime(); !t.IsZero() {
-		// TODO: 时区
-		layout := f.TimeLayout
-		if layout == "" {
-			layout = time.RFC3339Nano
+		for _, it := range f.SkipFields {
+			if it == s {
+				return "-"
+			}
 		}
-		fprintf(`,"time":%q`, t.Format(layout))
+
+		return s
 	}
 
-	if val := entry.GetMessage(); val != "" {
-		fprintf(`,"message":%q`, val)
-	}
+	return f
+}
 
-	// TODO 折叠map
-	// fs := entry.GetFields()
-	// for _, f := range fs {
-	// 	key, val := f.Unwrap()
-	// 	if key == nil || val == nil {
-	// 		continue
-	// 	}
-	// 	if skipFields.Has(key.Name()) {
-	// 		continue
-	// 	}
-
-	// 	if key == TracebackPathKey || key == TracebackLineNoKey {
-	// 		continue
-	// 	}
-
-	// 	// if key == TracebackCallerKey {
-	// 	// 	val = fmt.Sprintf("%s:%v", val, fs.Get(TracebackLineNoKey, 0))
-	// 	// }
-
-	// 	var data []byte
-
-	// 	if data, err = json.Marshal(val); err != nil {
-	// 		return
-	// 	}
-
-	// 	name := key.Name() // TrimFieldNamePrefix(it.Key.Name())
-
-	// 	if len(name) == 0 {
-	// 		panic(fmt.Sprintln("apm: entry key name is required"))
-	// 	}
-
-	// 	switch name {
-	// 	case "level", "time", "message":
-	// 		name = "data." + name
-	// 	}
-
-	// 	fprintf(`,%q:%s`, name, data)
-	// }
-
-	writeByte('}')
-	writeByte('\n')
+func (f *JsonFormatter) Format(entry *field.Field, dest *bytes.Buffer) (err error) {
+	// m := f.JsonMarshaler // copy
+	f.MarshalGroup(entry.Items, dest)
+	dest.WriteByte('\n')
 	return
 }

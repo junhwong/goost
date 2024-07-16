@@ -3,7 +3,6 @@ package apm
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
@@ -15,7 +14,7 @@ type LoggerInterface interface {
 	Close() error
 	Flush() error
 
-	Log(Entry)
+	Log(*factoryEntry)
 }
 
 // Logger 日志操作接口
@@ -36,7 +35,18 @@ type FormatLogger interface {
 }
 
 // ==================== EntryInterface ====================
-func (l *FieldsEntry) With(options ...WithOption) Interface {
+type WithOption interface {
+	applyWithOption(*factoryEntry)
+}
+
+// 统一接口
+type Interface interface {
+	Logger
+	SpanFactory
+	// With(options ...WithOption) Interface
+}
+
+func (l *factoryEntry) With(options ...WithOption) Interface {
 	if len(options) == 0 {
 		return l
 	}
@@ -49,62 +59,54 @@ func (l *FieldsEntry) With(options ...WithOption) Interface {
 	return cl
 }
 
-func (s *FieldsEntry) SetAttributes(a ...*field.Field) {
+func (s *factoryEntry) SetAttributes(a ...*field.Field) {
 	for _, f := range a {
 		s.Set(f)
 	}
 }
-func (l *FieldsEntry) SetCalldepth(v int) { l.calldepth = v }
-func (l *FieldsEntry) GetCalldepth() int  { return l.calldepth }
-func (l *FieldsEntry) CalldepthInc() Interface {
+func (l *factoryEntry) SetCalldepth(v int) { l.calldepth = v }
+func (l *factoryEntry) GetCalldepth() int  { return l.calldepth }
+func (l *factoryEntry) CalldepthInc() Interface {
 	l.calldepth++
 	return l
 }
-func (l *FieldsEntry) WithFields(fs ...*field.Field) Interface {
+func (l *factoryEntry) WithFields(fs ...*field.Field) Interface {
 	cl := l.new()
 	for _, f := range fs {
 		cl.Set(f)
 	}
 	return cl
 }
-func (l *FieldsEntry) new() *FieldsEntry {
+func (l *factoryEntry) new() *factoryEntry {
 	l.mu.Lock()
-	r := &FieldsEntry{
+	r := &factoryEntry{
 		calldepth: l.calldepth,
 	}
-	r.Field = *field.Clone(&l.Field)
-	r.Set(Time(time.Now()))
+	r.Field = field.Clone(l.Field)
+	// r.Set(Time(time.Now()))
 	l.mu.Unlock()
 	return r
 }
 
-func (l *FieldsEntry) Log(level loglevel.Level, args []interface{}) {
+func (l *factoryEntry) Log(level loglevel.Level, args []interface{}) {
 	if len(args) == 0 {
 		return
 	}
-	pass := false
-	for _, v := range args {
-		if v != nil {
-			pass = true
-			break
-		}
-	}
-	if !pass {
-		return
-	}
 
-	l = l.new()
-	l.calldepth++
-	l.Set(LevelField(level))
+	l.mu.Lock()
+	entry := field.Clone(l.Field)
+	l.mu.Unlock()
 
-	l.do(args, func() {})
+	entry.Set(Time(time.Now()))
+
+	do(level, entry, l.calldepth+1, args, func() {})
 }
 
-func (entry *FieldsEntry) do(args []interface{}, befor func()) {
+func do(level loglevel.Level, entry *field.Field, calldepth int, args []interface{}, befor func()) {
 	// var err error
-	if entry.GetTime().IsZero() {
-		panic("apm: entry.Time cannot be zero")
-	}
+	// if entry.GetTime().IsZero() {
+	// 	panic("apm: entry.Time cannot be zero")
+	// }
 
 	var (
 		a    []interface{}
@@ -129,73 +131,85 @@ func (entry *FieldsEntry) do(args []interface{}, befor func()) {
 		}
 	}
 
-	if entry.CallerInfo == nil {
-		for _, ctx := range ctxs {
-			info := CallerFrom(ctx)
-			if info == nil {
-				continue
-			}
-			entry.CallerInfo = info
-			break
-		}
+	info := entry.GetItem("source")
+	if info == nil || !info.IsGroup() {
+		ci := CallerInfo{}
+		doCaller(calldepth, &ci)
+		info := field.Make("source")
+		info.SetKind(field.GroupKind, false, false)
+		info.Set(field.Make("file").SetString(ci.File))
+		info.Set(field.Make("line").SetInt(int64(ci.Line)))
+		info.Set(field.Make("func").SetString(ci.Method))
+		entry.Set(info)
 	}
 
-	if entry.CallerInfo == nil && entry.calldepth > -1 {
-		entry.CallerInfo = &CallerInfo{}
-		doCaller(entry.calldepth+1, entry.CallerInfo)
-	}
+	// if entry.CallerInfo == nil {
+	// 	for _, ctx := range ctxs {
+	// 		info := CallerFrom(ctx)
+	// 		if info == nil {
+	// 			continue
+	// 		}
+	// 		entry.CallerInfo = info
+	// 		break
+	// 	}
+	// }
 
-	if serr != nil { // todo 额外处理
-		caller := entry.CallerInfo.Caller()
-		if entry.GetItem(ErrorMethodKey.Name()) == nil {
-			stack := StackToCallerInfo(serr.Stack)
-			arr := []string{}
-			for _, it := range stack {
-				arr = append(arr, it.Caller())
-			}
-			if len(arr) > 0 && arr[0] == caller {
-				arr = arr[1:]
-			}
-			if n := len(arr); n > 0 && arr[n-1] == caller {
-				arr = arr[:n-1]
-			}
-			// fmt.Printf("stack: %s\n", serr.Stack)
-			// fmt.Printf("arr: %v\n", arr)
-			if len(arr) > 0 {
-				entry.Set(ErrorMethod(strings.Join(arr, ",")))
-			}
-		}
+	// if entry.CallerInfo == nil && entry.calldepth > -1 {
+	// 	entry.CallerInfo = &CallerInfo{}
+	// 	doCaller(entry.calldepth+1, entry.CallerInfo)
+	// }
 
-		if entry.GetItem(ErrorStackTraceKey.Name()) == nil {
-			entry.Set(ErrorStackTrace("%s", serr.Stack))
-		}
-	}
+	// if serr != nil { // todo 额外处理
+	// 	caller := (&CallerInfo{}).Caller() //entry.CallerInfo.Caller()
+	// 	if entry.GetItem(ErrorMethodKey.Name()) == nil {
+	// 		stack := StackToCallerInfo(serr.Stack)
+	// 		arr := []string{}
+	// 		for _, it := range stack {
+	// 			arr = append(arr, it.Caller())
+	// 		}
+	// 		if len(arr) > 0 && arr[0] == caller {
+	// 			arr = arr[1:]
+	// 		}
+	// 		if n := len(arr); n > 0 && arr[n-1] == caller {
+	// 			arr = arr[:n-1]
+	// 		}
+	// 		// fmt.Printf("stack: %s\n", serr.Stack)
+	// 		// fmt.Printf("arr: %v\n", arr)
+	// 		if len(arr) > 0 {
+	// 			entry.Set(ErrorMethod(strings.Join(arr, ",")))
+	// 		}
+	// 	}
+
+	// 	if entry.GetItem(ErrorStackTraceKey.Name()) == nil {
+	// 		entry.Set(ErrorStackTrace("%s", serr.Stack))
+	// 	}
+	// }
 
 	if entry.GetItem(TraceIDKey.Name()) == nil {
 		for _, ctx := range ctxs {
-			tid, sid := GetTraceID(ctx)
-			if len(tid) > 0 {
-				entry.Set(TraceIDField(tid))
-				entry.Set(SpanID(sid))
+			p := SpanContextFrom(ctx)
+			if p != nil {
+				entry.Set(TraceIDField(p.GetTranceID()))
+				if level == loglevel.Trace {
+					entry.Set(SpanID(p.GetSpanID()))
+				}
 				break
 			}
 		}
 	}
+	entry.Set(Message("", a...))
+	// if len(a) > 0 {
+	// 	entry.Set(Message("", a...))
+	// }
+	entry.Set(LevelField(level))
 
-	if len(a) > 0 {
-		entry.Set(Message("", a...))
-	}
 	befor()
 
-	if d := GetDispatcher(); d != nil {
-		d.Dispatch(entry)
-	} else {
-		// todo
-	}
+	Dispatch(entry)
 }
 
-func (l *FieldsEntry) Debug(a ...interface{}) { l.Log(loglevel.Debug, a) }
-func (l *FieldsEntry) Info(a ...interface{})  { l.Log(loglevel.Info, a) }
-func (l *FieldsEntry) Warn(a ...interface{})  { l.Log(loglevel.Warn, a) }
-func (l *FieldsEntry) Error(a ...interface{}) { l.Log(loglevel.Error, a) }
-func (l *FieldsEntry) Fatal(a ...interface{}) { l.Log(loglevel.Fatal, a) }
+func (l *factoryEntry) Debug(a ...interface{}) { l.Log(loglevel.Debug, a) }
+func (l *factoryEntry) Info(a ...interface{})  { l.Log(loglevel.Info, a) }
+func (l *factoryEntry) Warn(a ...interface{})  { l.Log(loglevel.Warn, a) }
+func (l *factoryEntry) Error(a ...interface{}) { l.Log(loglevel.Error, a) }
+func (l *factoryEntry) Fatal(a ...interface{}) { l.Log(loglevel.Fatal, a) }

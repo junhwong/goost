@@ -34,11 +34,11 @@ func Close(closer interface{}, log ...closeLogger) (b bool) {
 	if c, _ := closer.(io.Closer); c != nil {
 		return logErr(c.Close(), log, false)
 
-	} else if fn, _ := closer.(func() error); fn != nil {
-		return logErr(fn(), log, false)
 	} else if fn, _ := closer.(func()); fn != nil {
 		fn()
 		return false
+	} else if fn, _ := closer.(func() error); fn != nil {
+		return logErr(fn(), log, false)
 	}
 
 	return logErr(fmt.Errorf("暂不支持 closer 的类型: %T", closer), log, false)

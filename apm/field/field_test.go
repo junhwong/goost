@@ -44,7 +44,7 @@ import (
 // }
 
 func TestTT(t *testing.T) {
-	f := New("")
+	f := Make("")
 
 	f.SetNull(true)
 

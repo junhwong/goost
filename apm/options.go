@@ -7,24 +7,10 @@ import (
 	"github.com/junhwong/goost/apm/field"
 )
 
-// type SpanOptionSetter interface {
-// 	SetNameGetter(a func() string)
-// 	SetAttributes(a ...*field.Field)
-// 	SetCalldepth(a int)
-// }
-// type EndSpanOptionSetter interface {
-// 	SetNameGetter(a func() string)
-// 	SetAttributes(a ...*field.Field)
-// 	SetEndCalls(a []func(Span))
-// }
-
 type SpanOption interface {
 	applySpanOption(target *spanImpl)
 }
 
-//	type StartSpanOption interface {
-//		applyStartSpanOption(*traceOption)
-//	}
 type EndSpanOption interface {
 	applyEndSpanOption(target *spanImpl)
 }
@@ -44,13 +30,14 @@ type callDepthProperty interface {
 }
 type callDepthOption func(target callDepthProperty)
 
+// 实现 SpanOption 接口
 func (f callDepthOption) applySpanOption(target *spanImpl) {
 	if f == nil {
 		return
 	}
 	f(target)
 }
-func (f callDepthOption) applyWithOption(target *FieldsEntry) {
+func (f callDepthOption) applyWithOption(target *factoryEntry) {
 	if f == nil {
 		return
 	}
@@ -76,7 +63,7 @@ type fieldsSetter interface {
 }
 type withFieldsOption func(target fieldsSetter)
 
-// impl SpanOption
+// 实现 SpanOption 接口
 func (f withFieldsOption) applySpanOption(target *spanImpl) {
 	if f == nil {
 		return
@@ -85,7 +72,7 @@ func (f withFieldsOption) applySpanOption(target *spanImpl) {
 }
 
 // impl WithOption
-func (f withFieldsOption) applyWithOption(target *FieldsEntry) {
+func (f withFieldsOption) applyWithOption(target *factoryEntry) {
 	if f == nil {
 		return
 	}
@@ -166,7 +153,7 @@ func WithEndCall(fn func(Span)) funcEndSpanOption {
 // }
 
 func Start(ctx context.Context, options ...SpanOption) (context.Context, Span) {
-	return defaultEntry.NewSpan(WithCaller(ctx, 3), options...)
+	return defaultEntry.NewSpan(ContextWithCaller(ctx, 3), options...)
 }
 
 // // 调整日志堆栈记录深度
@@ -184,7 +171,7 @@ const (
 	callerContextKey ctxkey = "github.com/junhwong/goost$apm.callerContextKey"
 )
 
-func WithName(ctx context.Context, s string) context.Context {
+func ContextWithName(ctx context.Context, s string) context.Context {
 	if setter, _ := ctx.(interface {
 		Set(key string, value interface{})
 	}); setter != nil {
@@ -193,7 +180,7 @@ func WithName(ctx context.Context, s string) context.Context {
 	}
 	return context.WithValue(ctx, nameInContextKey, s)
 }
-func NameFrom(ctx context.Context) (s string) {
+func NameFromContext(ctx context.Context) (s string) {
 	s, _ = ctx.Value(nameInContextKey).(string)
 	return
 }
@@ -209,13 +196,17 @@ func SpanContextFrom(ctx context.Context) SpanContext {
 func SpanFrom(ctx context.Context, cotr ...func() (canCreateNew bool, opts []SpanOption)) (context.Context, Span) {
 	span, _ := ctx.Value(spanInContextKey).(*spanImpl)
 	if span != nil {
-		return ctx, span // &spanRef{span}
+		select {
+		case <-span.Done():
+		default:
+			return ctx, span
+		}
 	}
 
-	var fn func() (bool, []SpanOption)
-	if len(cotr) > 0 {
-		fn = cotr[len(cotr)-1]
+	if len(cotr) == 0 {
+		cotr = append(cotr, func() (canCreateNew bool, opts []SpanOption) { return true, nil })
 	}
+	fn := cotr[len(cotr)-1]
 	if fn == nil {
 		return ctx, nil
 	}
@@ -223,19 +214,16 @@ func SpanFrom(ctx context.Context, cotr ...func() (canCreateNew bool, opts []Spa
 	if !canCreateNew {
 		return ctx, nil
 	}
-	return Start(ctx, opts...)
+	return defaultEntry.NewSpan(ContextWithCaller(ctx, 3), append([]SpanOption{
+		funcSpanOption(func(target *spanImpl) {
+			if span == nil {
+				return
+			}
+			target.TranceID = span.GetTranceID()
+			target.SpanParentID = span.GetSpanID()
+			target.first = false
+		}),
+	}, opts...)...)
 }
 
-// type spanRef struct {
-// 	*spanImpl
-// }
-
-// func (r *spanRef) End(options ...EndSpanOption) {
-// 	r.endCalls = append(r.endCalls, func(Span) {
-// 		for _, opt := range options {
-// 			if opt != nil {
-// 				opt.applyEndSpanOption(r.spanImpl)
-// 			}
-// 		}
-// 	})
-// }
+var NoCreateNewSpan func() (canCreateNew bool, opts []SpanOption) = nil

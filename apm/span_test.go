@@ -12,8 +12,8 @@ func TestSpanCaller(t *testing.T) {
 
 	var sb strings.Builder
 
-	sd := dispatcher.Load().(*syncDispatcher)
-	sd.handlers.Store(handlerSlice{&SimpleHandler{
+	// sd := dispatcher.Load().(*syncDispatcher)
+	_handlers.Store(handlerSlice{&SimpleHandler{
 		IsEnd:     true,
 		Formatter: &TextFormatter{},
 		Out:       &sb,

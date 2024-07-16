@@ -56,7 +56,7 @@ func getColor(lvl loglevel.Level, supportColor bool) (start, end string) {
 	}
 	return "", ""
 }
-func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
+func (tf *TextFormatter) Format(entry *field.Field, dest *bytes.Buffer) (err error) {
 	writeByte := func(c byte) {
 		if err != nil {
 			return
@@ -79,7 +79,7 @@ func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	}
 	supportColor := tf.Color
 
-	lvl := entry.GetLevel()
+	lvl := GetLevel(entry)
 	cp, cs := getColor(lvl, supportColor)
 	fprintf(`%s%s%s`, cp, lvl.Short(), "")
 	start := strings.ReplaceAll(cp, "1;", "") //"\033[1;31;40m"
@@ -101,17 +101,17 @@ func (tf *TextFormatter) Format(entry Entry, dest *bytes.Buffer) (err error) {
 	}
 	// writeByte('|')
 	writeByte(' ')
-	fs := entry.GetFields()
+	fs := entry.Items
 
-	if ci := entry.GetCallerInfo(); ci != nil {
-		fprintf(`%s`, ci.Caller())
-	}
+	// if ci := entry.GetCallerInfo(); ci != nil {
+	// 	fprintf(`%s`, ci.Caller())
+	// }
 
 	fprintf(`%s`, cs)
 	// writeByte('\n')
 	writeByte(' ')
 
-	if val := entry.GetMessage(); val != "" {
+	if val := getMessage(entry); val != "" {
 		fprintf(`%s`, val)
 	}
 

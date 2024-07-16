@@ -79,7 +79,7 @@ func TestXXX(t *testing.T) {
 	}
 
 	// fmt.Printf("v: %v                                                                                                   \n", v)
-	root := NewRoot()
+	root := MakeRoot()
 	f := Any("x", v)
 	root.Set(f)
 

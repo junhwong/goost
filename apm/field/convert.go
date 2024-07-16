@@ -236,7 +236,7 @@ func ToRowTable(fs *Field, cols []*Field) {
 	colcnt := len(cols)
 	rowcnt := len(cols[0].Items) // 行数
 	for i := 0; i < rowcnt; i++ {
-		row := New("").SetKind(GroupKind, false, false)
+		row := Make("").SetKind(GroupKind, false, false)
 		for j := 0; j < colcnt; j++ {
 			f := cols[j].Items[i]
 			f.Name = cols[j].Name

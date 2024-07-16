@@ -526,7 +526,7 @@ func Clone(f *Field) *Field {
 	if f == nil {
 		return nil
 	}
-	dst := New(f.Name)
+	dst := Make(f.Name)
 	dst.Index = f.Index
 	dst.Parent = f.Parent
 	return CloneInto(f, dst)

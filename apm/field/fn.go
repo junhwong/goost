@@ -5,27 +5,64 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/junhwong/goost/apm/field/loglevel"
 	"github.com/spf13/cast"
 )
 
-// TODO 从池中获取或创建字段对象
-func New(name string) *Field {
-	return &Field{Schema: &Schema{Name: name}, Value: &Value{NullValue: true}}
+var fieldPool = &sync.Pool{
+	New: func() interface{} {
+		return &Field{Schema: &Schema{}, Value: &Value{}}
+	},
 }
 
-func Release(f *Field) {
-	if f == nil {
-		return
+// 注意: 应该遵循谁构造(或接收)谁负责回收.
+func Make(name string) *Field {
+	f := fieldPool.Get().(*Field)
+	f.Name = name
+	f.NullValue = true
+	return f
+}
+
+// Field 释放对象以备复用
+func Release(fs ...*Field) {
+	var ready []*Field
+	var add func(f *Field)
+	add = func(f *Field) {
+		if f == nil {
+			return
+		}
+
+		items := f.Items
+		f.Items = nil
+		for _, item := range items {
+			add(item)
+		}
+		for _, it := range ready {
+			if it == f {
+				return
+			}
+		}
+		ready = append(ready, f)
 	}
-	f.Schema.Reset()
-	f.Value.Reset()
+
+	for _, f := range fs {
+		add(f)
+	}
+
+	for _, f := range ready {
+		f.Schema.Reset()
+		f.Value.Reset()
+		f.Parent = nil
+		f.Index = 0
+		fieldPool.Put(f)
+	}
 }
 
-func NewRoot() *Field {
-	f := New("$")
+func MakeRoot() *Field {
+	f := Make("$")
 	f.SetKind(GroupKind, false, false)
 	f.SetNull(false)
 	return f
@@ -65,7 +102,7 @@ func SetPrimitiveValue(f *Field, v any, k Type) *Field {
 }
 
 func Any(name string, v any, allows ...Type) *Field {
-	f := New(name)
+	f := Make(name)
 	if v == nil {
 		return f
 	}
@@ -188,6 +225,18 @@ func Any(name string, v any, allows ...Type) *Field {
 	return SetPrimitiveValue(f, iv, k)
 }
 
+// func GetOrMakeBuilder(name string,kind Type){
+// 	k := makeOrGetKey(name, kind)
+// 	switch k.Kind(){
+// 		case StringKind:
+// 			return &ArrayBuilder{
+// 				Field: &Field{
+// 					Key: k,
+// 				},
+// 			}
+// 	}
+// }
+
 func String(name string) (Key, func(string, ...interface{}) *Field) {
 	k := makeOrGetKey(name, StringKind)
 	return k, func(s string, a ...interface{}) *Field {
@@ -198,21 +247,21 @@ func String(name string) (Key, func(string, ...interface{}) *Field) {
 			v = fmt.Sprint(a...)
 		}
 		v = strings.TrimSpace(v)
-		return New(name).SetString(v)
+		return Make(name).SetString(v)
 	}
 }
 
 func Bool(name string) (Key, func(bool) *Field) {
 	k := makeOrGetKey(name, BoolKind)
 	return k, func(v bool) *Field {
-		return New(name).SetBool(v)
+		return Make(name).SetBool(v)
 	}
 }
 
 func Time(name string) (Key, func(time.Time) *Field) {
 	k := makeOrGetKey(name, TimeKind)
 	return k, func(v time.Time) *Field {
-		return New(name).SetTime(v)
+		return Make(name).SetTime(v)
 	}
 }
 
@@ -274,7 +323,7 @@ func Float(name string) (Key, func(interface{}) *Field) {
 func Duration(name string) (Key, func(time.Duration) *Field) {
 	k := makeOrGetKey(name, DurationKind)
 	return k, func(v time.Duration) *Field {
-		return New(name).SetDuration(v)
+		return Make(name).SetDuration(v)
 	}
 }
 func BuildLevel(name string) (Key, func(interface{}) *Field) {

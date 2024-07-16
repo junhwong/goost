@@ -1,7 +1,6 @@
 package apm
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -97,33 +96,6 @@ func ParseHexID(h string) (HexID, error) {
 	return ZeroHexID, nil
 }
 
-// Deprecated: Drivers
-func GetTraceID(ctx context.Context) (traceID, spanID string) {
-	if ctx == nil {
-		return "", ""
-	}
-	if p, ok := ctx.Value(spanInContextKey).(SpanContext); ok && p != nil {
-		return p.GetTranceID(), p.GetSpanID()
-	}
-	// https://opentelemetry.io/docs/reference/specification/sdk-environment-variables/
-	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers#id21
-	if s, ok := ctx.Value("trace_id").(string); ok && s != "" {
-		return s, ""
-	}
-	// todo https://www.w3.org/TR/trace-context/
-	if s, ok := ctx.Value("traceparent").(string); ok && s != "" {
-		// version
-		// trace-id
-		// parent-id
-		// trace-flags
-		return s, ""
-	}
-	if s, ok := ctx.Value("request_id").(string); ok && s != "" {
-		return s, ""
-	}
-	return "", ""
-}
-
 // 解析 W3C trace.
 //
 // 示例: `00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01`.
@@ -186,7 +158,7 @@ func ParseW3Tracestate(tracestate string) (fs []*field.Field, err error) {
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid state item")
 		}
-		f := field.New(kv[0]).SetString(kv[1]) // TODO 推断值类型?
+		f := field.Make(kv[0]).SetString(kv[1]) // TODO 推断值类型?
 		if f.GetType() == field.StringKind {
 			fs = append(fs, f)
 		}

@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sort"
+	"sync/atomic"
 
+	"github.com/junhwong/goost/apm/field"
 	"github.com/junhwong/goost/apm/field/loglevel"
 )
 
@@ -20,7 +23,7 @@ type Handler interface {
 	Flush()
 
 	// 处理日志
-	Handle(entry Entry, next, end func())
+	Handle(entry *field.Field, next, end func())
 }
 
 type handlerSlice []Handler
@@ -29,6 +32,71 @@ func (x handlerSlice) Len() int           { return len(x) }
 func (x handlerSlice) Less(i, j int) bool { return x[i].Priority() > x[j].Priority() }
 func (x handlerSlice) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
 func (x handlerSlice) Sort()              { sort.Sort(x) }
+
+var _handlers atomic.Value
+
+func GetHandlers() handlerSlice {
+	obj := _handlers.Load()
+	if obj == nil {
+		return handlerSlice{}
+	}
+	return obj.(handlerSlice)
+}
+func addHandlers(dst handlerSlice, handlers []Handler) handlerSlice {
+	for _, h := range handlers {
+		if dst != nil {
+			dst = append(dst, h)
+		}
+	}
+	return dst
+}
+func AddHandlers(handlers ...Handler) {
+	if len(handlers) == 0 {
+		panic("handlers is empty")
+	}
+	gmu.Lock()
+	defer gmu.Unlock()
+
+	dst := addHandlers(GetHandlers(), handlers)
+	dst.Sort()
+	_handlers.Store(dst)
+}
+
+func removeHandlers(dst handlerSlice, handlers []Handler) handlerSlice {
+	dst = slices.DeleteFunc(dst, func(h Handler) bool {
+		for _, it := range handlers {
+			if it == h {
+				return true
+			}
+		}
+		return false
+	})
+	return dst
+}
+func RemoveHandlers(handlers ...Handler) {
+	if len(handlers) == 0 {
+		panic("handlers is empty")
+	}
+	gmu.Lock()
+	defer gmu.Unlock()
+
+	dst := removeHandlers(GetHandlers(), handlers)
+	dst.Sort()
+	_handlers.Store(dst)
+}
+
+func SetHandlers(handlers ...Handler) {
+	if len(handlers) == 0 {
+		panic("handlers is empty")
+	}
+
+	gmu.Lock()
+	defer gmu.Unlock()
+
+	dst := addHandlers(make(handlerSlice, 0, len(handlers)), handlers)
+	dst.Sort()
+	_handlers.Store(dst)
+}
 
 func NewConsole() (*SimpleHandler, *TextFormatter) {
 	text := &TextFormatter{SkipFields: []string{"log.component"}}
@@ -51,7 +119,7 @@ var _ Handler = (*SimpleHandler)(nil)
 type SimpleHandler struct {
 	Out             Outer // 如果未提供则输出到控制台
 	Formatter       Formatter
-	Filter          func(Entry) bool
+	Filter          func(*field.Field) bool
 	HandlerPriority int
 	IsEnd           bool
 }
@@ -66,7 +134,7 @@ type Outer interface {
 }
 
 func (h SimpleHandler) Flush() {}
-func (h SimpleHandler) Handle(entry Entry, next, end func()) {
+func (h SimpleHandler) Handle(entry *field.Field, next, end func()) {
 	if filter := h.Filter; filter != nil && !filter(entry) {
 		if h.IsEnd {
 			end()
