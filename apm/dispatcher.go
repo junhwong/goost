@@ -57,8 +57,8 @@ func Dispatch(e *field.Field) {
 	if e == nil {
 		return
 	}
-	queue <- e
 	queuewg.Add(1)
+	queue <- e
 }
 
 func Flush() {

@@ -2,7 +2,6 @@ package apm
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/junhwong/goost/apm/field"
@@ -93,44 +92,57 @@ func (l *factoryEntry) Log(level loglevel.Level, args []interface{}) {
 		return
 	}
 
+	var (
+		entry *field.Field
+		arr   []interface{}
+		ctxs  []context.Context
+	)
+
+	for _, it := range args {
+		switch it := it.(type) {
+		case field.Field:
+			if entry == nil {
+				entry = field.MakeRoot()
+			}
+			entry.Set(&it)
+		case *field.Field:
+			if entry == nil {
+				entry = field.MakeRoot()
+			}
+			entry.Set(it)
+		case context.Context:
+			ctxs = append(ctxs, it)
+		default:
+			if ctx, _ := it.(context.Context); ctx != nil {
+				ctxs = append(ctxs, ctx)
+			} else if len(arr) > 0 || it != nil {
+				arr = append(arr, it)
+			}
+		}
+	}
+
+	if len(arr) == 0 && entry == nil {
+		return
+	}
+
 	l.mu.Lock()
-	entry := field.Clone(l.Field)
+	if entry == nil {
+		entry = field.Clone(l.Field)
+	} else {
+		for _, f := range l.Items {
+			if field.GetLast(entry.Items, f.GetName()) == nil {
+				entry.Set(f)
+			}
+		}
+	}
 	l.mu.Unlock()
 
 	entry.Set(Time(time.Now()))
 
-	do(level, entry, l.calldepth+1, args, func() {})
+	do(level, entry, l.calldepth+1, ctxs, arr, func() {})
 }
 
-func do(level loglevel.Level, entry *field.Field, calldepth int, args []interface{}, befor func()) {
-	// var err error
-	// if entry.GetTime().IsZero() {
-	// 	panic("apm: entry.Time cannot be zero")
-	// }
-
-	var (
-		a    []interface{}
-		ctxs []context.Context
-		serr *StacktraceError
-	)
-	for _, f := range args {
-		switch f := f.(type) {
-		case field.Field:
-			entry.Set(&f)
-		case *field.Field:
-			entry.Set(f)
-		case context.Context:
-			ctxs = append(ctxs, f)
-		case error:
-			a = append(a, f)
-			if serr == nil {
-				errors.As(f, &serr)
-			}
-		default:
-			a = append(a, f)
-		}
-	}
-
+func do(level loglevel.Level, entry *field.Field, calldepth int, ctxs []context.Context, args []interface{}, befor func()) {
 	info := entry.GetItem("source")
 	if info == nil || !info.IsGroup() {
 		ci := CallerInfo{}
@@ -142,48 +154,6 @@ func do(level loglevel.Level, entry *field.Field, calldepth int, args []interfac
 		info.Set(field.Make("func").SetString(ci.Method))
 		entry.Set(info)
 	}
-
-	// if entry.CallerInfo == nil {
-	// 	for _, ctx := range ctxs {
-	// 		info := CallerFrom(ctx)
-	// 		if info == nil {
-	// 			continue
-	// 		}
-	// 		entry.CallerInfo = info
-	// 		break
-	// 	}
-	// }
-
-	// if entry.CallerInfo == nil && entry.calldepth > -1 {
-	// 	entry.CallerInfo = &CallerInfo{}
-	// 	doCaller(entry.calldepth+1, entry.CallerInfo)
-	// }
-
-	// if serr != nil { // todo 额外处理
-	// 	caller := (&CallerInfo{}).Caller() //entry.CallerInfo.Caller()
-	// 	if entry.GetItem(ErrorMethodKey.Name()) == nil {
-	// 		stack := StackToCallerInfo(serr.Stack)
-	// 		arr := []string{}
-	// 		for _, it := range stack {
-	// 			arr = append(arr, it.Caller())
-	// 		}
-	// 		if len(arr) > 0 && arr[0] == caller {
-	// 			arr = arr[1:]
-	// 		}
-	// 		if n := len(arr); n > 0 && arr[n-1] == caller {
-	// 			arr = arr[:n-1]
-	// 		}
-	// 		// fmt.Printf("stack: %s\n", serr.Stack)
-	// 		// fmt.Printf("arr: %v\n", arr)
-	// 		if len(arr) > 0 {
-	// 			entry.Set(ErrorMethod(strings.Join(arr, ",")))
-	// 		}
-	// 	}
-
-	// 	if entry.GetItem(ErrorStackTraceKey.Name()) == nil {
-	// 		entry.Set(ErrorStackTrace("%s", serr.Stack))
-	// 	}
-	// }
 
 	if entry.GetItem(TraceIDKey.Name()) == nil {
 		for _, ctx := range ctxs {
@@ -197,7 +167,7 @@ func do(level loglevel.Level, entry *field.Field, calldepth int, args []interfac
 			}
 		}
 	}
-	entry.Set(Message("", a...))
+	entry.Set(Message("", args...))
 	// if len(a) > 0 {
 	// 	entry.Set(Message("", a...))
 	// }

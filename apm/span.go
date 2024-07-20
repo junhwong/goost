@@ -51,20 +51,21 @@ var (
 type spanImpl struct {
 	context.Context
 	*factoryEntry
-	mu           sync.Mutex
-	failed       bool
-	failedDesc   string
 	TranceID     string
 	SpanID       string
 	SpanParentID string
-	name         string
-	start        time.Time
-	first        bool
-	getName      func() string
-	endCalls     []func(Span)
-	cancel       context.CancelFunc
-	warnnings    []error
-	source       *field.Field
+
+	mu         sync.Mutex
+	failed     bool
+	failedDesc string
+	name       string
+	start      time.Time
+	first      bool
+	getName    func() string
+	endCalls   []func(Span)
+	cancel     context.CancelFunc
+	warnnings  []error
+	source     *field.Field
 }
 
 func (e *factoryEntry) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
@@ -190,7 +191,7 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 		}
 	}
 
-	do(loglevel.Trace, span.Field, span.calldepth, []any{span}, func() {
+	do(loglevel.Trace, span.Field, span.calldepth, []context.Context{span}, nil, func() {
 		// span.Set(LevelField(loglevel.Trace2))
 		span.Set(SpanName(name))
 		// span.Set(SpanID(span.SpanID))

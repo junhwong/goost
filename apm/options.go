@@ -112,18 +112,30 @@ func WithExternalTrace(traceID, parentSpanID string) funcSpanOption {
 
 type funcEndSpanOption func(target *spanImpl)
 
+//	func (f funcEndSpanOption) applySpanOption(target *spanImpl) {
+//		f(target)
+//	}
 func (f funcEndSpanOption) applyEndSpanOption(target *spanImpl) {
 	f(target)
 }
 
 // 用于动态替换 SpanName
-func WithReplaceSpanName(getName func() string) funcEndSpanOption {
+func WithName(getName func() string) nameGetter {
 	if getName == nil {
 		panic("apm: getName cannot be nil")
 	}
-	return funcEndSpanOption(func(target *spanImpl) {
+	return func(target *spanImpl) {
 		target.SetNameGetter(getName)
-	})
+	}
+}
+
+type nameGetter func(target *spanImpl)
+
+func (f nameGetter) applySpanOption(target *spanImpl) {
+	f(target)
+}
+func (f nameGetter) applyEndSpanOption(target *spanImpl) {
+	f(target)
 }
 
 // 结束时调用

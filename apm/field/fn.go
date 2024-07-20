@@ -244,7 +244,13 @@ func String(name string) (Key, func(string, ...interface{}) *Field) {
 		if s != "" && len(a) > 0 {
 			v = fmt.Sprintf(s, a...)
 		} else if len(a) > 0 {
-			v = fmt.Sprint(a...)
+			aa := make([]any, 0, len(a))
+			for _, it := range a {
+				if it != nil {
+					aa = append(aa, it)
+				}
+			}
+			v = fmt.Sprint(aa...)
 		}
 		v = strings.TrimSpace(v)
 		return Make(name).SetString(v)

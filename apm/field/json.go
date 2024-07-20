@@ -135,9 +135,11 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 	}
 
 	if f.IsGroup() {
-		if f.IsNull() {
-			befor()
-			m.writeBytes([]byte("null"))
+		if f.IsNull() || len(f.Items) == 0 {
+			if !m.OmitEmpty {
+				befor()
+				m.writeBytes([]byte("null"))
+			}
 			return
 		}
 		befor()
@@ -146,9 +148,11 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 	}
 
 	if f.IsArray() {
-		if f.IsNull() {
-			befor()
-			m.writeBytes([]byte("null"))
+		if f.IsNull() || len(f.Items) == 0 {
+			if !m.OmitEmpty {
+				befor()
+				m.writeBytes([]byte("null"))
+			}
 			return
 		}
 		befor()
