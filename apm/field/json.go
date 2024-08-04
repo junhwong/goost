@@ -7,6 +7,7 @@ import (
 	"io"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -18,30 +19,34 @@ type JsonMarshaler struct {
 	OmitEmpty  bool // todo 实现
 	TimeLayout string
 	EscapeHTML bool
-
+	Pretty     bool
 	NameFilter func(string) string
 	NameLess   func(a, b *Field) int
 
-	err error
-	w   io.Writer
-	n   int64
+	err   error
+	w     io.Writer
+	n     int64
+	skip  []*Field
+	ident int
 	// buf  *bytes.Buffer
 	// enc  *json.Encoder
 	// benc io.WriteCloser
 }
 
-func (m JsonMarshaler) Marshal(f *Field, w io.Writer) (int64, error) {
+func (m JsonMarshaler) Marshal(f *Field, w io.Writer, skip ...*Field) (int64, error) {
 	m.w = w
 	m.err = nil
 	m.n = 0
+	m.skip = skip
 	m.write(f, func() {})
 	return m.n, m.err
 }
 
-func (m JsonMarshaler) MarshalGroup(fs []*Field, w io.Writer) (int64, error) {
+func (m JsonMarshaler) MarshalGroup(fs []*Field, w io.Writer, skip ...*Field) (int64, error) {
 	m.w = w
 	m.err = nil
 	m.n = 0
+	m.skip = skip
 	// m.enc = json.NewEncoder(m.buf)
 	m.writeGroup(fs)
 	return m.n, m.err
@@ -77,6 +82,10 @@ func (m *JsonMarshaler) writeGroup(fs []*Field) {
 
 	has := false
 	m.writeByte('{')
+	if m.Pretty {
+		m.writeByte('\n')
+	}
+	m.ident += 2
 
 	for _, it := range items {
 		if it.Type == InvalidKind {
@@ -93,13 +102,26 @@ func (m *JsonMarshaler) writeGroup(fs []*Field) {
 		m.write(it, func() {
 			if has {
 				m.writeByte(',')
+				if m.Pretty {
+					m.writeByte('\n')
+				}
 			}
-
+			if m.Pretty {
+				m.writeBytes([]byte(strings.Repeat(" ", m.ident)))
+			}
 			has = true
 			m.writeBytes([]byte(`"`))
 			m.writeBytes([]byte(name))
 			m.writeBytes([]byte(`":`))
+			if m.Pretty {
+				m.writeByte(' ')
+			}
 		})
+	}
+	m.ident -= 2
+	if m.Pretty {
+		m.writeByte('\n')
+		m.writeBytes([]byte(strings.Repeat(" ", m.ident)))
 	}
 	m.writeByte('}')
 }
@@ -110,6 +132,10 @@ func (m *JsonMarshaler) writeArray(fs []*Field) {
 	}
 	has := false
 	m.writeByte('[')
+	if m.Pretty {
+		m.writeByte('\n')
+	}
+	m.ident += 2
 	for _, it := range fs {
 		if it.Type == InvalidKind {
 			continue
@@ -118,9 +144,18 @@ func (m *JsonMarshaler) writeArray(fs []*Field) {
 		m.write(it, func() {
 			if has {
 				m.writeByte(',')
+				if m.Pretty {
+					m.writeByte('\n')
+				}
 			}
 			has = true
+			m.writeBytes([]byte(strings.Repeat(" ", m.ident)))
 		})
+	}
+	m.ident -= 2
+	if m.Pretty {
+		m.writeByte('\n')
+		m.writeBytes([]byte(strings.Repeat(" ", m.ident)))
 	}
 	m.writeByte(']')
 }
@@ -134,17 +169,10 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 		return
 	}
 
-	if f.IsGroup() {
-		if f.IsNull() || len(f.Items) == 0 {
-			if !m.OmitEmpty {
-				befor()
-				m.writeBytes([]byte("null"))
-			}
+	for _, it := range m.skip {
+		if it == f {
 			return
 		}
-		befor()
-		m.writeGroup(f.Items)
-		return
 	}
 
 	if f.IsArray() {
@@ -157,6 +185,19 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 		}
 		befor()
 		m.writeArray(f.Items)
+		return
+	}
+
+	if f.IsGroup() {
+		if f.IsNull() || len(f.Items) == 0 {
+			if !m.OmitEmpty {
+				befor()
+				m.writeBytes([]byte("null"))
+			}
+			return
+		}
+		befor()
+		m.writeGroup(f.Items)
 		return
 	}
 

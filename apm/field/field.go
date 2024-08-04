@@ -60,6 +60,10 @@ func (f *Field) IsCollection() bool {
 
 // 是否是数组(array或column)
 func (f *Field) IsArray() bool {
+	// todo 解决类型冲突
+	// if f.IsGroup() {
+	// 	return false
+	// }
 	return f.Type == ArrayKind || f.IsColumn()
 }
 

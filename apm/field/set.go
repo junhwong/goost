@@ -4,23 +4,6 @@ import (
 	"github.com/junhwong/goost/jsonpath"
 )
 
-func Find(root *Field, nameOrPath string) ([]*Field, error) {
-	seg, err := jsonpath.Parse(nameOrPath)
-	if err != nil {
-		return nil, err
-	}
-	return FindWith(seg, root)
-}
-
-func FindWith(p jsonpath.Expr, root *Field) ([]*Field, error) {
-	v := &explorer{readonly: true, root: root, current: []*Field{root}, parent: []*Field{}}
-	v.Visit = func(e jsonpath.Expr) {
-		jsonpath.Visit(e, v, v.SetError)
-	}
-	v.Visit(p)
-	return v.current, v.Error()
-}
-
 // 获取最后一个名称匹配的项
 func GetLast(fs []*Field, name string) *Field {
 	for i := len(fs) - 1; i >= 0; i-- {

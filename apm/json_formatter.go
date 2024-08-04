@@ -58,9 +58,41 @@ func NewJsonFormatter() *JsonFormatter {
 	return f
 }
 
+func (f *JsonFormatter) DoFormat(entry *field.Field, dest *bytes.Buffer, befor, after func()) (err error) {
+	var skip []*field.Field
+	for _, s := range f.SkipFields {
+		fs, err := field.Find(entry, s)
+		if err != nil {
+			return err
+		}
+		skip = append(skip, fs...)
+	}
+	var items []*field.Field
+LOOP:
+	for _, it := range entry.Items {
+		for _, s := range skip {
+			if it == s {
+				continue LOOP
+			}
+		}
+		items = append(items, it)
+	}
+	if len(items) == 0 {
+		return
+	}
+	befor()
+	_, err = f.MarshalGroup(items, dest, skip...)
+	if err != nil {
+		return err
+	}
+	after()
+	return
+}
+
 func (f *JsonFormatter) Format(entry *field.Field, dest *bytes.Buffer) (err error) {
-	// m := f.JsonMarshaler // copy
-	f.MarshalGroup(entry.Items, dest)
-	dest.WriteByte('\n')
+	if err = f.DoFormat(entry, dest, func() {}, func() {}); err != nil {
+		return err
+	}
+	err = dest.WriteByte('\n')
 	return
 }

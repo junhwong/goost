@@ -84,7 +84,6 @@ func (e *factoryEntry) NewSpan(ctx context.Context, options ...SpanOption) (cont
 	span.source.Set(field.Make("file").SetString(ci.File))
 	span.source.Set(field.Make("line").SetInt(int64(ci.Line)))
 	span.source.Set(field.Make("func").SetString(ci.Method))
-	span.Set(span.source)
 
 	for _, opt := range options {
 		if opt == nil {
@@ -190,7 +189,7 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 			span.Set(SpanStatusDescription(string(span.failedDesc)))
 		}
 	}
-
+	span.Set(span.source)
 	do(loglevel.Trace, span.Field, span.calldepth, []context.Context{span}, nil, func() {
 		// span.Set(LevelField(loglevel.Trace2))
 		span.Set(SpanName(name))

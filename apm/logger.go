@@ -142,6 +142,15 @@ func (l *factoryEntry) Log(level loglevel.Level, args []interface{}) {
 	do(level, entry, l.calldepth+1, ctxs, arr, func() {})
 }
 
+func MakeSource(file string, line int, fn string) *field.Field {
+	f := field.Make("source")
+	f.SetKind(field.GroupKind, false, false)
+	f.Set(field.Make("file").SetString(file))
+	f.Set(field.Make("line").SetInt(int64(line)))
+	f.Set(field.Make("func").SetString(fn))
+	return f
+}
+
 func do(level loglevel.Level, entry *field.Field, calldepth int, ctxs []context.Context, args []interface{}, befor func()) {
 	info := entry.GetItem("source")
 	if info == nil || !info.IsGroup() {
