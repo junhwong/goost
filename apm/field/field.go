@@ -61,10 +61,10 @@ func (f *Field) IsCollection() bool {
 // 是否是数组(array或column)
 func (f *Field) IsArray() bool {
 	// todo 解决类型冲突
-	// if f.IsGroup() {
-	// 	return false
-	// }
-	return f.Type == ArrayKind || f.IsColumn()
+	if f.IsGroup() {
+		return false
+	}
+	return f.IsColumn() || f.Type == ArrayKind
 }
 
 // 是否是列(统一类型的数组).
@@ -79,7 +79,7 @@ func (f *Field) IsTable() bool {
 
 // 是否是字典类型.
 func (f *Field) IsGroup() bool {
-	return f.Type == GroupKind
+	return f.Type == GroupKind && !f.IsColumn()
 }
 
 func (f *Field) resetValue() {

@@ -18,3 +18,7 @@ func FindWith(p jsonpath.Expr, root *Field) ([]*Field, error) {
 	v.Visit(p)
 	return v.current, v.Error()
 }
+
+func ParseNamePath(nameOrPath string) (jsonpath.Expr, error) {
+	return jsonpath.Parse(nameOrPath)
+}
