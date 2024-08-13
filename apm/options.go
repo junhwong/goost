@@ -165,7 +165,7 @@ func WithEndCall(fn func(Span)) funcEndSpanOption {
 // }
 
 func Start(ctx context.Context, options ...SpanOption) (context.Context, Span) {
-	return defaultEntry.NewSpan(ContextWithCaller(ctx, 3), options...)
+	return defaultEntry.NewSpan(ctx, append([]SpanOption{WithCaller(3)}, options...)...)
 }
 
 // // 调整日志堆栈记录深度
@@ -192,6 +192,7 @@ func ContextWithName(ctx context.Context, s string) context.Context {
 	}
 	return context.WithValue(ctx, nameInContextKey, s)
 }
+
 func NameFromContext(ctx context.Context) (s string) {
 	s, _ = ctx.Value(nameInContextKey).(string)
 	return
@@ -205,28 +206,34 @@ func SpanContextFrom(ctx context.Context) SpanContext {
 	return nil
 }
 
-func SpanFrom(ctx context.Context, cotr ...func() (canCreateNew bool, opts []SpanOption)) (context.Context, Span) {
+func SpanFrom(ctx context.Context, options ...func(*refSpan)) (context.Context, Span) {
+	ref := &refSpan{mustCreateNew: false, canCreateNew: true}
+	for _, opt := range options {
+		if opt != nil {
+			opt(ref)
+		}
+	}
+	if ref.mustCreateNew {
+		ref.canCreateNew = true
+	}
+
 	span, _ := ctx.Value(spanInContextKey).(*spanImpl)
 	if span != nil {
 		select {
 		case <-span.Done():
 		default:
-			return ctx, span
+			if !ref.mustCreateNew {
+				ref.Span = span
+				return ctx, ref
+			}
 		}
 	}
 
-	if len(cotr) == 0 {
-		cotr = append(cotr, func() (canCreateNew bool, opts []SpanOption) { return true, nil })
-	}
-	fn := cotr[len(cotr)-1]
-	if fn == nil {
+	if !ref.canCreateNew {
 		return ctx, nil
 	}
-	canCreateNew, opts := fn()
-	if !canCreateNew {
-		return ctx, nil
-	}
-	return defaultEntry.NewSpan(ContextWithCaller(ctx, 3), append([]SpanOption{
+
+	return defaultEntry.NewSpan(ctx, append([]SpanOption{
 		funcSpanOption(func(target *spanImpl) {
 			if span == nil {
 				return
@@ -235,7 +242,36 @@ func SpanFrom(ctx context.Context, cotr ...func() (canCreateNew bool, opts []Spa
 			target.SpanParentID = span.GetSpanID()
 			target.first = false
 		}),
-	}, opts...)...)
+		WithCaller(3),
+	}, ref.opts...)...)
 }
 
-var NoCreateNewSpan func() (canCreateNew bool, opts []SpanOption) = nil
+var (
+	// WithNoCreateNewSpan 不创建新的span
+	WithNoCreateNewSpan = func(target *refSpan) {
+		target.canCreateNew = false
+	}
+	// WithMustCreateNewSpan 必须创建新的span
+	WithMustCreateNewSpan = func(target *refSpan) {
+		target.mustCreateNew = true
+	}
+	// WithNewSpanOptions 创建新的span的选项
+	WithNewSpanOptions = func(opts ...SpanOption) func(target *refSpan) {
+		return func(target *refSpan) {
+			target.opts = opts
+		}
+	}
+)
+
+type refSpan struct {
+	Span
+	canCreateNew  bool
+	mustCreateNew bool
+	opts          []SpanOption
+}
+
+func (s *refSpan) End(options ...EndSpanOption) {
+	if len(options) > 0 {
+		panic("apm: EndSpanOption is not supported")
+	}
+}

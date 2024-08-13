@@ -88,7 +88,7 @@ func (l *factoryEntry) new() *factoryEntry {
 }
 
 func (l *factoryEntry) Log(level loglevel.Level, args []interface{}) {
-	if len(args) == 0 {
+	if l == nil || len(args) == 0 {
 		return
 	}
 
@@ -131,7 +131,7 @@ func (l *factoryEntry) Log(level loglevel.Level, args []interface{}) {
 	} else {
 		for _, f := range l.Items {
 			if field.GetLast(entry.Items, f.GetName()) == nil {
-				entry.Set(f)
+				entry.Set(field.Clone(f))
 			}
 		}
 	}
@@ -139,7 +139,7 @@ func (l *factoryEntry) Log(level loglevel.Level, args []interface{}) {
 
 	entry.Set(Time(time.Now()))
 
-	do(level, entry, l.calldepth+1, ctxs, arr, func() {})
+	do(level, entry, l.calldepth, ctxs, arr, func() {})
 }
 
 func MakeSource(file string, line int, fn string) *field.Field {

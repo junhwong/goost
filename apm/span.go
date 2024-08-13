@@ -72,24 +72,33 @@ func (e *factoryEntry) NewSpan(ctx context.Context, options ...SpanOption) (cont
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	select {
+	case <-ctx.Done():
+		panic("apm: context is done")
+	default:
+	}
 
 	span := &spanImpl{
 		factoryEntry: e.new(),
 		start:        time.Now(),
 	}
-	ci := CallerInfo{}
-	doCaller(span.calldepth, &ci)
-	span.source = field.Make("source")
-	span.source.SetKind(field.GroupKind, false, false)
-	span.source.Set(field.Make("file").SetString(ci.File))
-	span.source.Set(field.Make("line").SetInt(int64(ci.Line)))
-	span.source.Set(field.Make("func").SetString(ci.Method))
+	span.calldepth += 0
 
 	for _, opt := range options {
 		if opt == nil {
 			continue
 		}
 		opt.applySpanOption(span)
+	}
+
+	if span.source == nil {
+		ci := CallerInfo{}
+		doCaller(span.calldepth-2, &ci)
+		span.source = field.Make("source")
+		span.source.SetKind(field.GroupKind, false, false)
+		span.source.Set(field.Make("file").SetString(ci.File))
+		span.source.Set(field.Make("line").SetInt(int64(ci.Line)))
+		span.source.Set(field.Make("func").SetString(ci.Method))
 	}
 
 	span.SpanID = NewHexID().Low().String()

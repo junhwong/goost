@@ -7,25 +7,31 @@ import (
 	"testing"
 )
 
-func TestSpanCaller(t *testing.T) {
+func TestCaller(t *testing.T) {
 	t.Cleanup(Flush)
 
 	var sb strings.Builder
 
-	// sd := dispatcher.Load().(*syncDispatcher)
-	_handlers.Store(handlerSlice{&SimpleHandler{
+	SetHandlers(&SimpleHandler{
 		IsEnd:     true,
 		Formatter: &TextFormatter{},
 		Out:       &sb,
-	}})
+	})
+
+	defaultEntry.Debug("1111")
+
+	Default().Debug("2222")
 
 	var span Span
-
+	{
+		_, span = defaultEntry.NewSpan(context.TODO())
+		span.Debug("0000")
+		span.End()
+	}
 	{
 		_, span = Default().NewSpan(context.TODO())
 		span.Debug("aaaa")
 		span.End()
-
 	}
 	{
 		_, span = Start(context.TODO())
@@ -33,14 +39,16 @@ func TestSpanCaller(t *testing.T) {
 		span.End()
 	}
 	{
-		_, span = Default(WithFields(LogComponent("t"))).NewSpan(context.TODO())
+		_, span = SpanFrom(span)
 		span.Debug("cccc")
 		span.End()
 	}
-	if strings.Count(sb.String(), "apm.TestSpanCaller") != 3 {
+	Flush()
+
+	if strings.Count(sb.String(), "apm.TestCaller") != 4 {
 		t.Fatal("\n\n" + sb.String())
 	}
-	if strings.Count(sb.String(), "span_test.go") != 6 {
+	if strings.Count(sb.String(), "apm_test.go") != 10 {
 		t.Fatal("\n\n" + sb.String())
 	}
 }
@@ -55,7 +63,7 @@ func TestHexID(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(id.High(), id2.High()) || !bytes.Equal(id.Low(), id2.Low()) {
-		t.Fatal()
+		t.Fatalf("id != id2: %v != %v", id, id2)
 	}
 	id3, err := ParseHexID(id2.Low().String())
 	if err != nil {

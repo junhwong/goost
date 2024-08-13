@@ -17,7 +17,7 @@ var (
 
 func init() {
 	initOnce.Do(func() {
-		defaultEntry = &factoryEntry{calldepth: 1, Field: field.MakeRoot()}
+		defaultEntry = &factoryEntry{calldepth: 3, Field: field.MakeRoot()}
 
 		handler, _ := NewConsole()
 		handler.HandlerPriority -= 999
@@ -34,7 +34,6 @@ func Default(options ...WithOption) Interface {
 		return defaultEntry
 	}
 	cl := defaultEntry.new()
-	// cl.calldepth++
 	for _, o := range options {
 		if o != nil {
 			o.applyWithOption(cl)

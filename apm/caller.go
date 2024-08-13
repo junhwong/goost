@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/junhwong/goost/apm/field"
 	"github.com/spf13/cast"
 )
 
@@ -84,4 +85,16 @@ func ContextWithCaller(ctx context.Context, depth ...int) context.Context {
 func CallerFrom(ctx context.Context) *CallerInfo {
 	obj, _ := ctx.Value(callerContextKey).(*CallerInfo)
 	return obj
+}
+
+func WithCaller(depth int) funcSpanOption {
+	return func(span *spanImpl) {
+		ci := CallerInfo{}
+		doCaller(depth+1, &ci)
+		span.source = field.Make("source")
+		span.source.SetKind(field.GroupKind, false, false)
+		span.source.Set(field.Make("file").SetString(ci.File))
+		span.source.Set(field.Make("line").SetInt(int64(ci.Line)))
+		span.source.Set(field.Make("func").SetString(ci.Method))
+	}
 }

@@ -75,25 +75,26 @@ var (
 
 // ParseHexID returns a HexID from a hex string.
 func ParseHexID(h string) (HexID, error) {
+	if h == "" {
+		return nil, errInvalidHexID
+	}
 	decoded, err := hex.DecodeString(h)
 	if err != nil {
 		return nil, errInvalidHexID
 	}
 	switch len(decoded) {
 	case 16:
-		return ZeroHexID, nil
 	case 8:
 		decoded = append(make([]byte, 8), decoded...)
 	default:
 		return nil, errInvalidHexID
 	}
-	for i := range decoded {
-		if decoded[i] != ZeroHexID[i] {
-			return decoded, nil
-		}
+
+	if ZeroHexID.Equal(decoded) {
+		return ZeroHexID, nil
 	}
 
-	return ZeroHexID, nil
+	return decoded, nil
 }
 
 // 解析 W3C trace.
