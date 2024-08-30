@@ -333,7 +333,7 @@ func (f *Field) Append(n *Field) {
 	if !f.IsNull() && !(!f.IsColumn() || n.isKind(f.Type)) {
 		panic(fmt.Errorf("元素的类型是列,但与列的类型不匹配: %v,%v,%v", f.Type, n.Type, f.IsColumn()))
 	}
-	if f.IsNull() { // 补齐类型
+	if f.IsNull() && f.IsColumn() { // 补齐类型
 		f.Type = n.Type
 	}
 	f.SetNull(false)
