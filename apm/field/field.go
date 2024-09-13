@@ -344,7 +344,7 @@ func (f *Field) Append(n *Field) {
 	f.Items = append(f.Items, n)
 }
 
-func (f *Field) SetGroup(v []*Field, isTable ...bool) {
+func (f *Field) SetGroup(v []*Field, isTable ...bool) *Field {
 	b := false
 	if len(isTable) > 0 {
 		b = isTable[len(isTable)-1]
@@ -353,13 +353,13 @@ func (f *Field) SetGroup(v []*Field, isTable ...bool) {
 	f.SetKind(GroupKind, false, b)
 	f.SetNull(v == nil) //len(v) == 0
 	if f.IsNull() {
-		return
+		return f
 	}
 
 	for _, it := range v {
 		f.Set(it)
 	}
-
+	return f
 }
 
 func (f *Field) Set(n *Field) {
