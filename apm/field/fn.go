@@ -62,7 +62,7 @@ func Release(fs ...*Field) {
 }
 
 func MakeRoot() *Field {
-	f := Make("$")
+	f := Make("")
 	f.SetKind(GroupKind, false, false)
 	f.SetNull(false)
 	return f
