@@ -1,8 +1,10 @@
 package field
 
 import (
+	"encoding/json"
 	"net"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/spf13/cast"
@@ -100,6 +102,27 @@ func InferNumberValue(v any) (any, Type) {
 			return nil, FloatKind
 		}
 		return *v, FloatKind
+	case json.Number:
+		if v == "" {
+			return nil, FloatKind
+		}
+		if strings.Contains(string(v), ".") {
+			f, err := v.Float64()
+			if err != nil {
+				return nil, FloatKind
+			}
+			return f, FloatKind
+		}
+		i, err := v.Int64()
+		if err != nil {
+			return nil, IntKind
+		}
+		return i, IntKind
+	case *json.Number:
+		if v == nil {
+			return nil, FloatKind
+		}
+		return InferNumberValue(*v)
 	}
 	return v, InvalidKind
 }
@@ -199,7 +222,11 @@ func InferPrimitiveValueByReflect(rv reflect.Value) (any, Type) {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return rv.Uint(), UintKind
 	case reflect.Float32, reflect.Float64:
-		return rv.Float(), FloatKind
+		v := rv.Float()
+		// if s := strconv.FormatFloat(v, 'f', -1, 64); !strings.Contains(s, ".") { // 尝试解析到int
+		// 	return int64(v), IntKind
+		// }
+		return v, FloatKind
 	case reflect.Complex64, reflect.Complex128:
 		panic("TODO Complex")
 	case reflect.String:

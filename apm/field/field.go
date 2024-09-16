@@ -60,6 +60,9 @@ func (f *Field) IsCollection() bool {
 
 // 是否是数组(array或column)
 func (f *Field) IsArray() bool {
+	if f == nil {
+		return false
+	}
 	// todo 解决类型冲突
 	if f.IsGroup() {
 		return false
@@ -69,16 +72,25 @@ func (f *Field) IsArray() bool {
 
 // 是否是列(统一类型的数组).
 func (f *Field) IsColumn() bool {
+	if f == nil {
+		return false
+	}
 	return (f.GetFlags() & ColumnFlag) == ColumnFlag
 }
 
 // 是否是表格类型. 行:列
 func (f *Field) IsTable() bool {
+	if f == nil {
+		return false
+	}
 	return (f.GetFlags() & TableFlag) == TableFlag
 }
 
 // 是否是字典类型.
 func (f *Field) IsGroup() bool {
+	if f == nil {
+		return false
+	}
 	return f.Type == GroupKind && !f.IsColumn()
 }
 
@@ -158,7 +170,7 @@ func (f *Field) GetUint() uint64 {
 	return f.GetUintValue()
 }
 
-func (f *Field) SetFloat(v float64) *Field {
+func (f *Field) SetFloat(v float64) *Field { // todo NaN、Infinity、-Infinity
 	f.resetValue()
 	f.setPK(FloatKind)
 
@@ -461,30 +473,29 @@ func GetValue(f *Field) any {
 	if f.IsNull() {
 		return nil
 	}
-	if f.IsCollection() {
+	if f.IsArray() { // todo 构造具体类型,如 []string
 		var objs []any
-		for _, f2 := range f.Items {
-			if f2.Type == InvalidKind {
+		for _, it := range f.Items {
+			if it.Type == InvalidKind {
 				continue
 			}
-			objs = append(objs, GetValue(f2))
+			objs = append(objs, GetValue(it))
 		}
 		return objs
 	}
 
-	switch f.Type {
-	case GroupKind:
+	if f.IsGroup() {
 		obj := map[string]any{}
-		for _, f2 := range f.Items {
-			if f2.Type == InvalidKind {
+		for _, it := range f.Items {
+			if it.Type == InvalidKind {
 				continue
 			}
-			obj[f2.Name] = GetValue(f2)
+			obj[it.Name] = GetValue(it)
 		}
 		return obj
-	default:
-		return GetPrimitiveValue(f)
 	}
+
+	return GetPrimitiveValue(f)
 }
 
 func GetPrimitiveValue(f *Field) any {
@@ -523,6 +534,21 @@ func GetPrimitiveValue(f *Field) any {
 	default:
 		panic(fmt.Sprintf("未定义:%#v", f))
 	}
+}
+
+func GetNumberValue(f *Field) any {
+	if f == nil || f.Type == InvalidKind {
+		return nil
+	}
+	switch f.Type {
+	case IntKind:
+		return f.GetIntValue()
+	case UintKind:
+		return f.GetUintValue()
+	case FloatKind:
+		return f.GetFloatValue()
+	}
+	return nil
 }
 
 // 克隆对象

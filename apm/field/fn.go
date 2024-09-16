@@ -107,7 +107,7 @@ func Any(name string, v any, allows ...Type) *Field {
 		return f
 	}
 
-	allow := func(iv any, k Type) bool {
+	allow := func(iv any, k Type) bool { //
 		b := k != InvalidKind
 		if !b || len(allows) == 0 {
 			return b
