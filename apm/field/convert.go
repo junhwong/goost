@@ -63,11 +63,24 @@ func InvertType(f *Field) *Field {
 	return f
 }
 
+type logger interface {
+	Error(...any)
+}
+
+var log logger = &plog{}
+
+type plog struct {
+}
+
+func (p *plog) Error(args ...any) {
+	fmt.Println(args...)
+}
+
 // 转换类型. 转换失败将不会改变
 func As(f *Field, t Type, layouts []string, loc *time.Location) error {
-	if f.Parent != nil && f.IsColumn() && f.Parent.Type != t {
-		return fmt.Errorf("必须与父级类型一致")
-	}
+	// if f.Parent != nil && f.IsColumn() && f.Parent.Type != t {
+	// 	return fmt.Errorf("必须与父级类型一致")
+	// }
 	if f.IsColumn() {
 		f.Type = t
 		for _, it := range f.Items {
@@ -77,12 +90,7 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 		}
 		return nil
 	}
-	if f.Type == t {
-		if t == TimeKind && loc != nil {
-			f.SetTime(f.GetTime().In(loc))
-		}
-		return nil
-	}
+
 	switch t {
 	case IntKind:
 		obj := GetPrimitiveValue(f)
@@ -149,13 +157,16 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 			panic("todo convert")
 		case StringKind: // 字符串转日期
 			v, err := ParseTime(f.GetString(), layouts, loc)
-			if err == nil {
-				f.SetTime(v)
-			} else {
-				f.SetNull(true)
-				fmt.Printf("field:转换为时间戳失败: %v\n", err)
+			if err != nil {
+				return err
 			}
+			f.SetTime(v)
 			return err
+		case TimeKind:
+			if loc != nil {
+				f.SetTime(f.GetTime().In(loc))
+			}
+			return nil
 		default:
 			panic("todo convert")
 		}

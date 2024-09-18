@@ -5,21 +5,28 @@ import (
 	"strings"
 )
 
+// 舍入模式
 type RoundMode string
 
 const (
-	RoundHalfUp   RoundMode = "ROUND_HALF_UP"   // 四舍五入
-	RoundHalfDown RoundMode = "ROUND_HALF_DOWN" // 五舍六入
-	RoundHalfEven RoundMode = "ROUND_HALF_EVEN" // default 四舍六入五取偶法 银行家舍入法，其实质是一种四舍六入五取偶（又称四舍六入五留双）法
+	RoundHalfUp   RoundMode = "ROUND_HALF_UP"   // 四舍五入 1.5 => 2
+	RoundHalfDown RoundMode = "ROUND_HALF_DOWN" // 五舍六入 1.5 => 1
+	RoundHalfEven RoundMode = "ROUND_HALF_EVEN" // 四舍六入五取偶法(银行家舍入法)
 	RoundTrunc    RoundMode = "ROUND_TRUNC"     // 截取指定位数小数
-	RoundDown     RoundMode = "ROUND_DOWN"      // 去掉小数部分取整
-	RoundUp       RoundMode = "ROUND_UP"        // 取右边最近的整数
+	RoundUp       RoundMode = "ROUND_UP"        // 取右边最近的整数 1.1 => 2
+	RoundDown     RoundMode = "ROUND_DOWN"      // 去掉小数部分取整 1.1 => 1
 )
 
 // 舍入.
 //
 // FIXME: 目前是使用字符串处理,效率不高
 func Round(v float64, prec int, m RoundMode) float64 {
+	if prec < 0 {
+		panic("invalid precision")
+	} else if prec > 16 {
+		panic("precision too big")
+	}
+
 	switch m {
 	case RoundHalfEven:
 		s := strconv.FormatFloat(v, 'f', prec, 64)

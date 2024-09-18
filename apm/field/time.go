@@ -8,6 +8,7 @@ import (
 )
 
 var CST *time.Location
+var LOC *time.Location
 
 func init() {
 	loc, err := time.LoadLocation("Asia/Shanghai")
@@ -15,6 +16,7 @@ func init() {
 		panic(err)
 	}
 	CST = loc
+	LOC = time.FixedZone(time.Now().Zone())
 }
 
 func ParseTimeZone(s string) (*time.Location, error) {
@@ -26,7 +28,7 @@ func ParseTimeZone(s string) (*time.Location, error) {
 		return time.UTC, nil
 	case "local":
 		return time.Local, nil
-	case "cst", "asia/shanghai":
+	case "cst", "asia/shanghai", "asia/urumqi", "asia/chongqing":
 		return CST, nil
 	default:
 		loc, err := time.LoadLocation(s)
@@ -170,15 +172,9 @@ func ParseTimeLayouts(a []string) []string {
 	return layouts
 }
 
-var defloc *time.Location
-
-func init() {
-	defloc = time.FixedZone(time.Now().Zone())
-}
-
 func ParseTime(s string, layouts []string, loc *time.Location) (time.Time, error) {
 	if loc == nil {
-		loc = defloc
+		loc = LOC
 	}
 
 	if len(layouts) == 0 {

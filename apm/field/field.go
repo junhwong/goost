@@ -214,7 +214,7 @@ func (f *Field) GetTime() time.Time {
 	if v.Year() >= 2262 { // 大于范围
 		return time.Time{}
 	}
-	v = v.In(defloc)
+	v = v.In(LOC)
 
 	return v
 }
@@ -565,7 +565,7 @@ func Clone(f *Field) *Field {
 // 克隆类容,不改变层级
 func CloneInto(src, dst *Field) *Field {
 	if src == nil {
-		return nil
+		return dst
 	}
 	dst.Type = src.Type
 	dst.Flags = src.Flags
@@ -602,22 +602,19 @@ func CloneInto(src, dst *Field) *Field {
 	if len(src.Items) == 0 {
 		return dst
 	}
-	items := make([]*Field, len(src.Items))
-	copy(items, src.Items)
 
-	dst.Items = make([]*Field, 0, len(items))
-	dst.ItemsSchema = make([]*Schema, 0, len(items))
-	dst.ItemsValue = make([]*Value, 0, len(items))
+	dst.Items = make([]*Field, 0, len(src.Items))
+	dst.ItemsSchema = make([]*Schema, 0, len(src.Items))
+	dst.ItemsValue = make([]*Value, 0, len(src.Items))
 
-	for i, f2 := range items {
-		f2 := Clone(f2)
-		f2.Index = i
-		f2.Parent = dst
-		dst.Items = append(dst.Items, f2)
-		dst.ItemsSchema = append(dst.ItemsSchema, f2.Schema)
-		dst.ItemsValue = append(dst.ItemsValue, f2.Value)
+	for i, it := range src.Items {
+		it := Clone(it)
+		it.Index = i
+		it.Parent = dst
+		dst.Items = append(dst.Items, it)
+		dst.ItemsSchema = append(dst.ItemsSchema, it.Schema)
+		dst.ItemsValue = append(dst.ItemsValue, it.Value)
 	}
-
 	return dst
 }
 
