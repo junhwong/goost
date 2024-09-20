@@ -230,18 +230,34 @@ func (v *explorer) VisitIterExpr(e jsonpath.IterExpr) {
 	panic("todo")
 }
 func (v *explorer) VisitMatcherExpr(e jsonpath.MatcherExpr) {
-	panic("todo")
+	if !v.readonly {
+		v.SetError(fmt.Errorf("匹配操作不能写入"))
+		return
+	}
+	var tmp []*Field
+	currentCopy := make([]*Field, len(v.current))
+	copy(currentCopy, v.current)
+
+	for _, it := range currentCopy {
+		for _, exp := range e {
+			v.current = []*Field{it}
+			v.Visit(exp)
+			tmp = append(tmp, v.current...)
+		}
+	}
+	v.current = tmp
 }
 func (v *explorer) VisitFilterExpr(e *jsonpath.FilterExpr) {
-	panic("todo")
-	// v.inFilter = true
-	// for i, v2 := range e {
-	// 	if i != 0 {
-	// 		v.Write([]byte{','})
-	// 	}
-	// 	v.Visit(v2)
-	// }
-	// v.Write([]byte{']'})
+	var tmp []*Field
+	currentCopy := make([]*Field, len(v.current))
+	copy(currentCopy, v.current)
+
+	for _, it := range currentCopy {
+		v.current = []*Field{it}
+		v.Visit(e.Body)
+		tmp = append(tmp, v.current...)
+	}
+	v.current = tmp
 }
 func (v *explorer) VisitConstInt(e int) {
 	panic("todo")
