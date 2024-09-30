@@ -57,25 +57,26 @@ func (l *factoryEntry) With(options ...WithOption) Interface {
 	}
 	return cl
 }
-
-func (s *factoryEntry) SetAttributes(a ...*field.Field) {
+func (s *factoryEntry) setAttributes(a ...*field.Field) {
 	for _, f := range a {
 		s.Set(f)
 	}
 }
-func (l *factoryEntry) SetCalldepth(v int) { l.calldepth = v }
-func (l *factoryEntry) GetCalldepth() int  { return l.calldepth }
-func (l *factoryEntry) CalldepthInc() Interface {
-	l.calldepth++
-	return l
-}
-func (l *factoryEntry) WithFields(fs ...*field.Field) Interface {
-	cl := l.new()
-	for _, f := range fs {
-		cl.Set(f)
-	}
-	return cl
-}
+func (l *factoryEntry) setCalldepth(v int) { l.calldepth = v }
+func (l *factoryEntry) getCalldepth() int  { return l.calldepth }
+
+// func (l *factoryEntry) CalldepthInc() Interface {
+// 	l.calldepth++
+// 	return l
+// }
+
+//	func (l *factoryEntry) WithFields(fs ...*field.Field) Interface {
+//		cl := l.new()
+//		for _, f := range fs {
+//			cl.Set(f)
+//		}
+//		return cl
+//	}
 func (l *factoryEntry) new() *factoryEntry {
 	l.mu.Lock()
 	r := &factoryEntry{
@@ -169,10 +170,10 @@ func do(level loglevel.Level, entry *field.Field, calldepth int, ctxs []context.
 			p := SpanContextFrom(ctx)
 			if p != nil {
 				entry.Set(TraceIDField(p.GetTranceID()))
-				if level == loglevel.Trace {
-					entry.Set(SpanID(p.GetSpanID()))
-				}
-				break
+				// if level == loglevel.Trace {
+				// 	entry.Set(SpanID(p.GetSpanID()))
+				// }
+				// break
 			}
 		}
 	}

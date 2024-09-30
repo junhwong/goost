@@ -25,8 +25,8 @@ func (f funcSpanOption) applySpanOption(target *spanImpl) {
 }
 
 type callDepthProperty interface {
-	SetCalldepth(v int)
-	GetCalldepth() int
+	setCalldepth(v int)
+	getCalldepth() int
 }
 type callDepthOption func(target callDepthProperty)
 
@@ -47,24 +47,32 @@ func (f callDepthOption) applyWithOption(target *factoryEntry) {
 // 调整日志堆栈记录深度
 func WithCallDepth(depth int) callDepthOption {
 	return callDepthOption(func(target callDepthProperty) {
-		target.SetCalldepth(depth)
+		target.setCalldepth(depth)
 	})
 }
 
 // 在当前日志堆栈记录深度上增加指定值
 func WithCallDepthAdd(depth int) callDepthOption {
 	return callDepthOption(func(target callDepthProperty) {
-		target.SetCalldepth(depth + target.GetCalldepth())
+		target.setCalldepth(depth + target.getCalldepth())
 	})
 }
 
 type fieldsSetter interface {
-	SetAttributes(a ...*field.Field)
+	setAttributes(a ...*field.Field)
 }
 type withFieldsOption func(target fieldsSetter)
 
 // 实现 SpanOption 接口
 func (f withFieldsOption) applySpanOption(target *spanImpl) {
+	if f == nil {
+		return
+	}
+	f(target)
+}
+
+// 实现 EndSpanOption 接口
+func (f withFieldsOption) applyEndSpanOption(target *spanImpl) {
 	if f == nil {
 		return
 	}
@@ -82,7 +90,7 @@ func (f withFieldsOption) applyWithOption(target *factoryEntry) {
 // 设置字段
 func WithFields(fs ...*field.Field) withFieldsOption {
 	return withFieldsOption(func(target fieldsSetter) {
-		target.SetAttributes(fs...)
+		target.setAttributes(fs...)
 	})
 }
 
@@ -233,7 +241,14 @@ func SpanFrom(ctx context.Context, options ...func(*refSpan)) (context.Context, 
 		return ctx, nil
 	}
 
-	return defaultEntry.NewSpan(ctx, append([]SpanOption{
+	nctx := ctx
+	select {
+	case <-ctx.Done():
+		nctx = context.Background()
+	default:
+	}
+
+	_, s := defaultEntry.NewSpan(nctx, append([]SpanOption{
 		funcSpanOption(func(target *spanImpl) {
 			if span == nil {
 				return
@@ -244,6 +259,8 @@ func SpanFrom(ctx context.Context, options ...func(*refSpan)) (context.Context, 
 		}),
 		WithCaller(3),
 	}, ref.opts...)...)
+	// TODO 考虑是否要关联span
+	return nctx, s
 }
 
 var (

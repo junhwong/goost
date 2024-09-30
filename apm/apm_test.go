@@ -5,6 +5,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/junhwong/goost/apm/field"
 )
 
 func TestCaller(t *testing.T) {
@@ -34,7 +36,7 @@ func TestCaller(t *testing.T) {
 		span.End()
 	}
 	{
-		_, span = Start(context.TODO())
+		_, span = Start(context.TODO(), WithFields(field.Make("key").SetString("value")))
 		span.Debug("bbbb")
 		span.End()
 	}
@@ -46,10 +48,10 @@ func TestCaller(t *testing.T) {
 	Flush()
 
 	if strings.Count(sb.String(), "apm.TestCaller") != 4 {
-		t.Fatal("\n\n" + sb.String())
+		t.Fatal("\n\n1:" + sb.String())
 	}
 	if strings.Count(sb.String(), "apm_test.go") != 10 {
-		t.Fatal("\n\n" + sb.String())
+		t.Fatal("\n\n2:" + sb.String())
 	}
 }
 

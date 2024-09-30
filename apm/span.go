@@ -19,10 +19,10 @@ type Span interface {
 	context.Context
 	Logger
 	End(options ...EndSpanOption)                  // 结束该Span。
+	SpanContext() SpanContext                      // 返回与该span关联的上下文
 	FailIf(err error, description ...string) error // 如果`err`不为`nil`, 则标记失败并返回err。
 	PanicIf(err error, description ...string)      // 如果`err`不为`nil`, 则标记失败并`panic`
-	SetAttributes(attrs ...*field.Field)           // 设置属性
-	SpanContext() SpanContext                      // 返回与该span关联的上下文
+	// SetAttributes(attrs ...*field.Field)           // 设置属性
 	// Name() string                                  // 返回 SpanName. 注意: 只有在 End 后才能最后决定.
 	// Duration() time.Duration                       // 返回执行时间. 注意: 只有在 End 后才能最后决定.
 }
@@ -66,6 +66,7 @@ type spanImpl struct {
 	cancel     context.CancelFunc
 	warnnings  []error
 	source     *field.Field
+	fs         []*field.Field
 }
 
 func (e *factoryEntry) NewSpan(ctx context.Context, options ...SpanOption) (context.Context, Span) {
@@ -113,6 +114,8 @@ func (e *factoryEntry) NewSpan(ctx context.Context, options ...SpanOption) (cont
 		span.SpanParentID = make(HexID, 16).Low().String()
 	}
 
+	span.Set(TraceIDField(span.TranceID))
+
 	span.Context, span.cancel = context.WithCancel(ctx)
 
 	// 适配 gin.Context 这类可变 Context, 以贯穿其生命周期
@@ -127,14 +130,6 @@ func (e *factoryEntry) NewSpan(ctx context.Context, options ...SpanOption) (cont
 	} else {
 		ctx = context.WithValue(ctx, spanInContextKey, span)
 	}
-
-	// 打印跟踪
-	if len(span.warnnings) != 0 {
-		for _, it := range span.warnnings {
-			span.Warn(it)
-		}
-	}
-	span.warnnings = nil
 
 	return ctx, span
 }
@@ -157,17 +152,31 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	defer span.mu.Unlock()
 	defer span.cancel()
 
-	for _, fn := range span.endCalls {
-		if fn != nil {
-			fn(span)
-		}
-	}
-
 	for _, option := range options {
 		if option != nil {
 			option.applyEndSpanOption(span)
 		}
 	}
+
+	for _, fn := range span.endCalls {
+		if fn != nil {
+			fn(span)
+		}
+	}
+	span.endCalls = nil
+
+	// 打印跟踪
+	if len(span.warnnings) != 0 {
+		for _, it := range span.warnnings {
+			span.Warn(it)
+		}
+	}
+	span.warnnings = nil
+
+	for _, f := range span.fs {
+		span.Set(f)
+	}
+	span.fs = nil
 
 	name := span.name
 	if span.getName != nil {
@@ -202,14 +211,12 @@ func (span *spanImpl) End(options ...EndSpanOption) {
 	do(loglevel.Trace, span.Field, span.calldepth, []context.Context{span}, nil, func() {
 		// span.Set(LevelField(loglevel.Trace2))
 		span.Set(SpanName(name))
-		// span.Set(SpanID(span.SpanID))
+		span.Set(SpanID(span.SpanID))
 		if len(span.SpanParentID) > 0 {
 			span.Set(SpanParentID(span.SpanParentID))
 		}
-
 		span.Set(Time(span.start))
-		span.Set(Duration(time.Since(span.start))) // Latency
-		// span.Set(TraceIDField(span.TranceID))
+		span.Set(Duration(time.Since(span.start)))
 	})
 
 	span.factoryEntry = nil
@@ -245,3 +252,10 @@ func (s *spanImpl) IsFirst() bool           { return s.first }
 func (s *spanImpl) GetTranceID() string     { return s.TranceID }
 func (s *spanImpl) GetSpanID() string       { return s.SpanID }
 func (s *spanImpl) GetSpanParentID() string { return s.SpanParentID }
+
+func (s *spanImpl) SetAttributes(a ...*field.Field) {
+	s.fs = append(s.fs, a...)
+}
+func (s *spanImpl) setAttributes(a ...*field.Field) {
+	s.fs = append(s.fs, a...)
+}
