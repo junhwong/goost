@@ -99,7 +99,7 @@ func WithExternalTrace(traceID, parentSpanID string) funcSpanOption {
 	if traceID == "" {
 		return nil
 	}
-	return funcSpanOption(func(target *spanImpl) {
+	return func(target *spanImpl) {
 		tid, err := ParseHexID(traceID)
 		if err != nil {
 			target.warnnings = append(target.warnnings, fmt.Errorf("invalid parent trace-id %q: %v", traceID, err))
@@ -115,25 +115,27 @@ func WithExternalTrace(traceID, parentSpanID string) funcSpanOption {
 		} else if !sid.Equal(ZeroHexID) {
 			target.SpanParentID = sid.Low().String()
 		}
-	})
-}
-
-type funcEndSpanOption func(target *spanImpl)
-
-//	func (f funcEndSpanOption) applySpanOption(target *spanImpl) {
-//		f(target)
-//	}
-func (f funcEndSpanOption) applyEndSpanOption(target *spanImpl) {
-	f(target)
+	}
 }
 
 // 用于动态替换 SpanName
-func WithName(getName func() string) nameGetter {
+func WithNameFunc(getName func() string) nameGetter {
 	if getName == nil {
 		panic("apm: getName cannot be nil")
 	}
 	return func(target *spanImpl) {
-		target.SetNameGetter(getName)
+		target.getName = getName
+	}
+}
+
+// 用于替换 SpanName
+func WithName(name string) nameGetter {
+	if name == "" {
+		panic("apm: name cannot be empty")
+	}
+	getName := func() string { return name }
+	return func(target *spanImpl) {
+		target.getName = getName
 	}
 }
 
@@ -152,37 +154,23 @@ func WithEndCall(fn func(Span)) funcEndSpanOption {
 		return nil
 	}
 	return funcEndSpanOption(func(target *spanImpl) {
-		fn(target)
-		// target.SetEndCalls([]func(Span){fn})
+		target.endCalls = append(target.endCalls, fn)
 	})
 }
 
-// //
-// func (fn appendFields) applySpanOption(opt *traceOption) {
-// 	opt.attrs = append(opt.attrs, fn()...)
-// }
-// func (fn appendFields) applyEndOption(opt *traceOption) {
-// 	opt.attrs = append(opt.attrs, fn()...)
-// }
+type funcEndSpanOption func(target *spanImpl)
 
-// // Deprecated 已经废弃
-// func WithTrimFieldPrefix(prefix ...string) SpanOption {
-// 	return &traceOption{delegate: func(target *traceOption) {
-// 		target.trimFieldPrefix = prefix
-// 	}}
-// }
+//	func (f funcEndSpanOption) applySpanOption(target *spanImpl) {
+//		f(target)
+//	}
+func (f funcEndSpanOption) applyEndSpanOption(target *spanImpl) {
+	f(target)
+}
 
 func Start(ctx context.Context, options ...SpanOption) (context.Context, Span) {
 	return defaultEntry.NewSpan(ctx, append([]SpanOption{WithCaller(3)}, options...)...)
 }
 
-// // 调整日志堆栈记录深度
-//
-//	func WithClearup(closer interface{}) *traceOption {
-//		return WithEndCall(func(s Span) {
-//			Close(closer, s)
-//		})
-//	}
 type ctxkey string
 
 const (

@@ -375,6 +375,9 @@ func (f *Field) SetGroup(v []*Field, isTable ...bool) *Field {
 }
 
 func (f *Field) Set(n *Field) {
+	if f == nil {
+		panic(fmt.Errorf("f connat be nil"))
+	}
 	if n == nil {
 		panic(fmt.Errorf("n connat be nil"))
 	}

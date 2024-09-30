@@ -127,7 +127,7 @@ func (r *ginRouter) enterHandler(ctx Context) {
 	defer func() {
 		span.End(
 			// 用于替换自定义名称
-			apm.WithName(func() (s string) {
+			apm.WithNameFunc(func() (s string) {
 				s, _ = ctx.Value(_traceNameInContextKey).(string)
 				return
 			}),

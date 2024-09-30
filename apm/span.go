@@ -242,10 +242,8 @@ func (span *spanImpl) PanicIf(err error, description ...string) {
 	}
 }
 
-func (s *spanImpl) SetNameGetter(a func() string) { s.getName = a }
-func (s *spanImpl) SetEndCalls(a []func(Span))    { s.endCalls = a }
-func (s *spanImpl) SpanContext() SpanContext      { return s }
-func (s *spanImpl) Name() string                  { return s.name }
+func (s *spanImpl) SpanContext() SpanContext { return s }
+func (s *spanImpl) Name() string             { return s.name }
 
 // func (s *spanImpl) Duration() time.Duration       { return s.duration }
 func (s *spanImpl) IsFirst() bool           { return s.first }

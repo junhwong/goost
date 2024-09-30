@@ -2,6 +2,7 @@ package field
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cast"
@@ -173,8 +174,9 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 	case DurationKind:
 		panic("todo convert:DurationKind")
 	case GroupKind:
-		switch f.Type {
-		case GroupKind:
+
+		switch {
+		case f.IsGroup():
 			if len(layouts) == 0 {
 				return nil
 			}
@@ -203,6 +205,28 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 				ToRowTable(f, items)
 				return nil
 			}
+		case f.IsArray():
+			// todo 目前只是单纯的转换
+			ItemsCopy := make([]*Field, len(f.Items))
+			copy(ItemsCopy, f.Items)
+			f.SetGroup(nil)
+			for i, it := range ItemsCopy {
+				if it.Name == "" {
+					it.Name = strconv.Itoa(i)
+				}
+				exists := false
+				for _, eit := range f.Items {
+					if eit.Name == it.Name {
+						exists = true
+						break
+					}
+				}
+				if exists {
+					it.Name += "_" + strconv.Itoa(i)
+				}
+				f.Set(it)
+			}
+			return nil
 		}
 	case ArrayKind:
 		switch f.Type {
