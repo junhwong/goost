@@ -23,6 +23,15 @@ const (
 	TableFlag                    // 表格, 子元素必须完全是Column
 )
 
+func (f *Field) SetName(n string) {
+	f.Name = n
+	if f.IsArray() {
+		for _, it := range f.Items {
+			it.SetName(n)
+		}
+	}
+}
+
 // 设置类型.
 func (f *Field) SetKind(t Type, isColumn, isTable bool) *Field {
 	f.Type = t

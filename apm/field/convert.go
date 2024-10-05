@@ -266,12 +266,12 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 	panic(fmt.Sprintf("todo convert %v->%v", f.GetType(), t))
 }
 
-func ToRowTable(fs *Field, cols []*Field) {
+func ToRowTable(dest *Field, cols []*Field) {
 	rows := []*Field{}
 	colcnt := len(cols)
 	rowcnt := len(cols[0].Items) // 行数
 	for i := 0; i < rowcnt; i++ {
-		row := Make("").SetKind(GroupKind, false, false)
+		row := Make(dest.Name).SetKind(GroupKind, false, false)
 		for j := 0; j < colcnt; j++ {
 			f := cols[j].Items[i]
 			f.Name = cols[j].Name
@@ -279,5 +279,5 @@ func ToRowTable(fs *Field, cols []*Field) {
 		}
 		rows = append(rows, row)
 	}
-	fs.SetArray(rows, false)
+	dest.SetArray(rows, false)
 }
