@@ -213,7 +213,7 @@ func (f *Field) SetTime(v time.Time) *Field {
 	return f
 }
 func (f *Field) GetTime() time.Time {
-	if !f.isKind(TimeKind) {
+	if f.IsNull() || !f.isKind(TimeKind) {
 		return time.Time{}
 	}
 	v := time.Unix(0, f.GetIntValue())

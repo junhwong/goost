@@ -2,6 +2,7 @@ package field
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -79,14 +80,14 @@ func (p *plog) Error(args ...any) {
 }
 
 // 转换类型. 转换失败将不会改变
-func As(f *Field, t Type, layouts []string, loc *time.Location) error {
+func As(f *Field, t Type, layouts []string, loc *time.Location, baseTime time.Time, failToDefault bool) error {
 	// if f.Parent != nil && f.IsColumn() && f.Parent.Type != t {
 	// 	return fmt.Errorf("必须与父级类型一致")
 	// }
 	if f.IsColumn() {
 		f.Type = t
 		for _, it := range f.Items {
-			if err := As(it, t, layouts, loc); err != nil {
+			if err := As(it, t, layouts, loc, baseTime, failToDefault); err != nil {
 				return err
 			}
 		}
@@ -98,6 +99,9 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 		obj := GetPrimitiveValue(f)
 		v, err := cast.ToInt64E(obj)
 		if err != nil {
+			if failToDefault {
+				f.SetInt(0)
+			}
 			return err
 		}
 		f.SetInt(v)
@@ -106,6 +110,9 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 		obj := GetPrimitiveValue(f)
 		v, err := cast.ToUint64E(obj)
 		if err != nil {
+			if failToDefault {
+				f.SetUint(0)
+			}
 			return err
 		}
 		f.SetUint(v)
@@ -114,6 +121,9 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 		obj := GetPrimitiveValue(f)
 		v, err := cast.ToFloat64E(obj)
 		if err != nil {
+			if failToDefault {
+				f.SetFloat(0)
+			}
 			return err
 		}
 		f.SetFloat(v)
@@ -121,19 +131,25 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 	case StringKind:
 		switch f.Type {
 		case StringKind:
+			return nil
 		default:
 			obj := GetPrimitiveValue(f)
 			v, err := cast.ToStringE(obj)
 			if err != nil {
+				if failToDefault {
+					f.SetString("")
+				}
 				return err
 			}
 			f.SetString(v)
 		}
-		return nil
 	case BoolKind:
 		obj := GetPrimitiveValue(f)
 		v, err := cast.ToBoolE(obj)
 		if err != nil {
+			if failToDefault {
+				f.SetBool(false)
+			}
 			return err
 		}
 		f.SetBool(v)
@@ -141,25 +157,19 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 	case BytesKind:
 		switch f.Type {
 		case StringKind:
-			f.SetBytes([]byte(f.GetStringValue()))
+			f.SetBytes([]byte(f.GetString()))
 			return nil
 		case BytesKind:
 			return nil
-		default:
-			panic("todo convert")
 		}
-
 	case TimeKind:
 		switch f.GetType() {
-		case IntKind:
-			panic("todo convert")
-		case UintKind:
-			panic("todo convert")
-		case FloatKind:
-			panic("todo convert")
 		case StringKind: // 字符串转日期
 			v, err := ParseTime(f.GetString(), layouts, loc)
 			if err != nil {
+				if failToDefault {
+					f.SetTime(time.Time{})
+				}
 				return err
 			}
 			f.SetTime(v)
@@ -169,28 +179,44 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 				f.SetTime(f.GetTime().In(loc))
 			}
 			return nil
-		default:
-			panic("todo convert")
 		}
 	case DurationKind:
 		switch f.GetType() {
 		case StringKind:
 			s := f.GetString()
 			d, err := ParseDuration(s)
-			if err == nil {
+			if err != nil {
 				d, err = ParseMomentDuration(s)
 			}
 			if err != nil {
+				if failToDefault {
+					f.SetDuration(0)
+				}
 				return fmt.Errorf("invalid duration: %s", s)
 			}
 			f.SetDuration(d)
-			return err
-		default:
-			panic("todo convert:DurationKind")
+			return nil
 		}
-
+	case IPKind:
+		switch f.GetType() {
+		case StringKind:
+			s := f.GetString()
+			ip := net.ParseIP(s)
+			if strings.Contains(s, ":") {
+				ip = ip.To16()
+			} else {
+				ip = ip.To4()
+			}
+			if len(ip) == 0 {
+				if failToDefault {
+					f.SetIP(net.IP{})
+				}
+				return fmt.Errorf("invalid ip: %s", s)
+			}
+			f.SetIP(ip)
+			return nil
+		}
 	case GroupKind:
-
 		switch {
 		case f.IsGroup():
 			if len(layouts) == 0 {
@@ -249,7 +275,6 @@ func As(f *Field, t Type, layouts []string, loc *time.Location) error {
 		case GroupKind:
 			if len(layouts) == 0 {
 				panic("todo convert:ArrayKind-GroupKind")
-				return nil
 			}
 			switch layouts[0] {
 			case "RowTable":
@@ -390,12 +415,18 @@ func ParseDuration(os string) (time.Duration, error) {
 		if l < 3 {
 			return 0, fmt.Errorf("unsupported format %s", os)
 		}
-
+		panic("TODO")
 		return 0, nil
 	}
+
 	s = strings.ReplaceAll(s, "小时", "h")
 	s = strings.ReplaceAll(s, "分钟", "m")
 	s = strings.ReplaceAll(s, "秒钟", "s")
+	s = strings.ReplaceAll(s, "毫秒", "ms")
+	s = strings.ReplaceAll(s, "微妙", "us")
+	s = strings.ReplaceAll(s, "纳秒", "ns")
+	s = strings.ReplaceAll(s, "μ", "ms")
+	s = strings.ReplaceAll(s, "μs", "ms")
 	s = strings.ReplaceAll(s, "天", "d")
 	s = strings.ReplaceAll(s, "时", "h")
 	s = strings.ReplaceAll(s, "分", "m")
@@ -446,44 +477,5 @@ func ParseDuration(os string) (time.Duration, error) {
 		h += n
 		s = arr[1]
 	}
-	// ns:=0
-	// if arr := strings.SplitN(s, "ns", 2); len(arr) == 2 {
-	// 	n, err := cast.ToIntE(arr[1])
-	// 	if err != nil {
-	// 		return 0, err
-	// 	}
-	// 	ns = n
-	// 	s = arr[0]
-	// }
-	// us:=0
-	// if arr := strings.SplitN(s, "us", 2); len(arr) == 2 {
-	// 	n, err := cast.ToIntE(arr[0])
-	// 	if err != nil {
-	// 		return 0, err
-	// 	}
-	// 	us = n
-	// 	s = arr[1]
-	// }
-	m := 0
-	if arr := strings.SplitN(s, "m", 2); len(arr) == 2 {
-		n, err := cast.ToIntE(arr[0])
-		if err != nil {
-			return 0, err
-		}
-		m = n
-		s = arr[1]
-	}
-	sec := 0
-	if arr := strings.SplitN(s, "s", 2); len(arr) != 0 { // todo 小数, 毫秒
-		n, err := cast.ToIntE(arr[0])
-		if err != nil {
-			return 0, err
-		}
-		sec = n
-		s = arr[1]
-	}
-	if s != "" {
-		fmt.Printf("unexpected suffix %q:%q\n", s, os)
-	}
-	return time.Duration(h*3600+m*60+sec) * time.Second, nil
+	return time.ParseDuration(strconv.Itoa(h) + "h" + s)
 }
