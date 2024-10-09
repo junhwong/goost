@@ -66,19 +66,6 @@ func InvertType(f *Field) *Field {
 	return f
 }
 
-type logger interface {
-	Error(...any)
-}
-
-var log logger = &plog{}
-
-type plog struct {
-}
-
-func (p *plog) Error(args ...any) {
-	fmt.Println(args...)
-}
-
 // 转换类型. 转换失败将不会改变
 func As(f *Field, t Type, layouts []string, loc *time.Location, baseTime time.Time, failToDefault bool) error {
 	// if f.Parent != nil && f.IsColumn() && f.Parent.Type != t {
@@ -308,6 +295,11 @@ func As(f *Field, t Type, layouts []string, loc *time.Location, baseTime time.Ti
 }
 
 func ToRowTable(dest *Field, cols []*Field) {
+	if len(cols) == 0 {
+		log.Error("ToRowTable: empty cols")
+		dest.SetArray(nil, false)
+		return
+	}
 	rows := []*Field{}
 	colcnt := len(cols)
 	rowcnt := len(cols[0].Items) // 行数
