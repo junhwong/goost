@@ -129,6 +129,7 @@ func As(f *Field, t Type, layouts []string, loc *time.Location, baseTime time.Ti
 				return err
 			}
 			f.SetString(v)
+			return nil
 		}
 	case BoolKind:
 		obj := GetPrimitiveValue(f)
