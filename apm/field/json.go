@@ -16,12 +16,13 @@ const (
 )
 
 type JsonMarshaler struct {
-	OmitEmpty  bool // todo 实现
-	TimeLayout string
-	EscapeHTML bool
-	Pretty     bool
-	NameFilter func(string) string
-	NameLess   func(a, b *Field) int
+	OmitEmpty        bool // todo 实现
+	TimeLayout       string
+	DurationToString bool
+	EscapeHTML       bool
+	Pretty           bool
+	NameFilter       func(string) string
+	NameLess         func(a, b *Field) int
 
 	err   error
 	w     io.Writer
@@ -285,7 +286,14 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 	case DurationKind:
 		v := f.GetDuration()
 		befor()
-		m.writeBytes(strconv.AppendInt(nil, v.Nanoseconds(), 10))
+		if !m.DurationToString {
+			m.writeBytes(strconv.AppendInt(nil, v.Nanoseconds(), 10))
+			return
+		}
+		m.writeBytes([]byte(`"`))
+		m.writeBytes([]byte(v.String()))
+		m.writeBytes([]byte(`"`))
+
 	case BytesKind:
 		v := f.GetBytes()
 		befor()

@@ -167,6 +167,25 @@ func As(f *Field, t Type, layouts []string, loc *time.Location, baseTime time.Ti
 				f.SetTime(f.GetTime().In(loc))
 			}
 			return nil
+		case IntKind:
+			d := f.GetInt()
+			for _, l := range layouts {
+				switch strings.ToUpper(l) {
+				case "UNIX_MS":
+					f.SetTime(time.UnixMilli(d))
+					return nil
+				case "UNIX_US":
+					f.SetTime(time.UnixMicro(d))
+					return nil
+				case "UNIX_NS":
+					f.SetTime(time.Unix(0, d))
+					return nil
+				case "UNIX":
+					f.SetTime(time.Unix(d, 0))
+					return nil
+				}
+			}
+			f.SetTime(time.Unix(0, d))
 		}
 	case DurationKind:
 		switch f.GetType() {
@@ -183,6 +202,60 @@ func As(f *Field, t Type, layouts []string, loc *time.Location, baseTime time.Ti
 				return fmt.Errorf("invalid duration: %s", s)
 			}
 			f.SetDuration(d)
+			return nil
+		case IntKind:
+			d := f.GetInt()
+			for _, l := range layouts {
+				switch strings.ToUpper(l) {
+				case "MILLISECONDS", "MS":
+					f.SetDuration(time.Duration(d) * time.Millisecond)
+					return nil
+				case "MICSECONDS", "US":
+					f.SetDuration(time.Duration(d) * time.Microsecond)
+					return nil
+				case "NANOSECONDS", "NS":
+					f.SetDuration(time.Duration(d))
+					return nil
+				case "SECONDS", "S":
+					f.SetDuration(time.Duration(d) * time.Second)
+					return nil
+				case "MINUTES", "M":
+					f.SetDuration(time.Duration(d) * time.Minute)
+					return nil
+				case "HOURS", "H":
+					f.SetDuration(time.Duration(d) * time.Hour)
+					return nil
+				}
+			}
+			f.SetDuration(time.Duration(d) * time.Microsecond)
+			return nil
+		case FloatKind:
+			v := f.GetFloat()
+			for _, l := range layouts {
+				switch strings.ToUpper(l) {
+				case "MILLISECONDS", "MS":
+					v *= float64(time.Millisecond)
+					goto LOOP
+				case "MICSECONDS", "US":
+					v *= float64(time.Microsecond)
+					goto LOOP
+				case "NANOSECONDS", "NS":
+					v *= float64(time.Nanosecond)
+					goto LOOP
+				case "SECONDS", "S":
+					v *= float64(time.Second)
+					goto LOOP
+				case "MINUTES", "M":
+					v *= float64(time.Minute)
+					goto LOOP
+				case "HOURS", "H":
+					v *= float64(time.Hour)
+					goto LOOP
+				}
+			}
+			v *= float64(time.Second)
+		LOOP:
+			f.SetDuration(time.Duration(v))
 			return nil
 		}
 	case IPKind:
