@@ -12,19 +12,19 @@ func Find(root *Field, nameOrPath string) ([]*Field, error) {
 
 func FindWith(p jsonpath.Expr, root *Field) ([]*Field, error) {
 	v := &explorer{readonly: true, root: root, current: []*Field{root}, parent: []*Field{}}
-	v.Visit = func(e jsonpath.Expr) {
-		jsonpath.Visit(e, v, v.SetError)
+	v.visit = func(e jsonpath.Expr) {
+		jsonpath.Visit(e, v, v.setError)
 	}
-	v.Visit(p)
+	v.visit(p)
 	return v.current, v.Error()
 }
 
 func FindWithCurrent(p jsonpath.Expr, root *Field, current []*Field) ([]*Field, error) {
 	v := &explorer{readonly: true, root: root, current: current, parent: []*Field{}}
-	v.Visit = func(e jsonpath.Expr) {
-		jsonpath.Visit(e, v, v.SetError)
+	v.visit = func(e jsonpath.Expr) {
+		jsonpath.Visit(e, v, v.setError)
 	}
-	v.Visit(p)
+	v.visit(p)
 	return v.current, v.Error()
 }
 

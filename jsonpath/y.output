@@ -2,11 +2,19 @@ state 0 //
 
     0 $accept: . start
 
-    AT      shift, and goto state 4
-    DOLLAR  shift, and goto state 3
+    AT            shift, and goto state 4
+    DOLLAR        shift, and goto state 3
+    IDENTIFIER    shift, and goto state 10
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    STRING        shift, and goto state 11
 
-    expr   goto state 2
-    start  goto state 1
+    expr      goto state 2
+    index     goto state 7
+    member    goto state 6
+    segment   goto state 5
+    selector  goto state 8
+    start     goto state 1
 
 state 1 // AT [$end]
 
@@ -22,664 +30,90 @@ state 2 // AT [$end]
 
 state 3 // DOLLAR
 
-    2 expr: DOLLAR . DOT segment  // assoc %left, prec 5
-    3 expr: DOLLAR . DOTDOT segment  // assoc %left, prec 5
+    2 expr: DOLLAR .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
+    3 expr: DOLLAR . index  // assoc %left, prec 5
+    4 expr: DOLLAR . DOT segment  // assoc %left, prec 5
+    5 expr: DOLLAR . DOTDOT segment  // assoc %left, prec 5
 
-    DOT     shift, and goto state 69
-    DOTDOT  shift, and goto state 70
+    $end               reduce using rule 2 (expr)
+    CLOSE_BRACKET      reduce using rule 2 (expr)
+    CLOSE_PARENTHESIS  reduce using rule 2 (expr)
+    COMMA              reduce using rule 2 (expr)
+    DOT                shift, and goto state 71
+    DOTDOT             shift, and goto state 72
+    EQ                 reduce using rule 2 (expr)
+    GT                 reduce using rule 2 (expr)
+    GTE                reduce using rule 2 (expr)
+    IN                 reduce using rule 2 (expr)
+    LT                 reduce using rule 2 (expr)
+    LTE                reduce using rule 2 (expr)
+    NEQ                reduce using rule 2 (expr)
+    NIN                reduce using rule 2 (expr)
+    NRE                reduce using rule 2 (expr)
+    OPEN_BRACKET       shift, and goto state 66
+    RE                 reduce using rule 2 (expr)
+
+    index  goto state 70
 
 state 4 // AT
 
-    4 expr: AT .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
-    5 expr: AT . OPEN_BRACKET CLOSE_BRACKET  // assoc %left, prec 4
-    6 expr: AT . DOT segment  // assoc %left, prec 5
-    7 expr: AT . DOTDOT segment  // assoc %left, prec 5
-
-    $end               reduce using rule 4 (expr)
-    CLOSE_BRACKET      reduce using rule 4 (expr)
-    CLOSE_PARENTHESIS  reduce using rule 4 (expr)
-    COMMA              reduce using rule 4 (expr)
-    DOT                shift, and goto state 6
-    DOTDOT             shift, and goto state 7
-    EQ                 reduce using rule 4 (expr)
-    GT                 reduce using rule 4 (expr)
-    GTE                reduce using rule 4 (expr)
-    IN                 reduce using rule 4 (expr)
-    LT                 reduce using rule 4 (expr)
-    LTE                reduce using rule 4 (expr)
-    NEQ                reduce using rule 4 (expr)
-    NIN                reduce using rule 4 (expr)
-    NRE                reduce using rule 4 (expr)
-    OPEN_BRACKET       shift, and goto state 5
-    RE                 reduce using rule 4 (expr)
-
-state 5 // AT OPEN_BRACKET
-
-    5 expr: AT OPEN_BRACKET . CLOSE_BRACKET  // assoc %left, prec 4
-
-    CLOSE_BRACKET  shift, and goto state 68
-
-state 6 // AT DOT
-
-    6 expr: AT DOT . segment  // assoc %left, prec 5
-
-    IDENTIFIER    shift, and goto state 12
-    OPEN_BRACKET  shift, and goto state 14
-    STRING        shift, and goto state 13
-
-    index     goto state 10
-    member    goto state 9
-    segment   goto state 67
-    selector  goto state 11
-
-state 7 // AT DOTDOT
-
-    7 expr: AT DOTDOT . segment  // assoc %left, prec 5
-
-    IDENTIFIER    shift, and goto state 12
-    OPEN_BRACKET  shift, and goto state 14
-    STRING        shift, and goto state 13
-
-    index     goto state 10
-    member    goto state 9
-    segment   goto state 8
-    selector  goto state 11
-
-state 8 // AT DOTDOT IDENTIFIER [$end]
-
-    7 expr: AT DOTDOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
-   11 segment: segment . index
-   12 segment: segment . selector
-   13 segment: segment . DOT segment  // assoc %left, prec 5
-   14 segment: segment . DOTDOT segment  // assoc %left, prec 5
-   15 segment: segment . DOT MUL  // assoc %left, prec 2
-   16 segment: segment . DOTDOT MUL  // assoc %left, prec 2
-
-    $end               reduce using rule 7 (expr)
-    CLOSE_BRACKET      reduce using rule 7 (expr)
-    CLOSE_PARENTHESIS  reduce using rule 7 (expr)
-    COMMA              reduce using rule 7 (expr)
-    DOT                shift, and goto state 61
-    DOTDOT             shift, and goto state 62
-    EQ                 reduce using rule 7 (expr)
-    GT                 reduce using rule 7 (expr)
-    GTE                reduce using rule 7 (expr)
-    IN                 reduce using rule 7 (expr)
-    LT                 reduce using rule 7 (expr)
-    LTE                reduce using rule 7 (expr)
-    NEQ                reduce using rule 7 (expr)
-    NIN                reduce using rule 7 (expr)
-    NRE                reduce using rule 7 (expr)
-    OPEN_BRACKET       shift, and goto state 14
-    RE                 reduce using rule 7 (expr)
-
-    index     goto state 59
-    selector  goto state 60
-
-state 9 // AT DOT IDENTIFIER [$end]
-
-    8 segment: member .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
-
-    $end               reduce using rule 8 (segment)
-    CLOSE_BRACKET      reduce using rule 8 (segment)
-    CLOSE_PARENTHESIS  reduce using rule 8 (segment)
-    COMMA              reduce using rule 8 (segment)
-    DOT                reduce using rule 8 (segment)
-    DOTDOT             reduce using rule 8 (segment)
-    EQ                 reduce using rule 8 (segment)
-    GT                 reduce using rule 8 (segment)
-    GTE                reduce using rule 8 (segment)
-    IN                 reduce using rule 8 (segment)
-    LT                 reduce using rule 8 (segment)
-    LTE                reduce using rule 8 (segment)
-    NEQ                reduce using rule 8 (segment)
-    NIN                reduce using rule 8 (segment)
-    NRE                reduce using rule 8 (segment)
-    OPEN_BRACKET       reduce using rule 8 (segment)
-    RE                 reduce using rule 8 (segment)
-
-state 10 // AT DOTDOT OPEN_BRACKET CLOSE_BRACKET [$end]
-
-    9 segment: index .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
-
-    $end               reduce using rule 9 (segment)
-    CLOSE_BRACKET      reduce using rule 9 (segment)
-    CLOSE_PARENTHESIS  reduce using rule 9 (segment)
-    COMMA              reduce using rule 9 (segment)
-    DOT                reduce using rule 9 (segment)
-    DOTDOT             reduce using rule 9 (segment)
-    EQ                 reduce using rule 9 (segment)
-    GT                 reduce using rule 9 (segment)
-    GTE                reduce using rule 9 (segment)
-    IN                 reduce using rule 9 (segment)
-    LT                 reduce using rule 9 (segment)
-    LTE                reduce using rule 9 (segment)
-    NEQ                reduce using rule 9 (segment)
-    NIN                reduce using rule 9 (segment)
-    NRE                reduce using rule 9 (segment)
-    OPEN_BRACKET       reduce using rule 9 (segment)
-    RE                 reduce using rule 9 (segment)
-
-state 11 // AT DOT OPEN_BRACKET COLON CLOSE_BRACKET [$end]
-
-   10 segment: selector .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
-
-    $end               reduce using rule 10 (segment)
-    CLOSE_BRACKET      reduce using rule 10 (segment)
-    CLOSE_PARENTHESIS  reduce using rule 10 (segment)
-    COMMA              reduce using rule 10 (segment)
-    DOT                reduce using rule 10 (segment)
-    DOTDOT             reduce using rule 10 (segment)
-    EQ                 reduce using rule 10 (segment)
-    GT                 reduce using rule 10 (segment)
-    GTE                reduce using rule 10 (segment)
-    IN                 reduce using rule 10 (segment)
-    LT                 reduce using rule 10 (segment)
-    LTE                reduce using rule 10 (segment)
-    NEQ                reduce using rule 10 (segment)
-    NIN                reduce using rule 10 (segment)
-    NRE                reduce using rule 10 (segment)
-    OPEN_BRACKET       reduce using rule 10 (segment)
-    RE                 reduce using rule 10 (segment)
-
-state 12 // AT DOTDOT IDENTIFIER
-
-   17 member: IDENTIFIER .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
-
-    $end               reduce using rule 17 (member)
-    CLOSE_BRACKET      reduce using rule 17 (member)
-    CLOSE_PARENTHESIS  reduce using rule 17 (member)
-    COMMA              reduce using rule 17 (member)
-    DOT                reduce using rule 17 (member)
-    DOTDOT             reduce using rule 17 (member)
-    EQ                 reduce using rule 17 (member)
-    GT                 reduce using rule 17 (member)
-    GTE                reduce using rule 17 (member)
-    IN                 reduce using rule 17 (member)
-    LT                 reduce using rule 17 (member)
-    LTE                reduce using rule 17 (member)
-    NEQ                reduce using rule 17 (member)
-    NIN                reduce using rule 17 (member)
-    NRE                reduce using rule 17 (member)
-    OPEN_BRACKET       reduce using rule 17 (member)
-    RE                 reduce using rule 17 (member)
-
-state 13 // AT DOT STRING
-
-   18 member: STRING .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
-
-    $end               reduce using rule 18 (member)
-    CLOSE_BRACKET      reduce using rule 18 (member)
-    CLOSE_PARENTHESIS  reduce using rule 18 (member)
-    COMMA              reduce using rule 18 (member)
-    DOT                reduce using rule 18 (member)
-    DOTDOT             reduce using rule 18 (member)
-    EQ                 reduce using rule 18 (member)
-    GT                 reduce using rule 18 (member)
-    GTE                reduce using rule 18 (member)
-    IN                 reduce using rule 18 (member)
-    LT                 reduce using rule 18 (member)
-    LTE                reduce using rule 18 (member)
-    NEQ                reduce using rule 18 (member)
-    NIN                reduce using rule 18 (member)
-    NRE                reduce using rule 18 (member)
-    OPEN_BRACKET       reduce using rule 18 (member)
-    RE                 reduce using rule 18 (member)
-
-state 14 // AT DOTDOT OPEN_BRACKET
-
-   19 index: OPEN_BRACKET . negint CLOSE_BRACKET  // assoc %left, prec 4
-   20 index: OPEN_BRACKET . CLOSE_BRACKET  // assoc %left, prec 4
-   21 selector: OPEN_BRACKET . range CLOSE_BRACKET  // assoc %left, prec 4
-   22 selector: OPEN_BRACKET . matchers CLOSE_BRACKET  // assoc %left, prec 4
-
-    AT             shift, and goto state 4
-    CLOSE_BRACKET  shift, and goto state 16
-    COLON          shift, and goto state 19
-    DOLLAR         shift, and goto state 3
-    INT            shift, and goto state 23
-    QUESTION       shift, and goto state 22
-    SUB            shift, and goto state 24
-
-    expr      goto state 21
-    matcher   goto state 20
-    matchers  goto state 18
-    negint    goto state 15
-    range     goto state 17
-
-state 15 // AT DOTDOT OPEN_BRACKET INT [CLOSE_BRACKET]
-
-   19 index: OPEN_BRACKET negint . CLOSE_BRACKET  // assoc %left, prec 4
-   25 range: negint . COLON  // assoc %left, prec 5
-   26 range: negint . COLON negint  // assoc %left, prec 5
-
-    CLOSE_BRACKET  shift, and goto state 56
-    COLON          shift, and goto state 57
-
-state 16 // AT DOTDOT OPEN_BRACKET CLOSE_BRACKET
-
-   20 index: OPEN_BRACKET CLOSE_BRACKET .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 4
-
-    $end               reduce using rule 20 (index)
-    CLOSE_BRACKET      reduce using rule 20 (index)
-    CLOSE_PARENTHESIS  reduce using rule 20 (index)
-    COMMA              reduce using rule 20 (index)
-    DOT                reduce using rule 20 (index)
-    DOTDOT             reduce using rule 20 (index)
-    EQ                 reduce using rule 20 (index)
-    GT                 reduce using rule 20 (index)
-    GTE                reduce using rule 20 (index)
-    IN                 reduce using rule 20 (index)
-    LT                 reduce using rule 20 (index)
-    LTE                reduce using rule 20 (index)
-    NEQ                reduce using rule 20 (index)
-    NIN                reduce using rule 20 (index)
-    NRE                reduce using rule 20 (index)
-    OPEN_BRACKET       reduce using rule 20 (index)
-    RE                 reduce using rule 20 (index)
-
-state 17 // AT DOTDOT OPEN_BRACKET COLON [CLOSE_BRACKET]
-
-   21 selector: OPEN_BRACKET range . CLOSE_BRACKET  // assoc %left, prec 4
-
-    CLOSE_BRACKET  shift, and goto state 55
-
-state 18 // AT DOTDOT OPEN_BRACKET AT [CLOSE_BRACKET]
-
-   22 selector: OPEN_BRACKET matchers . CLOSE_BRACKET  // assoc %left, prec 4
-   28 matchers: matchers . COMMA matcher  // assoc %left, prec 5
-   29 matchers: matchers . COMMA  // assoc %left, prec 5
-
-    CLOSE_BRACKET  shift, and goto state 54
-    COMMA          shift, and goto state 42
-
-state 19 // AT DOTDOT OPEN_BRACKET COLON
-
-   23 range: COLON .  [CLOSE_BRACKET]  // assoc %left, prec 5
-   24 range: COLON . negint  // assoc %left, prec 5
-
-    CLOSE_BRACKET  reduce using rule 23 (range)
-    INT            shift, and goto state 23
-    SUB            shift, and goto state 24
-
-    negint  goto state 53
-
-state 20 // AT DOTDOT OPEN_BRACKET AT [CLOSE_BRACKET]
-
-   27 matchers: matcher .  [CLOSE_BRACKET, COMMA]
-
-    CLOSE_BRACKET  reduce using rule 27 (matchers)
-    COMMA          reduce using rule 27 (matchers)
-
-state 21 // AT DOTDOT OPEN_BRACKET AT [CLOSE_BRACKET]
-
-   30 matcher: expr .  [CLOSE_BRACKET, COMMA]
-
-    CLOSE_BRACKET  reduce using rule 30 (matcher)
-    COMMA          reduce using rule 30 (matcher)
-
-state 22 // AT DOTDOT OPEN_BRACKET QUESTION
-
-   31 matcher: QUESTION . OPEN_PARENTHESIS expr compairOp valExpr CLOSE_PARENTHESIS  // assoc %left, prec 4
-   32 matcher: QUESTION . OPEN_PARENTHESIS expr includeOp OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
-
-    OPEN_PARENTHESIS  shift, and goto state 26
-
-state 23 // AT DOTDOT OPEN_BRACKET INT
-
-   47 negint: INT .  [CLOSE_BRACKET, CLOSE_PARENTHESIS, COLON]
-
-    CLOSE_BRACKET      reduce using rule 47 (negint)
-    CLOSE_PARENTHESIS  reduce using rule 47 (negint)
-    COLON              reduce using rule 47 (negint)
-
-state 24 // AT DOTDOT OPEN_BRACKET SUB
-
-   48 negint: SUB . INT
-
-    INT  shift, and goto state 25
-
-state 25 // AT DOTDOT OPEN_BRACKET SUB INT
-
-   48 negint: SUB INT .  [CLOSE_BRACKET, CLOSE_PARENTHESIS, COLON]
-
-    CLOSE_BRACKET      reduce using rule 48 (negint)
-    CLOSE_PARENTHESIS  reduce using rule 48 (negint)
-    COLON              reduce using rule 48 (negint)
-
-state 26 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS
-
-   31 matcher: QUESTION OPEN_PARENTHESIS . expr compairOp valExpr CLOSE_PARENTHESIS  // assoc %left, prec 4
-   32 matcher: QUESTION OPEN_PARENTHESIS . expr includeOp OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
-
-    AT      shift, and goto state 4
-    DOLLAR  shift, and goto state 3
-
-    expr  goto state 27
-
-state 27 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT [EQ]
-
-   31 matcher: QUESTION OPEN_PARENTHESIS expr . compairOp valExpr CLOSE_PARENTHESIS  // assoc %left, prec 4
-   32 matcher: QUESTION OPEN_PARENTHESIS expr . includeOp OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
-
-    EQ   shift, and goto state 30
-    GT   shift, and goto state 32
-    GTE  shift, and goto state 33
-    IN   shift, and goto state 38
-    LT   shift, and goto state 34
-    LTE  shift, and goto state 35
-    NEQ  shift, and goto state 31
-    NIN  shift, and goto state 39
-    NRE  shift, and goto state 37
-    RE   shift, and goto state 36
-
-    compairOp  goto state 28
-    includeOp  goto state 29
-
-state 28 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ [AT]
-
-   31 matcher: QUESTION OPEN_PARENTHESIS expr compairOp . valExpr CLOSE_PARENTHESIS  // assoc %left, prec 4
-
-    AT      shift, and goto state 4
-    DOLLAR  shift, and goto state 3
-    FLOAT   shift, and goto state 48
-    INT     shift, and goto state 23
-    SUB     shift, and goto state 49
-
-    expr     goto state 47
-    negint   goto state 50
-    valExpr  goto state 46
-
-state 29 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN [OPEN_BRACKET]
-
-   32 matcher: QUESTION OPEN_PARENTHESIS expr includeOp . OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
-
-    OPEN_BRACKET  shift, and goto state 40
-
-state 30 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ
-
-   37 compairOp: EQ .  [AT, DOLLAR, FLOAT, INT, SUB]  // assoc %left, prec 1
-
-    AT      reduce using rule 37 (compairOp)
-    DOLLAR  reduce using rule 37 (compairOp)
-    FLOAT   reduce using rule 37 (compairOp)
-    INT     reduce using rule 37 (compairOp)
-    SUB     reduce using rule 37 (compairOp)
-
-state 31 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT NEQ
-
-   38 compairOp: NEQ .  [AT, DOLLAR, FLOAT, INT, SUB]  // assoc %left, prec 1
-
-    AT      reduce using rule 38 (compairOp)
-    DOLLAR  reduce using rule 38 (compairOp)
-    FLOAT   reduce using rule 38 (compairOp)
-    INT     reduce using rule 38 (compairOp)
-    SUB     reduce using rule 38 (compairOp)
-
-state 32 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT GT
-
-   39 compairOp: GT .  [AT, DOLLAR, FLOAT, INT, SUB]  // assoc %left, prec 1
-
-    AT      reduce using rule 39 (compairOp)
-    DOLLAR  reduce using rule 39 (compairOp)
-    FLOAT   reduce using rule 39 (compairOp)
-    INT     reduce using rule 39 (compairOp)
-    SUB     reduce using rule 39 (compairOp)
-
-state 33 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT GTE
-
-   40 compairOp: GTE .  [AT, DOLLAR, FLOAT, INT, SUB]  // assoc %left, prec 1
-
-    AT      reduce using rule 40 (compairOp)
-    DOLLAR  reduce using rule 40 (compairOp)
-    FLOAT   reduce using rule 40 (compairOp)
-    INT     reduce using rule 40 (compairOp)
-    SUB     reduce using rule 40 (compairOp)
-
-state 34 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT LT
-
-   41 compairOp: LT .  [AT, DOLLAR, FLOAT, INT, SUB]  // assoc %left, prec 1
-
-    AT      reduce using rule 41 (compairOp)
-    DOLLAR  reduce using rule 41 (compairOp)
-    FLOAT   reduce using rule 41 (compairOp)
-    INT     reduce using rule 41 (compairOp)
-    SUB     reduce using rule 41 (compairOp)
-
-state 35 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT LTE
-
-   42 compairOp: LTE .  [AT, DOLLAR, FLOAT, INT, SUB]  // assoc %left, prec 1
-
-    AT      reduce using rule 42 (compairOp)
-    DOLLAR  reduce using rule 42 (compairOp)
-    FLOAT   reduce using rule 42 (compairOp)
-    INT     reduce using rule 42 (compairOp)
-    SUB     reduce using rule 42 (compairOp)
-
-state 36 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT RE
-
-   43 compairOp: RE .  [AT, DOLLAR, FLOAT, INT, SUB]  // assoc %left, prec 1
-
-    AT      reduce using rule 43 (compairOp)
-    DOLLAR  reduce using rule 43 (compairOp)
-    FLOAT   reduce using rule 43 (compairOp)
-    INT     reduce using rule 43 (compairOp)
-    SUB     reduce using rule 43 (compairOp)
-
-state 37 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT NRE
-
-   44 compairOp: NRE .  [AT, DOLLAR, FLOAT, INT, SUB]  // assoc %left, prec 1
-
-    AT      reduce using rule 44 (compairOp)
-    DOLLAR  reduce using rule 44 (compairOp)
-    FLOAT   reduce using rule 44 (compairOp)
-    INT     reduce using rule 44 (compairOp)
-    SUB     reduce using rule 44 (compairOp)
-
-state 38 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN
-
-   45 includeOp: IN .  [OPEN_BRACKET]  // assoc %left, prec 3
-
-    OPEN_BRACKET  reduce using rule 45 (includeOp)
-
-state 39 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT NIN
-
-   46 includeOp: NIN .  [OPEN_BRACKET]  // assoc %left, prec 3
-
-    OPEN_BRACKET  reduce using rule 46 (includeOp)
-
-state 40 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN OPEN_BRACKET
-
-   32 matcher: QUESTION OPEN_PARENTHESIS expr includeOp OPEN_BRACKET . matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
-
-    AT        shift, and goto state 4
-    DOLLAR    shift, and goto state 3
-    QUESTION  shift, and goto state 22
-
-    expr      goto state 21
-    matcher   goto state 20
-    matchers  goto state 41
-
-state 41 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN OPEN_BRACKET AT [CLOSE_BRACKET]
-
-   28 matchers: matchers . COMMA matcher  // assoc %left, prec 5
-   29 matchers: matchers . COMMA  // assoc %left, prec 5
-   32 matcher: QUESTION OPEN_PARENTHESIS expr includeOp OPEN_BRACKET matchers . CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
-
-    CLOSE_BRACKET  shift, and goto state 43
-    COMMA          shift, and goto state 42
-
-state 42 // AT DOTDOT OPEN_BRACKET AT COMMA
-
-   28 matchers: matchers COMMA . matcher  // assoc %left, prec 5
-   29 matchers: matchers COMMA .  [CLOSE_BRACKET, COMMA]  // assoc %left, prec 5
-
-    AT             shift, and goto state 4
-    CLOSE_BRACKET  reduce using rule 29 (matchers)
-    COMMA          reduce using rule 29 (matchers)
-    DOLLAR         shift, and goto state 3
-    QUESTION       shift, and goto state 22
-
-    expr     goto state 21
-    matcher  goto state 45
-
-state 43 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN OPEN_BRACKET AT CLOSE_BRACKET
-
-   32 matcher: QUESTION OPEN_PARENTHESIS expr includeOp OPEN_BRACKET matchers CLOSE_BRACKET . CLOSE_PARENTHESIS  // assoc %left, prec 4
-
-    CLOSE_PARENTHESIS  shift, and goto state 44
-
-state 44 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN OPEN_BRACKET AT CLOSE_BRACKET CLOSE_PARENTHESIS
-
-   32 matcher: QUESTION OPEN_PARENTHESIS expr includeOp OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS .  [CLOSE_BRACKET, COMMA]  // assoc %left, prec 4
-
-    CLOSE_BRACKET  reduce using rule 32 (matcher)
-    COMMA          reduce using rule 32 (matcher)
-
-state 45 // AT DOTDOT OPEN_BRACKET AT COMMA AT [CLOSE_BRACKET]
-
-   28 matchers: matchers COMMA matcher .  [CLOSE_BRACKET, COMMA]  // assoc %left, prec 5
-
-    CLOSE_BRACKET  reduce using rule 28 (matchers)
-    COMMA          reduce using rule 28 (matchers)
-
-state 46 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ AT [CLOSE_PARENTHESIS]
-
-   31 matcher: QUESTION OPEN_PARENTHESIS expr compairOp valExpr . CLOSE_PARENTHESIS  // assoc %left, prec 4
-
-    CLOSE_PARENTHESIS  shift, and goto state 52
-
-state 47 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ AT [CLOSE_PARENTHESIS]
-
-   33 valExpr: expr .  [CLOSE_PARENTHESIS]
-
-    CLOSE_PARENTHESIS  reduce using rule 33 (valExpr)
-
-state 48 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ FLOAT
-
-   34 valExpr: FLOAT .  [CLOSE_PARENTHESIS]
-
-    CLOSE_PARENTHESIS  reduce using rule 34 (valExpr)
-
-state 49 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ SUB
-
-   35 valExpr: SUB . FLOAT
-   48 negint: SUB . INT
-
-    FLOAT  shift, and goto state 51
-    INT    shift, and goto state 25
-
-state 50 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ INT [CLOSE_PARENTHESIS]
-
-   36 valExpr: negint .  [CLOSE_PARENTHESIS]
-
-    CLOSE_PARENTHESIS  reduce using rule 36 (valExpr)
-
-state 51 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ SUB FLOAT
-
-   35 valExpr: SUB FLOAT .  [CLOSE_PARENTHESIS]
-
-    CLOSE_PARENTHESIS  reduce using rule 35 (valExpr)
-
-state 52 // AT DOTDOT OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ AT CLOSE_PARENTHESIS
-
-   31 matcher: QUESTION OPEN_PARENTHESIS expr compairOp valExpr CLOSE_PARENTHESIS .  [CLOSE_BRACKET, COMMA]  // assoc %left, prec 4
-
-    CLOSE_BRACKET  reduce using rule 31 (matcher)
-    COMMA          reduce using rule 31 (matcher)
-
-state 53 // AT DOTDOT OPEN_BRACKET COLON INT [CLOSE_BRACKET]
-
-   24 range: COLON negint .  [CLOSE_BRACKET]  // assoc %left, prec 5
-
-    CLOSE_BRACKET  reduce using rule 24 (range)
-
-state 54 // AT DOTDOT OPEN_BRACKET AT CLOSE_BRACKET
-
-   22 selector: OPEN_BRACKET matchers CLOSE_BRACKET .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 4
-
-    $end               reduce using rule 22 (selector)
-    CLOSE_BRACKET      reduce using rule 22 (selector)
-    CLOSE_PARENTHESIS  reduce using rule 22 (selector)
-    COMMA              reduce using rule 22 (selector)
-    DOT                reduce using rule 22 (selector)
-    DOTDOT             reduce using rule 22 (selector)
-    EQ                 reduce using rule 22 (selector)
-    GT                 reduce using rule 22 (selector)
-    GTE                reduce using rule 22 (selector)
-    IN                 reduce using rule 22 (selector)
-    LT                 reduce using rule 22 (selector)
-    LTE                reduce using rule 22 (selector)
-    NEQ                reduce using rule 22 (selector)
-    NIN                reduce using rule 22 (selector)
-    NRE                reduce using rule 22 (selector)
-    OPEN_BRACKET       reduce using rule 22 (selector)
-    RE                 reduce using rule 22 (selector)
-
-state 55 // AT DOTDOT OPEN_BRACKET COLON CLOSE_BRACKET
-
-   21 selector: OPEN_BRACKET range CLOSE_BRACKET .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 4
-
-    $end               reduce using rule 21 (selector)
-    CLOSE_BRACKET      reduce using rule 21 (selector)
-    CLOSE_PARENTHESIS  reduce using rule 21 (selector)
-    COMMA              reduce using rule 21 (selector)
-    DOT                reduce using rule 21 (selector)
-    DOTDOT             reduce using rule 21 (selector)
-    EQ                 reduce using rule 21 (selector)
-    GT                 reduce using rule 21 (selector)
-    GTE                reduce using rule 21 (selector)
-    IN                 reduce using rule 21 (selector)
-    LT                 reduce using rule 21 (selector)
-    LTE                reduce using rule 21 (selector)
-    NEQ                reduce using rule 21 (selector)
-    NIN                reduce using rule 21 (selector)
-    NRE                reduce using rule 21 (selector)
-    OPEN_BRACKET       reduce using rule 21 (selector)
-    RE                 reduce using rule 21 (selector)
-
-state 56 // AT DOTDOT OPEN_BRACKET INT CLOSE_BRACKET
-
-   19 index: OPEN_BRACKET negint CLOSE_BRACKET .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 4
-
-    $end               reduce using rule 19 (index)
-    CLOSE_BRACKET      reduce using rule 19 (index)
-    CLOSE_PARENTHESIS  reduce using rule 19 (index)
-    COMMA              reduce using rule 19 (index)
-    DOT                reduce using rule 19 (index)
-    DOTDOT             reduce using rule 19 (index)
-    EQ                 reduce using rule 19 (index)
-    GT                 reduce using rule 19 (index)
-    GTE                reduce using rule 19 (index)
-    IN                 reduce using rule 19 (index)
-    LT                 reduce using rule 19 (index)
-    LTE                reduce using rule 19 (index)
-    NEQ                reduce using rule 19 (index)
-    NIN                reduce using rule 19 (index)
-    NRE                reduce using rule 19 (index)
-    OPEN_BRACKET       reduce using rule 19 (index)
-    RE                 reduce using rule 19 (index)
-
-state 57 // AT DOTDOT OPEN_BRACKET INT COLON
-
-   25 range: negint COLON .  [CLOSE_BRACKET]  // assoc %left, prec 5
-   26 range: negint COLON . negint  // assoc %left, prec 5
-
-    CLOSE_BRACKET  reduce using rule 25 (range)
-    INT            shift, and goto state 23
-    SUB            shift, and goto state 24
-
-    negint  goto state 58
-
-state 58 // AT DOTDOT OPEN_BRACKET INT COLON INT [CLOSE_BRACKET]
-
-   26 range: negint COLON negint .  [CLOSE_BRACKET]  // assoc %left, prec 5
-
-    CLOSE_BRACKET  reduce using rule 26 (range)
-
-state 59 // AT DOTDOT IDENTIFIER OPEN_BRACKET CLOSE_BRACKET [$end]
-
-   11 segment: segment index .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
+    6 expr: AT .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
+    7 expr: AT . index  // assoc %left, prec 5
+    8 expr: AT . DOT segment  // assoc %left, prec 5
+    9 expr: AT . DOTDOT segment  // assoc %left, prec 5
+
+    $end               reduce using rule 6 (expr)
+    CLOSE_BRACKET      reduce using rule 6 (expr)
+    CLOSE_PARENTHESIS  reduce using rule 6 (expr)
+    COMMA              reduce using rule 6 (expr)
+    DOT                shift, and goto state 64
+    DOTDOT             shift, and goto state 65
+    EQ                 reduce using rule 6 (expr)
+    GT                 reduce using rule 6 (expr)
+    GTE                reduce using rule 6 (expr)
+    IN                 reduce using rule 6 (expr)
+    LT                 reduce using rule 6 (expr)
+    LTE                reduce using rule 6 (expr)
+    NEQ                reduce using rule 6 (expr)
+    NIN                reduce using rule 6 (expr)
+    NRE                reduce using rule 6 (expr)
+    OPEN_BRACKET       shift, and goto state 66
+    RE                 reduce using rule 6 (expr)
+
+    index  goto state 63
+
+state 5 // IDENTIFIER [$end]
+
+   10 expr: segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]
+   15 segment: segment . index
+   16 segment: segment . selector
+   17 segment: segment . DOT segment  // assoc %left, prec 5
+   18 segment: segment . DOTDOT segment  // assoc %left, prec 5
+
+    $end               reduce using rule 10 (expr)
+    CLOSE_BRACKET      reduce using rule 10 (expr)
+    CLOSE_PARENTHESIS  reduce using rule 10 (expr)
+    COMMA              reduce using rule 10 (expr)
+    DOT                shift, and goto state 59
+    DOTDOT             shift, and goto state 60
+    EQ                 reduce using rule 10 (expr)
+    GT                 reduce using rule 10 (expr)
+    GTE                reduce using rule 10 (expr)
+    IN                 reduce using rule 10 (expr)
+    LT                 reduce using rule 10 (expr)
+    LTE                reduce using rule 10 (expr)
+    NEQ                reduce using rule 10 (expr)
+    NIN                reduce using rule 10 (expr)
+    NRE                reduce using rule 10 (expr)
+    OPEN_BRACKET       shift, and goto state 12
+    RE                 reduce using rule 10 (expr)
+
+    index     goto state 57
+    selector  goto state 58
+
+state 6 // IDENTIFIER [$end]
+
+   11 segment: member .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
 
     $end               reduce using rule 11 (segment)
     CLOSE_BRACKET      reduce using rule 11 (segment)
@@ -699,9 +133,9 @@ state 59 // AT DOTDOT IDENTIFIER OPEN_BRACKET CLOSE_BRACKET [$end]
     OPEN_BRACKET       reduce using rule 11 (segment)
     RE                 reduce using rule 11 (segment)
 
-state 60 // AT DOTDOT IDENTIFIER OPEN_BRACKET COLON CLOSE_BRACKET [$end]
+state 7 // OPEN_BRACKET CLOSE_BRACKET [$end]
 
-   12 segment: segment selector .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
+   12 segment: index .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
 
     $end               reduce using rule 12 (segment)
     CLOSE_BRACKET      reduce using rule 12 (segment)
@@ -721,98 +155,9 @@ state 60 // AT DOTDOT IDENTIFIER OPEN_BRACKET COLON CLOSE_BRACKET [$end]
     OPEN_BRACKET       reduce using rule 12 (segment)
     RE                 reduce using rule 12 (segment)
 
-state 61 // AT DOTDOT IDENTIFIER DOT
+state 8 // OPEN_BRACKET COLON CLOSE_BRACKET [$end]
 
-   13 segment: segment DOT . segment  // assoc %left, prec 5
-   15 segment: segment DOT . MUL  // assoc %left, prec 2
-
-    IDENTIFIER    shift, and goto state 12
-    MUL           shift, and goto state 66
-    OPEN_BRACKET  shift, and goto state 14
-    STRING        shift, and goto state 13
-
-    index     goto state 10
-    member    goto state 9
-    segment   goto state 65
-    selector  goto state 11
-
-state 62 // AT DOTDOT IDENTIFIER DOTDOT
-
-   14 segment: segment DOTDOT . segment  // assoc %left, prec 5
-   16 segment: segment DOTDOT . MUL  // assoc %left, prec 2
-
-    IDENTIFIER    shift, and goto state 12
-    MUL           shift, and goto state 64
-    OPEN_BRACKET  shift, and goto state 14
-    STRING        shift, and goto state 13
-
-    index     goto state 10
-    member    goto state 9
-    segment   goto state 63
-    selector  goto state 11
-
-state 63 // AT DOTDOT IDENTIFIER DOTDOT IDENTIFIER [$end]
-
-   11 segment: segment . index
-   12 segment: segment . selector
-   13 segment: segment . DOT segment  // assoc %left, prec 5
-   14 segment: segment . DOTDOT segment  // assoc %left, prec 5
-   14 segment: segment DOTDOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 5
-   15 segment: segment . DOT MUL  // assoc %left, prec 2
-   16 segment: segment . DOTDOT MUL  // assoc %left, prec 2
-
-    $end               reduce using rule 14 (segment)
-    CLOSE_BRACKET      reduce using rule 14 (segment)
-    CLOSE_PARENTHESIS  reduce using rule 14 (segment)
-    COMMA              reduce using rule 14 (segment)
-    DOT                reduce using rule 14 (segment)
-    DOTDOT             reduce using rule 14 (segment)
-    EQ                 reduce using rule 14 (segment)
-    GT                 reduce using rule 14 (segment)
-    GTE                reduce using rule 14 (segment)
-    IN                 reduce using rule 14 (segment)
-    LT                 reduce using rule 14 (segment)
-    LTE                reduce using rule 14 (segment)
-    NEQ                reduce using rule 14 (segment)
-    NIN                reduce using rule 14 (segment)
-    NRE                reduce using rule 14 (segment)
-    OPEN_BRACKET       reduce using rule 14 (segment)
-    RE                 reduce using rule 14 (segment)
-
-    index     goto state 59
-    selector  goto state 60
-
-state 64 // AT DOTDOT IDENTIFIER DOTDOT MUL
-
-   16 segment: segment DOTDOT MUL .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 2
-
-    $end               reduce using rule 16 (segment)
-    CLOSE_BRACKET      reduce using rule 16 (segment)
-    CLOSE_PARENTHESIS  reduce using rule 16 (segment)
-    COMMA              reduce using rule 16 (segment)
-    DOT                reduce using rule 16 (segment)
-    DOTDOT             reduce using rule 16 (segment)
-    EQ                 reduce using rule 16 (segment)
-    GT                 reduce using rule 16 (segment)
-    GTE                reduce using rule 16 (segment)
-    IN                 reduce using rule 16 (segment)
-    LT                 reduce using rule 16 (segment)
-    LTE                reduce using rule 16 (segment)
-    NEQ                reduce using rule 16 (segment)
-    NIN                reduce using rule 16 (segment)
-    NRE                reduce using rule 16 (segment)
-    OPEN_BRACKET       reduce using rule 16 (segment)
-    RE                 reduce using rule 16 (segment)
-
-state 65 // AT DOTDOT IDENTIFIER DOT IDENTIFIER [$end]
-
-   11 segment: segment . index
-   12 segment: segment . selector
-   13 segment: segment . DOT segment  // assoc %left, prec 5
-   13 segment: segment DOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 5
-   14 segment: segment . DOTDOT segment  // assoc %left, prec 5
-   15 segment: segment . DOT MUL  // assoc %left, prec 2
-   16 segment: segment . DOTDOT MUL  // assoc %left, prec 2
+   13 segment: selector .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
 
     $end               reduce using rule 13 (segment)
     CLOSE_BRACKET      reduce using rule 13 (segment)
@@ -832,12 +177,598 @@ state 65 // AT DOTDOT IDENTIFIER DOT IDENTIFIER [$end]
     OPEN_BRACKET       reduce using rule 13 (segment)
     RE                 reduce using rule 13 (segment)
 
-    index     goto state 59
-    selector  goto state 60
+state 9 // MUL
 
-state 66 // AT DOTDOT IDENTIFIER DOT MUL
+   14 segment: MUL .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 2
 
-   15 segment: segment DOT MUL .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 2
+    $end               reduce using rule 14 (segment)
+    CLOSE_BRACKET      reduce using rule 14 (segment)
+    CLOSE_PARENTHESIS  reduce using rule 14 (segment)
+    COMMA              reduce using rule 14 (segment)
+    DOT                reduce using rule 14 (segment)
+    DOTDOT             reduce using rule 14 (segment)
+    EQ                 reduce using rule 14 (segment)
+    GT                 reduce using rule 14 (segment)
+    GTE                reduce using rule 14 (segment)
+    IN                 reduce using rule 14 (segment)
+    LT                 reduce using rule 14 (segment)
+    LTE                reduce using rule 14 (segment)
+    NEQ                reduce using rule 14 (segment)
+    NIN                reduce using rule 14 (segment)
+    NRE                reduce using rule 14 (segment)
+    OPEN_BRACKET       reduce using rule 14 (segment)
+    RE                 reduce using rule 14 (segment)
+
+state 10 // IDENTIFIER
+
+   19 member: IDENTIFIER .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
+
+    $end               reduce using rule 19 (member)
+    CLOSE_BRACKET      reduce using rule 19 (member)
+    CLOSE_PARENTHESIS  reduce using rule 19 (member)
+    COMMA              reduce using rule 19 (member)
+    DOT                reduce using rule 19 (member)
+    DOTDOT             reduce using rule 19 (member)
+    EQ                 reduce using rule 19 (member)
+    GT                 reduce using rule 19 (member)
+    GTE                reduce using rule 19 (member)
+    IN                 reduce using rule 19 (member)
+    LT                 reduce using rule 19 (member)
+    LTE                reduce using rule 19 (member)
+    NEQ                reduce using rule 19 (member)
+    NIN                reduce using rule 19 (member)
+    NRE                reduce using rule 19 (member)
+    OPEN_BRACKET       reduce using rule 19 (member)
+    RE                 reduce using rule 19 (member)
+
+state 11 // STRING
+
+   20 member: STRING .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
+
+    $end               reduce using rule 20 (member)
+    CLOSE_BRACKET      reduce using rule 20 (member)
+    CLOSE_PARENTHESIS  reduce using rule 20 (member)
+    COMMA              reduce using rule 20 (member)
+    DOT                reduce using rule 20 (member)
+    DOTDOT             reduce using rule 20 (member)
+    EQ                 reduce using rule 20 (member)
+    GT                 reduce using rule 20 (member)
+    GTE                reduce using rule 20 (member)
+    IN                 reduce using rule 20 (member)
+    LT                 reduce using rule 20 (member)
+    LTE                reduce using rule 20 (member)
+    NEQ                reduce using rule 20 (member)
+    NIN                reduce using rule 20 (member)
+    NRE                reduce using rule 20 (member)
+    OPEN_BRACKET       reduce using rule 20 (member)
+    RE                 reduce using rule 20 (member)
+
+state 12 // OPEN_BRACKET
+
+   21 index: OPEN_BRACKET . negint CLOSE_BRACKET  // assoc %left, prec 4
+   22 index: OPEN_BRACKET . CLOSE_BRACKET  // assoc %left, prec 4
+   23 selector: OPEN_BRACKET . range CLOSE_BRACKET  // assoc %left, prec 4
+   24 selector: OPEN_BRACKET . matchers CLOSE_BRACKET  // assoc %left, prec 4
+
+    AT             shift, and goto state 4
+    CLOSE_BRACKET  shift, and goto state 14
+    COLON          shift, and goto state 17
+    DOLLAR         shift, and goto state 3
+    IDENTIFIER     shift, and goto state 10
+    INT            shift, and goto state 21
+    MUL            shift, and goto state 9
+    OPEN_BRACKET   shift, and goto state 12
+    QUESTION       shift, and goto state 20
+    STRING         shift, and goto state 11
+    SUB            shift, and goto state 22
+
+    expr      goto state 19
+    index     goto state 7
+    matcher   goto state 18
+    matchers  goto state 16
+    member    goto state 6
+    negint    goto state 13
+    range     goto state 15
+    segment   goto state 5
+    selector  goto state 8
+
+state 13 // OPEN_BRACKET INT [CLOSE_BRACKET]
+
+   21 index: OPEN_BRACKET negint . CLOSE_BRACKET  // assoc %left, prec 4
+   27 range: negint . COLON  // assoc %left, prec 5
+   28 range: negint . COLON negint  // assoc %left, prec 5
+
+    CLOSE_BRACKET  shift, and goto state 54
+    COLON          shift, and goto state 55
+
+state 14 // OPEN_BRACKET CLOSE_BRACKET
+
+   22 index: OPEN_BRACKET CLOSE_BRACKET .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 4
+
+    $end               reduce using rule 22 (index)
+    CLOSE_BRACKET      reduce using rule 22 (index)
+    CLOSE_PARENTHESIS  reduce using rule 22 (index)
+    COMMA              reduce using rule 22 (index)
+    DOT                reduce using rule 22 (index)
+    DOTDOT             reduce using rule 22 (index)
+    EQ                 reduce using rule 22 (index)
+    GT                 reduce using rule 22 (index)
+    GTE                reduce using rule 22 (index)
+    IN                 reduce using rule 22 (index)
+    LT                 reduce using rule 22 (index)
+    LTE                reduce using rule 22 (index)
+    NEQ                reduce using rule 22 (index)
+    NIN                reduce using rule 22 (index)
+    NRE                reduce using rule 22 (index)
+    OPEN_BRACKET       reduce using rule 22 (index)
+    RE                 reduce using rule 22 (index)
+
+state 15 // OPEN_BRACKET COLON [CLOSE_BRACKET]
+
+   23 selector: OPEN_BRACKET range . CLOSE_BRACKET  // assoc %left, prec 4
+
+    CLOSE_BRACKET  shift, and goto state 53
+
+state 16 // OPEN_BRACKET AT [CLOSE_BRACKET]
+
+   24 selector: OPEN_BRACKET matchers . CLOSE_BRACKET  // assoc %left, prec 4
+   30 matchers: matchers . COMMA matcher  // assoc %left, prec 5
+   31 matchers: matchers . COMMA  // assoc %left, prec 5
+
+    CLOSE_BRACKET  shift, and goto state 52
+    COMMA          shift, and goto state 40
+
+state 17 // OPEN_BRACKET COLON
+
+   25 range: COLON .  [CLOSE_BRACKET]  // assoc %left, prec 5
+   26 range: COLON . negint  // assoc %left, prec 5
+
+    CLOSE_BRACKET  reduce using rule 25 (range)
+    INT            shift, and goto state 21
+    SUB            shift, and goto state 22
+
+    negint  goto state 51
+
+state 18 // OPEN_BRACKET AT [CLOSE_BRACKET]
+
+   29 matchers: matcher .  [CLOSE_BRACKET, COMMA]
+
+    CLOSE_BRACKET  reduce using rule 29 (matchers)
+    COMMA          reduce using rule 29 (matchers)
+
+state 19 // OPEN_BRACKET AT [CLOSE_BRACKET]
+
+   32 matcher: expr .  [CLOSE_BRACKET, COMMA]
+
+    CLOSE_BRACKET  reduce using rule 32 (matcher)
+    COMMA          reduce using rule 32 (matcher)
+
+state 20 // OPEN_BRACKET QUESTION
+
+   33 matcher: QUESTION . OPEN_PARENTHESIS expr compairOp valExpr CLOSE_PARENTHESIS  // assoc %left, prec 4
+   34 matcher: QUESTION . OPEN_PARENTHESIS expr includeOp OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
+
+    OPEN_PARENTHESIS  shift, and goto state 24
+
+state 21 // OPEN_BRACKET INT
+
+   49 negint: INT .  [CLOSE_BRACKET, CLOSE_PARENTHESIS, COLON]
+
+    CLOSE_BRACKET      reduce using rule 49 (negint)
+    CLOSE_PARENTHESIS  reduce using rule 49 (negint)
+    COLON              reduce using rule 49 (negint)
+
+state 22 // OPEN_BRACKET SUB
+
+   50 negint: SUB . INT
+
+    INT  shift, and goto state 23
+
+state 23 // OPEN_BRACKET SUB INT
+
+   50 negint: SUB INT .  [CLOSE_BRACKET, CLOSE_PARENTHESIS, COLON]
+
+    CLOSE_BRACKET      reduce using rule 50 (negint)
+    CLOSE_PARENTHESIS  reduce using rule 50 (negint)
+    COLON              reduce using rule 50 (negint)
+
+state 24 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS
+
+   33 matcher: QUESTION OPEN_PARENTHESIS . expr compairOp valExpr CLOSE_PARENTHESIS  // assoc %left, prec 4
+   34 matcher: QUESTION OPEN_PARENTHESIS . expr includeOp OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
+
+    AT            shift, and goto state 4
+    DOLLAR        shift, and goto state 3
+    IDENTIFIER    shift, and goto state 10
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    STRING        shift, and goto state 11
+
+    expr      goto state 25
+    index     goto state 7
+    member    goto state 6
+    segment   goto state 5
+    selector  goto state 8
+
+state 25 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT [EQ]
+
+   33 matcher: QUESTION OPEN_PARENTHESIS expr . compairOp valExpr CLOSE_PARENTHESIS  // assoc %left, prec 4
+   34 matcher: QUESTION OPEN_PARENTHESIS expr . includeOp OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
+
+    EQ   shift, and goto state 28
+    GT   shift, and goto state 30
+    GTE  shift, and goto state 31
+    IN   shift, and goto state 36
+    LT   shift, and goto state 32
+    LTE  shift, and goto state 33
+    NEQ  shift, and goto state 29
+    NIN  shift, and goto state 37
+    NRE  shift, and goto state 35
+    RE   shift, and goto state 34
+
+    compairOp  goto state 26
+    includeOp  goto state 27
+
+state 26 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ [AT]
+
+   33 matcher: QUESTION OPEN_PARENTHESIS expr compairOp . valExpr CLOSE_PARENTHESIS  // assoc %left, prec 4
+
+    AT            shift, and goto state 4
+    DOLLAR        shift, and goto state 3
+    FLOAT         shift, and goto state 46
+    IDENTIFIER    shift, and goto state 10
+    INT           shift, and goto state 21
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    STRING        shift, and goto state 11
+    SUB           shift, and goto state 47
+
+    expr      goto state 45
+    index     goto state 7
+    member    goto state 6
+    negint    goto state 48
+    segment   goto state 5
+    selector  goto state 8
+    valExpr   goto state 44
+
+state 27 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN [OPEN_BRACKET]
+
+   34 matcher: QUESTION OPEN_PARENTHESIS expr includeOp . OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
+
+    OPEN_BRACKET  shift, and goto state 38
+
+state 28 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ
+
+   39 compairOp: EQ .  [AT, DOLLAR, FLOAT, IDENTIFIER, INT, MUL, OPEN_BRACKET, STRING, SUB]  // assoc %left, prec 1
+
+    AT            reduce using rule 39 (compairOp)
+    DOLLAR        reduce using rule 39 (compairOp)
+    FLOAT         reduce using rule 39 (compairOp)
+    IDENTIFIER    reduce using rule 39 (compairOp)
+    INT           reduce using rule 39 (compairOp)
+    MUL           reduce using rule 39 (compairOp)
+    OPEN_BRACKET  reduce using rule 39 (compairOp)
+    STRING        reduce using rule 39 (compairOp)
+    SUB           reduce using rule 39 (compairOp)
+
+state 29 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT NEQ
+
+   40 compairOp: NEQ .  [AT, DOLLAR, FLOAT, IDENTIFIER, INT, MUL, OPEN_BRACKET, STRING, SUB]  // assoc %left, prec 1
+
+    AT            reduce using rule 40 (compairOp)
+    DOLLAR        reduce using rule 40 (compairOp)
+    FLOAT         reduce using rule 40 (compairOp)
+    IDENTIFIER    reduce using rule 40 (compairOp)
+    INT           reduce using rule 40 (compairOp)
+    MUL           reduce using rule 40 (compairOp)
+    OPEN_BRACKET  reduce using rule 40 (compairOp)
+    STRING        reduce using rule 40 (compairOp)
+    SUB           reduce using rule 40 (compairOp)
+
+state 30 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT GT
+
+   41 compairOp: GT .  [AT, DOLLAR, FLOAT, IDENTIFIER, INT, MUL, OPEN_BRACKET, STRING, SUB]  // assoc %left, prec 1
+
+    AT            reduce using rule 41 (compairOp)
+    DOLLAR        reduce using rule 41 (compairOp)
+    FLOAT         reduce using rule 41 (compairOp)
+    IDENTIFIER    reduce using rule 41 (compairOp)
+    INT           reduce using rule 41 (compairOp)
+    MUL           reduce using rule 41 (compairOp)
+    OPEN_BRACKET  reduce using rule 41 (compairOp)
+    STRING        reduce using rule 41 (compairOp)
+    SUB           reduce using rule 41 (compairOp)
+
+state 31 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT GTE
+
+   42 compairOp: GTE .  [AT, DOLLAR, FLOAT, IDENTIFIER, INT, MUL, OPEN_BRACKET, STRING, SUB]  // assoc %left, prec 1
+
+    AT            reduce using rule 42 (compairOp)
+    DOLLAR        reduce using rule 42 (compairOp)
+    FLOAT         reduce using rule 42 (compairOp)
+    IDENTIFIER    reduce using rule 42 (compairOp)
+    INT           reduce using rule 42 (compairOp)
+    MUL           reduce using rule 42 (compairOp)
+    OPEN_BRACKET  reduce using rule 42 (compairOp)
+    STRING        reduce using rule 42 (compairOp)
+    SUB           reduce using rule 42 (compairOp)
+
+state 32 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT LT
+
+   43 compairOp: LT .  [AT, DOLLAR, FLOAT, IDENTIFIER, INT, MUL, OPEN_BRACKET, STRING, SUB]  // assoc %left, prec 1
+
+    AT            reduce using rule 43 (compairOp)
+    DOLLAR        reduce using rule 43 (compairOp)
+    FLOAT         reduce using rule 43 (compairOp)
+    IDENTIFIER    reduce using rule 43 (compairOp)
+    INT           reduce using rule 43 (compairOp)
+    MUL           reduce using rule 43 (compairOp)
+    OPEN_BRACKET  reduce using rule 43 (compairOp)
+    STRING        reduce using rule 43 (compairOp)
+    SUB           reduce using rule 43 (compairOp)
+
+state 33 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT LTE
+
+   44 compairOp: LTE .  [AT, DOLLAR, FLOAT, IDENTIFIER, INT, MUL, OPEN_BRACKET, STRING, SUB]  // assoc %left, prec 1
+
+    AT            reduce using rule 44 (compairOp)
+    DOLLAR        reduce using rule 44 (compairOp)
+    FLOAT         reduce using rule 44 (compairOp)
+    IDENTIFIER    reduce using rule 44 (compairOp)
+    INT           reduce using rule 44 (compairOp)
+    MUL           reduce using rule 44 (compairOp)
+    OPEN_BRACKET  reduce using rule 44 (compairOp)
+    STRING        reduce using rule 44 (compairOp)
+    SUB           reduce using rule 44 (compairOp)
+
+state 34 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT RE
+
+   45 compairOp: RE .  [AT, DOLLAR, FLOAT, IDENTIFIER, INT, MUL, OPEN_BRACKET, STRING, SUB]  // assoc %left, prec 1
+
+    AT            reduce using rule 45 (compairOp)
+    DOLLAR        reduce using rule 45 (compairOp)
+    FLOAT         reduce using rule 45 (compairOp)
+    IDENTIFIER    reduce using rule 45 (compairOp)
+    INT           reduce using rule 45 (compairOp)
+    MUL           reduce using rule 45 (compairOp)
+    OPEN_BRACKET  reduce using rule 45 (compairOp)
+    STRING        reduce using rule 45 (compairOp)
+    SUB           reduce using rule 45 (compairOp)
+
+state 35 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT NRE
+
+   46 compairOp: NRE .  [AT, DOLLAR, FLOAT, IDENTIFIER, INT, MUL, OPEN_BRACKET, STRING, SUB]  // assoc %left, prec 1
+
+    AT            reduce using rule 46 (compairOp)
+    DOLLAR        reduce using rule 46 (compairOp)
+    FLOAT         reduce using rule 46 (compairOp)
+    IDENTIFIER    reduce using rule 46 (compairOp)
+    INT           reduce using rule 46 (compairOp)
+    MUL           reduce using rule 46 (compairOp)
+    OPEN_BRACKET  reduce using rule 46 (compairOp)
+    STRING        reduce using rule 46 (compairOp)
+    SUB           reduce using rule 46 (compairOp)
+
+state 36 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN
+
+   47 includeOp: IN .  [OPEN_BRACKET]  // assoc %left, prec 3
+
+    OPEN_BRACKET  reduce using rule 47 (includeOp)
+
+state 37 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT NIN
+
+   48 includeOp: NIN .  [OPEN_BRACKET]  // assoc %left, prec 3
+
+    OPEN_BRACKET  reduce using rule 48 (includeOp)
+
+state 38 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN OPEN_BRACKET
+
+   34 matcher: QUESTION OPEN_PARENTHESIS expr includeOp OPEN_BRACKET . matchers CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
+
+    AT            shift, and goto state 4
+    DOLLAR        shift, and goto state 3
+    IDENTIFIER    shift, and goto state 10
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    QUESTION      shift, and goto state 20
+    STRING        shift, and goto state 11
+
+    expr      goto state 19
+    index     goto state 7
+    matcher   goto state 18
+    matchers  goto state 39
+    member    goto state 6
+    segment   goto state 5
+    selector  goto state 8
+
+state 39 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN OPEN_BRACKET AT [CLOSE_BRACKET]
+
+   30 matchers: matchers . COMMA matcher  // assoc %left, prec 5
+   31 matchers: matchers . COMMA  // assoc %left, prec 5
+   34 matcher: QUESTION OPEN_PARENTHESIS expr includeOp OPEN_BRACKET matchers . CLOSE_BRACKET CLOSE_PARENTHESIS  // assoc %left, prec 4
+
+    CLOSE_BRACKET  shift, and goto state 41
+    COMMA          shift, and goto state 40
+
+state 40 // OPEN_BRACKET AT COMMA
+
+   30 matchers: matchers COMMA . matcher  // assoc %left, prec 5
+   31 matchers: matchers COMMA .  [CLOSE_BRACKET, COMMA]  // assoc %left, prec 5
+
+    AT             shift, and goto state 4
+    CLOSE_BRACKET  reduce using rule 31 (matchers)
+    COMMA          reduce using rule 31 (matchers)
+    DOLLAR         shift, and goto state 3
+    IDENTIFIER     shift, and goto state 10
+    MUL            shift, and goto state 9
+    OPEN_BRACKET   shift, and goto state 12
+    QUESTION       shift, and goto state 20
+    STRING         shift, and goto state 11
+
+    expr      goto state 19
+    index     goto state 7
+    matcher   goto state 43
+    member    goto state 6
+    segment   goto state 5
+    selector  goto state 8
+
+state 41 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN OPEN_BRACKET AT CLOSE_BRACKET
+
+   34 matcher: QUESTION OPEN_PARENTHESIS expr includeOp OPEN_BRACKET matchers CLOSE_BRACKET . CLOSE_PARENTHESIS  // assoc %left, prec 4
+
+    CLOSE_PARENTHESIS  shift, and goto state 42
+
+state 42 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT IN OPEN_BRACKET AT CLOSE_BRACKET CLOSE_PARENTHESIS
+
+   34 matcher: QUESTION OPEN_PARENTHESIS expr includeOp OPEN_BRACKET matchers CLOSE_BRACKET CLOSE_PARENTHESIS .  [CLOSE_BRACKET, COMMA]  // assoc %left, prec 4
+
+    CLOSE_BRACKET  reduce using rule 34 (matcher)
+    COMMA          reduce using rule 34 (matcher)
+
+state 43 // OPEN_BRACKET AT COMMA AT [CLOSE_BRACKET]
+
+   30 matchers: matchers COMMA matcher .  [CLOSE_BRACKET, COMMA]  // assoc %left, prec 5
+
+    CLOSE_BRACKET  reduce using rule 30 (matchers)
+    COMMA          reduce using rule 30 (matchers)
+
+state 44 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ AT [CLOSE_PARENTHESIS]
+
+   33 matcher: QUESTION OPEN_PARENTHESIS expr compairOp valExpr . CLOSE_PARENTHESIS  // assoc %left, prec 4
+
+    CLOSE_PARENTHESIS  shift, and goto state 50
+
+state 45 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ AT [CLOSE_PARENTHESIS]
+
+   35 valExpr: expr .  [CLOSE_PARENTHESIS]
+
+    CLOSE_PARENTHESIS  reduce using rule 35 (valExpr)
+
+state 46 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ FLOAT
+
+   36 valExpr: FLOAT .  [CLOSE_PARENTHESIS]
+
+    CLOSE_PARENTHESIS  reduce using rule 36 (valExpr)
+
+state 47 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ SUB
+
+   37 valExpr: SUB . FLOAT
+   50 negint: SUB . INT
+
+    FLOAT  shift, and goto state 49
+    INT    shift, and goto state 23
+
+state 48 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ INT [CLOSE_PARENTHESIS]
+
+   38 valExpr: negint .  [CLOSE_PARENTHESIS]
+
+    CLOSE_PARENTHESIS  reduce using rule 38 (valExpr)
+
+state 49 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ SUB FLOAT
+
+   37 valExpr: SUB FLOAT .  [CLOSE_PARENTHESIS]
+
+    CLOSE_PARENTHESIS  reduce using rule 37 (valExpr)
+
+state 50 // OPEN_BRACKET QUESTION OPEN_PARENTHESIS AT EQ AT CLOSE_PARENTHESIS
+
+   33 matcher: QUESTION OPEN_PARENTHESIS expr compairOp valExpr CLOSE_PARENTHESIS .  [CLOSE_BRACKET, COMMA]  // assoc %left, prec 4
+
+    CLOSE_BRACKET  reduce using rule 33 (matcher)
+    COMMA          reduce using rule 33 (matcher)
+
+state 51 // OPEN_BRACKET COLON INT [CLOSE_BRACKET]
+
+   26 range: COLON negint .  [CLOSE_BRACKET]  // assoc %left, prec 5
+
+    CLOSE_BRACKET  reduce using rule 26 (range)
+
+state 52 // OPEN_BRACKET AT CLOSE_BRACKET
+
+   24 selector: OPEN_BRACKET matchers CLOSE_BRACKET .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 4
+
+    $end               reduce using rule 24 (selector)
+    CLOSE_BRACKET      reduce using rule 24 (selector)
+    CLOSE_PARENTHESIS  reduce using rule 24 (selector)
+    COMMA              reduce using rule 24 (selector)
+    DOT                reduce using rule 24 (selector)
+    DOTDOT             reduce using rule 24 (selector)
+    EQ                 reduce using rule 24 (selector)
+    GT                 reduce using rule 24 (selector)
+    GTE                reduce using rule 24 (selector)
+    IN                 reduce using rule 24 (selector)
+    LT                 reduce using rule 24 (selector)
+    LTE                reduce using rule 24 (selector)
+    NEQ                reduce using rule 24 (selector)
+    NIN                reduce using rule 24 (selector)
+    NRE                reduce using rule 24 (selector)
+    OPEN_BRACKET       reduce using rule 24 (selector)
+    RE                 reduce using rule 24 (selector)
+
+state 53 // OPEN_BRACKET COLON CLOSE_BRACKET
+
+   23 selector: OPEN_BRACKET range CLOSE_BRACKET .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 4
+
+    $end               reduce using rule 23 (selector)
+    CLOSE_BRACKET      reduce using rule 23 (selector)
+    CLOSE_PARENTHESIS  reduce using rule 23 (selector)
+    COMMA              reduce using rule 23 (selector)
+    DOT                reduce using rule 23 (selector)
+    DOTDOT             reduce using rule 23 (selector)
+    EQ                 reduce using rule 23 (selector)
+    GT                 reduce using rule 23 (selector)
+    GTE                reduce using rule 23 (selector)
+    IN                 reduce using rule 23 (selector)
+    LT                 reduce using rule 23 (selector)
+    LTE                reduce using rule 23 (selector)
+    NEQ                reduce using rule 23 (selector)
+    NIN                reduce using rule 23 (selector)
+    NRE                reduce using rule 23 (selector)
+    OPEN_BRACKET       reduce using rule 23 (selector)
+    RE                 reduce using rule 23 (selector)
+
+state 54 // OPEN_BRACKET INT CLOSE_BRACKET
+
+   21 index: OPEN_BRACKET negint CLOSE_BRACKET .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 4
+
+    $end               reduce using rule 21 (index)
+    CLOSE_BRACKET      reduce using rule 21 (index)
+    CLOSE_PARENTHESIS  reduce using rule 21 (index)
+    COMMA              reduce using rule 21 (index)
+    DOT                reduce using rule 21 (index)
+    DOTDOT             reduce using rule 21 (index)
+    EQ                 reduce using rule 21 (index)
+    GT                 reduce using rule 21 (index)
+    GTE                reduce using rule 21 (index)
+    IN                 reduce using rule 21 (index)
+    LT                 reduce using rule 21 (index)
+    LTE                reduce using rule 21 (index)
+    NEQ                reduce using rule 21 (index)
+    NIN                reduce using rule 21 (index)
+    NRE                reduce using rule 21 (index)
+    OPEN_BRACKET       reduce using rule 21 (index)
+    RE                 reduce using rule 21 (index)
+
+state 55 // OPEN_BRACKET INT COLON
+
+   27 range: negint COLON .  [CLOSE_BRACKET]  // assoc %left, prec 5
+   28 range: negint COLON . negint  // assoc %left, prec 5
+
+    CLOSE_BRACKET  reduce using rule 27 (range)
+    INT            shift, and goto state 21
+    SUB            shift, and goto state 22
+
+    negint  goto state 56
+
+state 56 // OPEN_BRACKET INT COLON INT [CLOSE_BRACKET]
+
+   28 range: negint COLON negint .  [CLOSE_BRACKET]  // assoc %left, prec 5
+
+    CLOSE_BRACKET  reduce using rule 28 (range)
+
+state 57 // IDENTIFIER OPEN_BRACKET CLOSE_BRACKET [$end]
+
+   15 segment: segment index .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
 
     $end               reduce using rule 15 (segment)
     CLOSE_BRACKET      reduce using rule 15 (segment)
@@ -857,98 +788,244 @@ state 66 // AT DOTDOT IDENTIFIER DOT MUL
     OPEN_BRACKET       reduce using rule 15 (segment)
     RE                 reduce using rule 15 (segment)
 
-state 67 // AT DOT IDENTIFIER [$end]
+state 58 // IDENTIFIER OPEN_BRACKET COLON CLOSE_BRACKET [$end]
 
-    6 expr: AT DOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
-   11 segment: segment . index
-   12 segment: segment . selector
-   13 segment: segment . DOT segment  // assoc %left, prec 5
-   14 segment: segment . DOTDOT segment  // assoc %left, prec 5
-   15 segment: segment . DOT MUL  // assoc %left, prec 2
-   16 segment: segment . DOTDOT MUL  // assoc %left, prec 2
+   16 segment: segment selector .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]
 
-    $end               reduce using rule 6 (expr)
-    CLOSE_BRACKET      reduce using rule 6 (expr)
-    CLOSE_PARENTHESIS  reduce using rule 6 (expr)
-    COMMA              reduce using rule 6 (expr)
-    DOT                shift, and goto state 61
-    DOTDOT             shift, and goto state 62
-    EQ                 reduce using rule 6 (expr)
-    GT                 reduce using rule 6 (expr)
-    GTE                reduce using rule 6 (expr)
-    IN                 reduce using rule 6 (expr)
-    LT                 reduce using rule 6 (expr)
-    LTE                reduce using rule 6 (expr)
-    NEQ                reduce using rule 6 (expr)
-    NIN                reduce using rule 6 (expr)
-    NRE                reduce using rule 6 (expr)
-    OPEN_BRACKET       shift, and goto state 14
-    RE                 reduce using rule 6 (expr)
+    $end               reduce using rule 16 (segment)
+    CLOSE_BRACKET      reduce using rule 16 (segment)
+    CLOSE_PARENTHESIS  reduce using rule 16 (segment)
+    COMMA              reduce using rule 16 (segment)
+    DOT                reduce using rule 16 (segment)
+    DOTDOT             reduce using rule 16 (segment)
+    EQ                 reduce using rule 16 (segment)
+    GT                 reduce using rule 16 (segment)
+    GTE                reduce using rule 16 (segment)
+    IN                 reduce using rule 16 (segment)
+    LT                 reduce using rule 16 (segment)
+    LTE                reduce using rule 16 (segment)
+    NEQ                reduce using rule 16 (segment)
+    NIN                reduce using rule 16 (segment)
+    NRE                reduce using rule 16 (segment)
+    OPEN_BRACKET       reduce using rule 16 (segment)
+    RE                 reduce using rule 16 (segment)
 
-    index     goto state 59
-    selector  goto state 60
+state 59 // IDENTIFIER DOT
 
-state 68 // AT OPEN_BRACKET CLOSE_BRACKET
+   17 segment: segment DOT . segment  // assoc %left, prec 5
 
-    5 expr: AT OPEN_BRACKET CLOSE_BRACKET .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 4
+    IDENTIFIER    shift, and goto state 10
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    STRING        shift, and goto state 11
 
-    $end               reduce using rule 5 (expr)
-    CLOSE_BRACKET      reduce using rule 5 (expr)
-    CLOSE_PARENTHESIS  reduce using rule 5 (expr)
-    COMMA              reduce using rule 5 (expr)
-    EQ                 reduce using rule 5 (expr)
-    GT                 reduce using rule 5 (expr)
-    GTE                reduce using rule 5 (expr)
-    IN                 reduce using rule 5 (expr)
-    LT                 reduce using rule 5 (expr)
-    LTE                reduce using rule 5 (expr)
-    NEQ                reduce using rule 5 (expr)
-    NIN                reduce using rule 5 (expr)
-    NRE                reduce using rule 5 (expr)
-    RE                 reduce using rule 5 (expr)
+    index     goto state 7
+    member    goto state 6
+    segment   goto state 62
+    selector  goto state 8
 
-state 69 // DOLLAR DOT
+state 60 // IDENTIFIER DOTDOT
 
-    2 expr: DOLLAR DOT . segment  // assoc %left, prec 5
+   18 segment: segment DOTDOT . segment  // assoc %left, prec 5
 
-    IDENTIFIER    shift, and goto state 12
-    OPEN_BRACKET  shift, and goto state 14
-    STRING        shift, and goto state 13
+    IDENTIFIER    shift, and goto state 10
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    STRING        shift, and goto state 11
 
-    index     goto state 10
-    member    goto state 9
-    segment   goto state 72
-    selector  goto state 11
+    index     goto state 7
+    member    goto state 6
+    segment   goto state 61
+    selector  goto state 8
 
-state 70 // DOLLAR DOTDOT
+state 61 // IDENTIFIER DOTDOT IDENTIFIER [$end]
 
-    3 expr: DOLLAR DOTDOT . segment  // assoc %left, prec 5
+   15 segment: segment . index
+   16 segment: segment . selector
+   17 segment: segment . DOT segment  // assoc %left, prec 5
+   18 segment: segment . DOTDOT segment  // assoc %left, prec 5
+   18 segment: segment DOTDOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 5
 
-    IDENTIFIER    shift, and goto state 12
-    OPEN_BRACKET  shift, and goto state 14
-    STRING        shift, and goto state 13
+    $end               reduce using rule 18 (segment)
+    CLOSE_BRACKET      reduce using rule 18 (segment)
+    CLOSE_PARENTHESIS  reduce using rule 18 (segment)
+    COMMA              reduce using rule 18 (segment)
+    DOT                reduce using rule 18 (segment)
+    DOTDOT             reduce using rule 18 (segment)
+    EQ                 reduce using rule 18 (segment)
+    GT                 reduce using rule 18 (segment)
+    GTE                reduce using rule 18 (segment)
+    IN                 reduce using rule 18 (segment)
+    LT                 reduce using rule 18 (segment)
+    LTE                reduce using rule 18 (segment)
+    NEQ                reduce using rule 18 (segment)
+    NIN                reduce using rule 18 (segment)
+    NRE                reduce using rule 18 (segment)
+    OPEN_BRACKET       reduce using rule 18 (segment)
+    RE                 reduce using rule 18 (segment)
 
-    index     goto state 10
-    member    goto state 9
-    segment   goto state 71
-    selector  goto state 11
+    index     goto state 57
+    selector  goto state 58
 
-state 71 // DOLLAR DOTDOT IDENTIFIER [$end]
+state 62 // IDENTIFIER DOT IDENTIFIER [$end]
 
-    3 expr: DOLLAR DOTDOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
-   11 segment: segment . index
-   12 segment: segment . selector
-   13 segment: segment . DOT segment  // assoc %left, prec 5
-   14 segment: segment . DOTDOT segment  // assoc %left, prec 5
-   15 segment: segment . DOT MUL  // assoc %left, prec 2
-   16 segment: segment . DOTDOT MUL  // assoc %left, prec 2
+   15 segment: segment . index
+   16 segment: segment . selector
+   17 segment: segment . DOT segment  // assoc %left, prec 5
+   17 segment: segment DOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, DOT, DOTDOT, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, OPEN_BRACKET, RE]  // assoc %left, prec 5
+   18 segment: segment . DOTDOT segment  // assoc %left, prec 5
+
+    $end               reduce using rule 17 (segment)
+    CLOSE_BRACKET      reduce using rule 17 (segment)
+    CLOSE_PARENTHESIS  reduce using rule 17 (segment)
+    COMMA              reduce using rule 17 (segment)
+    DOT                reduce using rule 17 (segment)
+    DOTDOT             reduce using rule 17 (segment)
+    EQ                 reduce using rule 17 (segment)
+    GT                 reduce using rule 17 (segment)
+    GTE                reduce using rule 17 (segment)
+    IN                 reduce using rule 17 (segment)
+    LT                 reduce using rule 17 (segment)
+    LTE                reduce using rule 17 (segment)
+    NEQ                reduce using rule 17 (segment)
+    NIN                reduce using rule 17 (segment)
+    NRE                reduce using rule 17 (segment)
+    OPEN_BRACKET       reduce using rule 17 (segment)
+    RE                 reduce using rule 17 (segment)
+
+    index     goto state 57
+    selector  goto state 58
+
+state 63 // AT OPEN_BRACKET CLOSE_BRACKET [$end]
+
+    7 expr: AT index .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
+
+    $end               reduce using rule 7 (expr)
+    CLOSE_BRACKET      reduce using rule 7 (expr)
+    CLOSE_PARENTHESIS  reduce using rule 7 (expr)
+    COMMA              reduce using rule 7 (expr)
+    EQ                 reduce using rule 7 (expr)
+    GT                 reduce using rule 7 (expr)
+    GTE                reduce using rule 7 (expr)
+    IN                 reduce using rule 7 (expr)
+    LT                 reduce using rule 7 (expr)
+    LTE                reduce using rule 7 (expr)
+    NEQ                reduce using rule 7 (expr)
+    NIN                reduce using rule 7 (expr)
+    NRE                reduce using rule 7 (expr)
+    RE                 reduce using rule 7 (expr)
+
+state 64 // AT DOT
+
+    8 expr: AT DOT . segment  // assoc %left, prec 5
+
+    IDENTIFIER    shift, and goto state 10
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    STRING        shift, and goto state 11
+
+    index     goto state 7
+    member    goto state 6
+    segment   goto state 69
+    selector  goto state 8
+
+state 65 // AT DOTDOT
+
+    9 expr: AT DOTDOT . segment  // assoc %left, prec 5
+
+    IDENTIFIER    shift, and goto state 10
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    STRING        shift, and goto state 11
+
+    index     goto state 7
+    member    goto state 6
+    segment   goto state 68
+    selector  goto state 8
+
+state 66 // AT OPEN_BRACKET
+
+   21 index: OPEN_BRACKET . negint CLOSE_BRACKET  // assoc %left, prec 4
+   22 index: OPEN_BRACKET . CLOSE_BRACKET  // assoc %left, prec 4
+
+    CLOSE_BRACKET  shift, and goto state 14
+    INT            shift, and goto state 21
+    SUB            shift, and goto state 22
+
+    negint  goto state 67
+
+state 67 // AT OPEN_BRACKET INT [CLOSE_BRACKET]
+
+   21 index: OPEN_BRACKET negint . CLOSE_BRACKET  // assoc %left, prec 4
+
+    CLOSE_BRACKET  shift, and goto state 54
+
+state 68 // AT DOTDOT IDENTIFIER [$end]
+
+    9 expr: AT DOTDOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
+   15 segment: segment . index
+   16 segment: segment . selector
+   17 segment: segment . DOT segment  // assoc %left, prec 5
+   18 segment: segment . DOTDOT segment  // assoc %left, prec 5
+
+    $end               reduce using rule 9 (expr)
+    CLOSE_BRACKET      reduce using rule 9 (expr)
+    CLOSE_PARENTHESIS  reduce using rule 9 (expr)
+    COMMA              reduce using rule 9 (expr)
+    DOT                shift, and goto state 59
+    DOTDOT             shift, and goto state 60
+    EQ                 reduce using rule 9 (expr)
+    GT                 reduce using rule 9 (expr)
+    GTE                reduce using rule 9 (expr)
+    IN                 reduce using rule 9 (expr)
+    LT                 reduce using rule 9 (expr)
+    LTE                reduce using rule 9 (expr)
+    NEQ                reduce using rule 9 (expr)
+    NIN                reduce using rule 9 (expr)
+    NRE                reduce using rule 9 (expr)
+    OPEN_BRACKET       shift, and goto state 12
+    RE                 reduce using rule 9 (expr)
+
+    index     goto state 57
+    selector  goto state 58
+
+state 69 // AT DOT IDENTIFIER [$end]
+
+    8 expr: AT DOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
+   15 segment: segment . index
+   16 segment: segment . selector
+   17 segment: segment . DOT segment  // assoc %left, prec 5
+   18 segment: segment . DOTDOT segment  // assoc %left, prec 5
+
+    $end               reduce using rule 8 (expr)
+    CLOSE_BRACKET      reduce using rule 8 (expr)
+    CLOSE_PARENTHESIS  reduce using rule 8 (expr)
+    COMMA              reduce using rule 8 (expr)
+    DOT                shift, and goto state 59
+    DOTDOT             shift, and goto state 60
+    EQ                 reduce using rule 8 (expr)
+    GT                 reduce using rule 8 (expr)
+    GTE                reduce using rule 8 (expr)
+    IN                 reduce using rule 8 (expr)
+    LT                 reduce using rule 8 (expr)
+    LTE                reduce using rule 8 (expr)
+    NEQ                reduce using rule 8 (expr)
+    NIN                reduce using rule 8 (expr)
+    NRE                reduce using rule 8 (expr)
+    OPEN_BRACKET       shift, and goto state 12
+    RE                 reduce using rule 8 (expr)
+
+    index     goto state 57
+    selector  goto state 58
+
+state 70 // DOLLAR OPEN_BRACKET CLOSE_BRACKET [$end]
+
+    3 expr: DOLLAR index .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
 
     $end               reduce using rule 3 (expr)
     CLOSE_BRACKET      reduce using rule 3 (expr)
     CLOSE_PARENTHESIS  reduce using rule 3 (expr)
     COMMA              reduce using rule 3 (expr)
-    DOT                shift, and goto state 61
-    DOTDOT             shift, and goto state 62
     EQ                 reduce using rule 3 (expr)
     GT                 reduce using rule 3 (expr)
     GTE                reduce using rule 3 (expr)
@@ -958,40 +1035,91 @@ state 71 // DOLLAR DOTDOT IDENTIFIER [$end]
     NEQ                reduce using rule 3 (expr)
     NIN                reduce using rule 3 (expr)
     NRE                reduce using rule 3 (expr)
-    OPEN_BRACKET       shift, and goto state 14
     RE                 reduce using rule 3 (expr)
 
-    index     goto state 59
-    selector  goto state 60
+state 71 // DOLLAR DOT
 
-state 72 // DOLLAR DOT IDENTIFIER [$end]
+    4 expr: DOLLAR DOT . segment  // assoc %left, prec 5
 
-    2 expr: DOLLAR DOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
-   11 segment: segment . index
-   12 segment: segment . selector
-   13 segment: segment . DOT segment  // assoc %left, prec 5
-   14 segment: segment . DOTDOT segment  // assoc %left, prec 5
-   15 segment: segment . DOT MUL  // assoc %left, prec 2
-   16 segment: segment . DOTDOT MUL  // assoc %left, prec 2
+    IDENTIFIER    shift, and goto state 10
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    STRING        shift, and goto state 11
 
-    $end               reduce using rule 2 (expr)
-    CLOSE_BRACKET      reduce using rule 2 (expr)
-    CLOSE_PARENTHESIS  reduce using rule 2 (expr)
-    COMMA              reduce using rule 2 (expr)
-    DOT                shift, and goto state 61
-    DOTDOT             shift, and goto state 62
-    EQ                 reduce using rule 2 (expr)
-    GT                 reduce using rule 2 (expr)
-    GTE                reduce using rule 2 (expr)
-    IN                 reduce using rule 2 (expr)
-    LT                 reduce using rule 2 (expr)
-    LTE                reduce using rule 2 (expr)
-    NEQ                reduce using rule 2 (expr)
-    NIN                reduce using rule 2 (expr)
-    NRE                reduce using rule 2 (expr)
-    OPEN_BRACKET       shift, and goto state 14
-    RE                 reduce using rule 2 (expr)
+    index     goto state 7
+    member    goto state 6
+    segment   goto state 74
+    selector  goto state 8
 
-    index     goto state 59
-    selector  goto state 60
+state 72 // DOLLAR DOTDOT
+
+    5 expr: DOLLAR DOTDOT . segment  // assoc %left, prec 5
+
+    IDENTIFIER    shift, and goto state 10
+    MUL           shift, and goto state 9
+    OPEN_BRACKET  shift, and goto state 12
+    STRING        shift, and goto state 11
+
+    index     goto state 7
+    member    goto state 6
+    segment   goto state 73
+    selector  goto state 8
+
+state 73 // DOLLAR DOTDOT IDENTIFIER [$end]
+
+    5 expr: DOLLAR DOTDOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
+   15 segment: segment . index
+   16 segment: segment . selector
+   17 segment: segment . DOT segment  // assoc %left, prec 5
+   18 segment: segment . DOTDOT segment  // assoc %left, prec 5
+
+    $end               reduce using rule 5 (expr)
+    CLOSE_BRACKET      reduce using rule 5 (expr)
+    CLOSE_PARENTHESIS  reduce using rule 5 (expr)
+    COMMA              reduce using rule 5 (expr)
+    DOT                shift, and goto state 59
+    DOTDOT             shift, and goto state 60
+    EQ                 reduce using rule 5 (expr)
+    GT                 reduce using rule 5 (expr)
+    GTE                reduce using rule 5 (expr)
+    IN                 reduce using rule 5 (expr)
+    LT                 reduce using rule 5 (expr)
+    LTE                reduce using rule 5 (expr)
+    NEQ                reduce using rule 5 (expr)
+    NIN                reduce using rule 5 (expr)
+    NRE                reduce using rule 5 (expr)
+    OPEN_BRACKET       shift, and goto state 12
+    RE                 reduce using rule 5 (expr)
+
+    index     goto state 57
+    selector  goto state 58
+
+state 74 // DOLLAR DOT IDENTIFIER [$end]
+
+    4 expr: DOLLAR DOT segment .  [$end, CLOSE_BRACKET, CLOSE_PARENTHESIS, COMMA, EQ, GT, GTE, IN, LT, LTE, NEQ, NIN, NRE, RE]  // assoc %left, prec 5
+   15 segment: segment . index
+   16 segment: segment . selector
+   17 segment: segment . DOT segment  // assoc %left, prec 5
+   18 segment: segment . DOTDOT segment  // assoc %left, prec 5
+
+    $end               reduce using rule 4 (expr)
+    CLOSE_BRACKET      reduce using rule 4 (expr)
+    CLOSE_PARENTHESIS  reduce using rule 4 (expr)
+    COMMA              reduce using rule 4 (expr)
+    DOT                shift, and goto state 59
+    DOTDOT             shift, and goto state 60
+    EQ                 reduce using rule 4 (expr)
+    GT                 reduce using rule 4 (expr)
+    GTE                reduce using rule 4 (expr)
+    IN                 reduce using rule 4 (expr)
+    LT                 reduce using rule 4 (expr)
+    LTE                reduce using rule 4 (expr)
+    NEQ                reduce using rule 4 (expr)
+    NIN                reduce using rule 4 (expr)
+    NRE                reduce using rule 4 (expr)
+    OPEN_BRACKET       shift, and goto state 12
+    RE                 reduce using rule 4 (expr)
+
+    index     goto state 57
+    selector  goto state 58
 

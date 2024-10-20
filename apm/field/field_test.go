@@ -43,31 +43,6 @@ import (
 // 	}
 // }
 
-func TestTT(t *testing.T) {
-	f := Make("")
-
-	f.SetNull(true)
-
-	fmt.Printf("f.IsNull(): %v\n", f.IsNull())
-	f.SetString("hello")
-	// f.SetKind(StringKind, false)
-	// f.SetKind(StringKind, false)
-	// f.SetKind(StringKind, false)
-	f.SetNull(true)
-	fmt.Printf("f.Flags: %v\n", f.Flags)
-	// f.SetNull(false)
-	fmt.Printf("f.IsList(): %v\n", f.IsCollection())
-
-	fmt.Printf("f.IsNull(): %v\n", f.IsNull())
-
-	fmt.Printf("f.IsList(): %v\n", f.IsCollection())
-
-	fmt.Printf("f.isKind(StringKind): %v\n", f.isKind(StringKind))
-
-	fmt.Printf("f.GetString(): %v\n", f.GetString())
-
-}
-
 type tmeta struct {
 	key  string
 	kind string

@@ -42,10 +42,10 @@ func Apply(expr jsonpath.Expr, root *Field, apply func(*Field)) error {
 	// 	r = p
 	// }
 	v := &explorer{root: root, current: p, parent: nil}
-	v.Visit = func(e jsonpath.Expr) {
-		jsonpath.Visit(e, v, v.SetError)
+	v.visit = func(e jsonpath.Expr) {
+		jsonpath.Visit(e, v, v.setError)
 	}
-	v.Visit(expr)
+	v.visit(expr)
 	if err := v.Error(); err != nil {
 		return err
 	}
@@ -60,10 +60,10 @@ func ApplyWithCurrent(expr jsonpath.Expr, root *Field, current []*Field, apply f
 	// 	r = p
 	// }
 	v := &explorer{root: root, current: current, parent: nil}
-	v.Visit = func(e jsonpath.Expr) {
-		jsonpath.Visit(e, v, v.SetError)
+	v.visit = func(e jsonpath.Expr) {
+		jsonpath.Visit(e, v, v.setError)
 	}
-	v.Visit(expr)
+	v.visit(expr)
 	if err := v.Error(); err != nil {
 		return err
 	}

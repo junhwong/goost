@@ -563,6 +563,21 @@ func GetNumberValue(f *Field) any {
 	return nil
 }
 
+func IsNumber(f *Field) bool {
+	if f == nil || f.Type == InvalidKind {
+		return false
+	}
+	switch f.Type {
+	case IntKind:
+		return true
+	case UintKind:
+		return true
+	case FloatKind:
+		return true
+	}
+	return false
+}
+
 // 克隆对象
 func Clone(f *Field) *Field {
 	if f == nil {

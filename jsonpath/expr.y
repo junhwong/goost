@@ -56,24 +56,28 @@ start:
   ;
 
 expr: 
-  DOLLAR DOT segment                    { $$ = &BinaryExpr{Left:RootSymbol, Right: $3, Op: DOT} }
+  DOLLAR                                { $$ = RootSymbol }
+  | DOLLAR index                        { $$ = &BinaryExpr{Left:RootSymbol, Right: $2, Op: OPEN_BRACKET} }
+  | DOLLAR DOT segment                  { $$ = &BinaryExpr{Left:RootSymbol, Right: $3, Op: DOT} }
   | DOLLAR DOTDOT segment               { $$ = &BinaryExpr{Left:RootSymbol, Right: $3, Op: DOTDOT} }
   | AT                                  { $$ = CurrentSymbol }
-  | AT OPEN_BRACKET CLOSE_BRACKET       { $$ = &EmptyGroup{Owner: $1} } // 数组,增加元素
+  | AT index                            { $$ = &BinaryExpr{Left:CurrentSymbol, Right: $2, Op: OPEN_BRACKET} }
   | AT DOT segment                      { $$ = &BinaryExpr{Left:CurrentSymbol, Right: $3, Op: DOT} }
   | AT DOTDOT segment                   { $$ = &BinaryExpr{Left:CurrentSymbol, Right: $3, Op: DOTDOT} }
+  | segment                             { $$ = $1 }
   ;
 
 segment:
   member                        { $$ = $1 }
   | index                       { $$ = $1 }
-  | selector                    { $$ = $1}
+  | selector                    { $$ = $1 }
+  | MUL                         { $$ = WildcardSymbol }
   | segment index               { $$ = &BinaryExpr{Left:$1, Right: $2, Op: OPEN_BRACKET} }
   | segment selector            { $$ = &BinaryExpr{Left:$1, Right: $2, Op: OPEN_BRACKET} }
   | segment DOT segment         { $$ = &BinaryExpr{Left:$1, Right: $3, Op: DOT} }
   | segment DOTDOT segment      { $$ = &BinaryExpr{Left:$1, Right: $3, Op: DOTDOT} }
-  | segment DOT MUL             { $$ = &BinaryExpr{Left:$1, Right: WildcardSymbol, Op: DOT} }
-  | segment DOTDOT MUL          { $$ = &BinaryExpr{Left:$1, Right: WildcardSymbol, Op: DOTDOT} }
+  // | segment DOT MUL             { $$ = &BinaryExpr{Left:$1, Right: WildcardSymbol, Op: DOT} }
+  // | segment DOTDOT MUL          { $$ = &BinaryExpr{Left:$1, Right: WildcardSymbol, Op: DOTDOT} }
   ;
 
 member:
@@ -95,6 +99,7 @@ selector:
 
 range:
   COLON                     { $$ = RangeExpr{0,-1} }
+  | MUL                     { $$ = RangeExpr{0,-1} }
   | COLON negint            { $$ = RangeExpr{0,$2} }
   | negint COLON            { $$ = RangeExpr{$1,-1} }
   | negint COLON negint     { $$ = RangeExpr{$1,$3} }

@@ -16,6 +16,15 @@ func TestParse(t *testing.T) {
 		ex   string
 	}{
 		{
+			desc: `$.*`,
+		},
+		{
+			desc: `$.*.[].[]`,
+		},
+		{
+			desc: `@.*`,
+		},
+		{
 			desc: `$.foo`,
 		},
 		// {
