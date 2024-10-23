@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"net"
 	"slices"
-	"time"
+	stdtime "time"
 
 	"github.com/junhwong/goost/apm/field/loglevel"
+	"github.com/junhwong/goost/apm/field/time"
 )
 
 type Field struct {
@@ -193,7 +194,7 @@ func (f *Field) GetFloat() float64 {
 	return f.GetFloatValue()
 }
 
-func (f *Field) SetTime(v time.Time) *Field {
+func (f *Field) SetTime(v stdtime.Time) *Field {
 	f.resetValue()
 	f.setPK(TimeKind)
 
@@ -205,30 +206,30 @@ func (f *Field) SetTime(v time.Time) *Field {
 		v = v.AddDate(1678-v.Year(), 0, 0)
 	}
 	if v.Year() >= 2262 { // 大于范围
-		v = time.Time{}
+		v = stdtime.Time{}
 	}
 	i := v.UnixNano()
 	f.IntValue = &i
 
 	return f
 }
-func (f *Field) GetTime() time.Time {
+func (f *Field) GetTime() stdtime.Time {
 	if f.IsNull() || !f.isKind(TimeKind) {
-		return time.Time{}
+		return stdtime.Time{}
 	}
-	v := time.Unix(0, f.GetIntValue())
+	v := stdtime.Unix(0, f.GetIntValue())
 	if v.Year() <= 1678 { // 处理时间范围
 		v = v.AddDate(-v.Year(), 0, 0)
 	}
 	if v.Year() >= 2262 { // 大于范围
-		return time.Time{}
+		return stdtime.Time{}
 	}
-	v = v.In(LOC)
+	v = v.In(time.LOC)
 
 	return v
 }
 
-func (f *Field) SetDuration(v time.Duration) *Field {
+func (f *Field) SetDuration(v stdtime.Duration) *Field {
 	f.resetValue()
 	f.setPK(DurationKind)
 
@@ -237,11 +238,11 @@ func (f *Field) SetDuration(v time.Duration) *Field {
 	return f
 }
 
-func (f *Field) GetDuration() time.Duration {
+func (f *Field) GetDuration() stdtime.Duration {
 	if !f.isKind(DurationKind) {
 		return 0
 	}
-	return time.Duration(f.GetIntValue())
+	return stdtime.Duration(f.GetIntValue())
 }
 
 func (f *Field) SetIP(v net.IP) *Field {
