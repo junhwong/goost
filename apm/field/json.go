@@ -16,22 +16,19 @@ const (
 )
 
 type JsonMarshaler struct {
-	OmitEmpty        bool // todo 实现
-	TimeLayout       string
-	DurationToString bool
-	EscapeHTML       bool
-	Pretty           bool
+	TimeLayout       string // 日期格式
+	OmitEmpty        bool   // 是否忽略空值
+	DurationToString bool   // 是否转字符串
+	EscapeHTML       bool   // 是否转义html
+	Pretty           bool   // 是否美化
 	NameFilter       func(string) string
-	NameLess         func(a, b *Field) int
+	NameSort         func(a, b *Field) int // group 排序函数
 
 	err   error
 	w     io.Writer
 	n     int64
 	skip  []*Field
 	ident int
-	// buf  *bytes.Buffer
-	// enc  *json.Encoder
-	// benc io.WriteCloser
 }
 
 func (m JsonMarshaler) Marshal(f *Field, w io.Writer, skip ...*Field) (int64, error) {
@@ -39,6 +36,9 @@ func (m JsonMarshaler) Marshal(f *Field, w io.Writer, skip ...*Field) (int64, er
 	m.err = nil
 	m.n = 0
 	m.skip = skip
+	if m.NameSort == nil {
+		m.NameSort = NameLess
+	}
 	m.write(f, func() {})
 	return m.n, m.err
 }
@@ -48,7 +48,9 @@ func (m JsonMarshaler) MarshalGroup(fs []*Field, w io.Writer, skip ...*Field) (i
 	m.err = nil
 	m.n = 0
 	m.skip = skip
-	// m.enc = json.NewEncoder(m.buf)
+	if m.NameSort == nil {
+		m.NameSort = NameLess
+	}
 	m.writeGroup(fs)
 	return m.n, m.err
 }
@@ -74,12 +76,9 @@ func (m *JsonMarshaler) writeGroup(fs []*Field) {
 	if m.err != nil {
 		return
 	}
-	items := fs
-	if m.NameLess != nil {
-		items = make([]*Field, len(items))
-		copy(items, fs)
-		slices.SortFunc(items, m.NameLess)
-	}
+	items := make([]*Field, len(fs))
+	copy(items, fs)
+	slices.SortFunc(items, m.NameSort)
 
 	has := false
 	m.writeByte('{')
@@ -150,7 +149,9 @@ func (m *JsonMarshaler) writeArray(fs []*Field) {
 				}
 			}
 			has = true
-			m.writeBytes([]byte(strings.Repeat(" ", m.ident)))
+			if m.Pretty {
+				m.writeBytes([]byte(strings.Repeat(" ", m.ident)))
+			}
 		})
 	}
 	m.ident -= 2
@@ -232,30 +233,12 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 			}
 			return
 		}
-		// if m.buf == nil {
-		// 	m.buf = bytes.NewBuffer(nil)
-		// }
-		// if m.enc == nil {
-		// 	m.enc = json.NewEncoder(m.buf)
-		// }
-
-		// m.enc.SetEscapeHTML(m.EscapeHTML)
-		// m.buf.Reset()
-
-		// if err := m.enc.Encode(v); err != nil {
-		// 	m.err = err
-		// 	return
-		// }
-
-		// var data []byte
-		// data = m.buf.Bytes()
 		data, err := json.Marshal(v)
 		if err != nil {
 			m.err = err
 			return
 		}
-		n := len(data) - 1
-		if data[n] == '\n' { // json.NewEncoder 会增加一个换行
+		if n := len(data) - 1; data[n] == '\n' { // json.NewEncoder 会增加一个换行
 			data = data[:n]
 		}
 		befor()
@@ -298,28 +281,24 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 		v := f.GetBytes()
 		befor()
 		m.writeBytes([]byte(`"base64:`))
-		// if m.buf == nil {
-		// 	m.buf = bytes.NewBuffer(nil)
-		// }
-		// if m.benc == nil {
-		// 	m.benc = base64.NewEncoder(base64.StdEncoding, m.buf)
-		// }
-		// m.buf.Reset()
-		// _, m.err = m.benc.Write(v)
-		// m.writeBytes(m.buf.Bytes())
-
-		buf := bytes.NewBuffer(nil)
-		benc := base64.NewEncoder(base64.StdEncoding, buf)
-		buf.Reset()
+		benc := base64.NewEncoder(base64.StdEncoding, m.w)
 		_, m.err = benc.Write(v)
 		if m.err != nil {
 			return
 		}
-		data := buf.Bytes()
-
-		m.writeBytes(data)
+		m.err = benc.Close()
 		m.writeBytes([]byte(`"`))
 	default:
 		panic("todo:" + f.Type.String())
 	}
+}
+
+func NameLess(a, b *Field) int {
+	if a.Name == b.Name {
+		return 0
+	}
+	if a.Name < b.Name {
+		return -1
+	}
+	return 1
 }

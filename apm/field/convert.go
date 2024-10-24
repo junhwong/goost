@@ -72,15 +72,15 @@ func As(f *Field, t Type, layouts []string, loc *stdtime.Location, baseTime stdt
 	// if f.Parent != nil && f.IsColumn() && f.Parent.Type != t {
 	// 	return fmt.Errorf("必须与父级类型一致")
 	// }
-	if f.IsColumn() {
-		f.Type = t
-		for _, it := range f.Items {
-			if err := As(it, t, layouts, loc, baseTime, failToDefault); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
+	// if f.IsColumn() {
+	// 	f.Type = t
+	// 	for _, it := range f.Items {
+	// 		if err := As(it, t, layouts, loc, baseTime, failToDefault); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// 	return nil
+	// }
 
 	switch t {
 	case IntKind:
@@ -333,8 +333,7 @@ func As(f *Field, t Type, layouts []string, loc *stdtime.Location, baseTime stdt
 			return nil
 		}
 	case ArrayKind:
-		switch f.Type {
-		case GroupKind:
+		if f.IsGroup() {
 			if len(layouts) == 0 {
 				panic("todo convert:ArrayKind-GroupKind")
 			}
@@ -362,8 +361,22 @@ func As(f *Field, t Type, layouts []string, loc *stdtime.Location, baseTime stdt
 
 				ToRowTable(f, items)
 				return nil
+			default:
+				return fmt.Errorf("field:转换为RowTable失败: %v", "不支持的field类型")
 			}
 		}
+		if f.IsArray() {
+			// todo 处理 layouts
+			return nil
+		}
+		// todo 处理 layouts
+		if f.IsNull() || (f.Type == StringKind && f.GetString() == "") {
+			f.SetArray(nil)
+			return nil
+		}
+		c := Clone(f)
+		f.SetArray([]*Field{c})
+		return nil
 	}
 
 	panic(fmt.Sprintf("todo convert %v->%v", f.GetType(), t))

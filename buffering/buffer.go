@@ -103,3 +103,11 @@ func (b *Buffer) ReadByte() (byte, error) {
 	b.start++
 	return c, nil
 }
+
+func (b *Buffer) Bytes() []byte {
+	return b.buf[b.start:b.end]
+}
+
+func (b *Buffer) String() string {
+	return string(b.Bytes())
+}
