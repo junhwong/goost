@@ -68,21 +68,8 @@ func InvertType(f *Field) *Field {
 }
 
 // 转换类型. 转换失败将不会改变
-func As(f *Field, t Type, layouts []string, loc *stdtime.Location, baseTime stdtime.Time, failToDefault bool) error {
-	// if f.Parent != nil && f.IsColumn() && f.Parent.Type != t {
-	// 	return fmt.Errorf("必须与父级类型一致")
-	// }
-	// if f.IsColumn() {
-	// 	f.Type = t
-	// 	for _, it := range f.Items {
-	// 		if err := As(it, t, layouts, loc, baseTime, failToDefault); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// 	return nil
-	// }
-
-	switch t {
+func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime stdtime.Time, failToDefault bool) error {
+	switch target {
 	case IntKind:
 		obj := GetPrimitiveValue(f)
 		v, err := cast.ToInt64E(obj)
@@ -334,10 +321,11 @@ func As(f *Field, t Type, layouts []string, loc *stdtime.Location, baseTime stdt
 		}
 	case ArrayKind:
 		if f.IsGroup() {
-			if len(layouts) == 0 {
-				panic("todo convert:ArrayKind-GroupKind")
+			var l string
+			if len(layouts) != 0 { // todo 多好个layout
+				l = layouts[0]
 			}
-			switch layouts[0] {
+			switch l {
 			case "RowTable":
 				group := false
 				array := false
@@ -361,6 +349,10 @@ func As(f *Field, t Type, layouts []string, loc *stdtime.Location, baseTime stdt
 
 				ToRowTable(f, items)
 				return nil
+			case "":
+				f.Type = target
+				// todo 设置名称
+				return nil
 			default:
 				return fmt.Errorf("field:转换为RowTable失败: %v", "不支持的field类型")
 			}
@@ -379,7 +371,7 @@ func As(f *Field, t Type, layouts []string, loc *stdtime.Location, baseTime stdt
 		return nil
 	}
 
-	panic(fmt.Sprintf("todo convert %v->%v", f.GetType(), t))
+	panic(fmt.Sprintf("todo convert %v -> %v", f.GetType(), target))
 }
 
 func ToRowTable(dest *Field, cols []*Field) {

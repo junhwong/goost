@@ -41,6 +41,8 @@ func ParseTimeZone(s string) (*time.Location, error) {
 
 var timeLayoutMap = map[string][]string{
 	"rfc3339":  {time.RFC3339Nano, time.RFC3339},
+	"rfc1123":  {time.RFC1123Z, time.RFC1123},
+	"gmt":      {time.RFC1123},
 	"datetime": {time.DateTime, "01/02/2006 15:04:05"},
 	"date":     {time.DateOnly, "01/02/2006"}, //MM/dd/yyyy
 }
