@@ -72,14 +72,18 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 	switch target {
 	case IntKind:
 		obj := GetPrimitiveValue(f)
-		v, err := cast.ToInt64E(obj)
+		v, err := cast.ToFloat64E(obj)
 		if err != nil {
 			if failToDefault {
 				f.SetInt(0)
 			}
 			return err
 		}
-		f.SetInt(v)
+		i, err := strconv.ParseInt(strconv.FormatFloat(v, 'f', 0, 64), 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		f.SetInt(i)
 		return nil
 	case UintKind:
 		obj := GetPrimitiveValue(f)
@@ -371,7 +375,7 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 		return nil
 	}
 
-	panic(fmt.Sprintf("todo convert %v -> %v", f.GetType(), target))
+	panic(fmt.Sprintf("todo convert to %v from %#v", target, f))
 }
 
 func ToRowTable(dest *Field, cols []*Field) {

@@ -90,7 +90,19 @@ func (b *Buffer) Reset() {
 }
 
 func (b *Buffer) Read(p []byte) (n int, err error) {
-	return 0, nil
+	n = len(p)
+	if n == 0 {
+		return 0, nil
+	}
+	if n > b.Len() {
+		n = b.Len()
+	}
+	if n == 0 {
+		return 0, io.EOF
+	}
+	n = copy(p, b.buf[b.start:b.start+n])
+	b.start += n
+	return
 }
 
 func (b *Buffer) ReadByte() (byte, error) {

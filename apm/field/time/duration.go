@@ -212,6 +212,5 @@ func ParseDuration(os string) (time.Duration, error) {
 		s = arr[1]
 	}
 	s = strconv.Itoa(h) + "h" + s
-	fmt.Printf("ssssss: %v\n", s)
 	return time.ParseDuration(s)
 }
