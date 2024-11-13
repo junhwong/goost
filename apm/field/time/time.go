@@ -7,8 +7,11 @@ import (
 	"time"
 )
 
-var CST *time.Location
-var LOC *time.Location
+var (
+	CST *time.Location // UTC+8
+	LOC *time.Location // Local
+	UTC = time.UTC
+)
 
 func init() {
 	loc, err := time.LoadLocation("Asia/Shanghai")
@@ -25,7 +28,7 @@ func ParseTimeZone(s string) (*time.Location, error) {
 	}
 	switch strings.ToLower(s) {
 	case "utc":
-		return time.UTC, nil
+		return UTC, nil
 	case "local":
 		return time.Local, nil
 	case "cst", "asia/shanghai", "asia/urumqi", "asia/chongqing":

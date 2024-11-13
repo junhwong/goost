@@ -100,23 +100,30 @@ func (l *factoryEntry) Log(level loglevel.Level, args []interface{}) {
 	)
 
 	for _, it := range args {
+		if it == nil {
+			continue
+		}
 		switch it := it.(type) {
 		case field.Field:
+			if it.IsNull() {
+				continue
+			}
 			if entry == nil {
 				entry = field.MakeRoot()
 			}
 			entry.Set(&it)
 		case *field.Field:
+			if it == nil || it.IsNull() {
+				continue
+			}
 			if entry == nil {
 				entry = field.MakeRoot()
 			}
 			entry.Set(it)
-		case context.Context:
-			ctxs = append(ctxs, it)
 		default:
 			if ctx, _ := it.(context.Context); ctx != nil {
 				ctxs = append(ctxs, ctx)
-			} else if len(arr) > 0 || it != nil {
+			} else {
 				arr = append(arr, it)
 			}
 		}

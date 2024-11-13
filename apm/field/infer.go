@@ -174,29 +174,6 @@ func InferPrimitiveValue(v any) (any, Type) {
 
 	v, k := InferNumberValue(v)
 	return v, k
-	if k != InvalidKind {
-		return v, k
-	}
-
-	rv := reflect.ValueOf(v)
-	if v, k := InferPrimitiveValueByReflect(rv); k != InvalidKind {
-		return v, k
-	}
-
-	rt := reflect.TypeOf(v)
-	prt := false
-	if rt.Kind() == reflect.Pointer {
-		rt = rt.Elem()
-		prt = true
-	}
-	if rt.Kind() == reflect.Invalid {
-		return nil, InvalidKind
-	}
-	v, k = InferPrimitiveValueByReflect(reflect.Zero(rt)) // 创建默认值
-	if prt {
-		return nil, k
-	}
-	return v, k
 }
 
 // 反射获取重新定义基础类型的值

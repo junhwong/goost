@@ -65,6 +65,10 @@ func (k Timestamp) Unix() int64 {
 	return time.Time(k).UnixNano()
 }
 
-func NowTimestamp() Timestamp {
+func NowTime() time.Time {
+	return time.Now()
+}
+
+func Now() Timestamp {
 	return Timestamp(time.Now())
 }
