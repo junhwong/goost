@@ -16,7 +16,7 @@ func GetBuffer() *Buffer {
 	buf.Reset()
 	return buf
 }
-func PutBuffer(buf *Buffer) {
+func PutBuffer(buf *Buffer) { // todo 限制buf大小
 	if buf == nil {
 		return
 	}

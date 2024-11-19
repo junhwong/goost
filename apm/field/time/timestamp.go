@@ -8,13 +8,13 @@ import (
 	"time"
 )
 
-// 一个可用于乐观锁的时间戳类型.
+// 一个可用于乐观锁的毫秒时间戳类型.
 //
-// 注: 目前的rdb一般不支持纳秒时间戳,该类型序列化为int64的纳秒时间戳
-type Timestamp time.Time
+// 注: rdb 时间戳会额外计算,应该将类型设置为整数类型.
+type Timestamp int64
 
 func (k Timestamp) MarshalJSON() ([]byte, error) {
-	v := time.Time(k).Format(time.RFC3339Nano)
+	v := k.Time().Format(time.RFC3339Nano)
 	return []byte(strconv.Quote(v)), nil
 }
 
@@ -42,10 +42,11 @@ func (k *Timestamp) Scan(value interface{}) error {
 		if err != nil {
 			return err
 		}
-		*k = Timestamp(t)
-		return nil
+		return k.Scan(t.UnixMilli())
 	case int64:
-		*k = Timestamp(time.Unix(0, value).Local())
+		*k = Timestamp(value)
+	case float64:
+		return k.Scan(int64(value))
 	default:
 		return k.Scan(fmt.Sprint(value))
 	}
@@ -58,11 +59,11 @@ func (k Timestamp) Value() (driver.Value, error) {
 }
 
 func (k Timestamp) Time() time.Time {
-	return time.Time(k)
+	return time.Time(time.UnixMilli(int64(k)))
 }
 
 func (k Timestamp) Unix() int64 {
-	return time.Time(k).UnixNano()
+	return int64(k)
 }
 
 func NowTime() time.Time {
@@ -70,5 +71,5 @@ func NowTime() time.Time {
 }
 
 func Now() Timestamp {
-	return Timestamp(time.Now())
+	return Timestamp(time.Now().UnixMilli())
 }

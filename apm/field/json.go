@@ -98,7 +98,6 @@ func (m *JsonMarshaler) writeGroup(fs []*Field) {
 		if name == "-" {
 			continue
 		}
-
 		m.write(it, func() {
 			if has {
 				m.writeByte(',')

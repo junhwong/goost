@@ -18,6 +18,10 @@ func (b *Buffer) grow(n int) {
 	if n+b.end <= tot {
 		return
 	}
+
+	if n < 2048 { // 提升效率
+		n = 2048
+	}
 	buf := make([]byte, n+b.end)
 	if b.end != 0 {
 		b.end = copy(buf, b.buf[b.start:b.end])
