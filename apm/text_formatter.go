@@ -150,6 +150,7 @@ func (tf *TextFormatter) Format(entry *field.Field, dest *bytes.Buffer) (err err
 
 	fj := NewJsonFormatter()
 	fj.Pretty = true
+	fj.DurationToString = true
 	fj.SkipFields = []string{
 		"$." + TimeKey.Name(),
 		"$." + MessageKey.Name(),

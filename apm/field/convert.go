@@ -7,7 +7,7 @@ import (
 	"strings"
 	stdtime "time"
 
-	"github.com/junhwong/goost/apm/field/time"
+	"github.com/junhwong/goost/apm/field/times"
 	"github.com/spf13/cast"
 )
 
@@ -145,7 +145,7 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 	case TimeKind:
 		switch f.GetType() {
 		case StringKind: // 字符串转日期
-			v, err := time.ParseTime(f.GetString(), layouts, loc)
+			v, err := times.ParseTime(f.GetString(), layouts, loc)
 			if err != nil {
 				if failToDefault {
 					f.SetTime(stdtime.Time{})
@@ -183,9 +183,9 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 		switch f.GetType() {
 		case StringKind:
 			s := f.GetString()
-			d, err := time.ParseDuration(s)
+			d, err := times.ParseDuration(s)
 			if err != nil {
-				d, err = time.ParseMomentDuration(s)
+				d, err = times.ParseMomentDuration(s)
 			}
 			if err != nil {
 				if failToDefault {

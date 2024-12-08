@@ -3,6 +3,7 @@ package apm
 import (
 	"fmt"
 	"io"
+	"runtime/debug"
 )
 
 // 如果 err 不为 nil 则包装错误并panic
@@ -28,6 +29,7 @@ func Close(closer interface{}, log ...closeLogger) (b bool) {
 	defer func() {
 		if o := recover(); o != nil {
 			b = logErr(fmt.Errorf("%v", o), log, false)
+			logErr(fmt.Errorf("recovered: %s", debug.Stack()), log, false)
 		}
 	}()
 
