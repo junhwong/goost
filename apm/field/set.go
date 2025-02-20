@@ -1,6 +1,8 @@
 package field
 
 import (
+	"strings"
+
 	"github.com/junhwong/goost/jsonpath"
 )
 
@@ -8,6 +10,14 @@ import (
 func GetLast(fs []*Field, name string) *Field {
 	for i := len(fs) - 1; i >= 0; i-- {
 		if fs[i].Name == name {
+			return fs[i]
+		}
+	}
+	return nil
+}
+func GetLastFold(fs []*Field, name string) *Field {
+	for i := len(fs) - 1; i >= 0; i-- {
+		if strings.EqualFold(fs[i].Name, name) {
 			return fs[i]
 		}
 	}

@@ -205,6 +205,14 @@ func Any(name string, v any, allows ...Type) *Field {
 		return f
 	case reflect.Func, reflect.Chan:
 		return f
+	default:
+		iv, k = InferPrimitiveValueByReflect(rv)
+		if k != InvalidKind {
+			if !allow(iv, k) {
+				return f
+			}
+			return SetPrimitiveValue(f, iv, k)
+		}
 	}
 	if prt { // 创建默认值,
 		iv, k = InferPrimitiveValueByReflect(reflect.Zero(rt))
