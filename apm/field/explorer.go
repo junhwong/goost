@@ -115,12 +115,12 @@ func (v *explorer) VisitMemberExpr(e jsonpath.MemberExpr) {
 		return
 	}
 
-	for _, f := range p {
-		if f.Type == InvalidKind { // 新创建
-			f.SetKind(GroupKind, false, false)
+	for _, g := range p {
+		if g.Type == InvalidKind { // 新创建
+			g.SetKind(GroupKind, false, false)
 		}
 		n := Make(k)
-		f.Set(n)
+		g.Set(n)
 		tmp = append(tmp, n)
 	}
 	v.current = tmp

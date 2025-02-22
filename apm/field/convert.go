@@ -145,7 +145,11 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 	case TimeKind:
 		switch f.GetType() {
 		case StringKind: // 字符串转日期
-			v, err := times.ParseTime(f.GetString(), layouts, loc)
+			s := f.GetString()
+			v, err := times.ParseTime(s, layouts, loc)
+			if err == nil && s == "" {
+				err = fmt.Errorf("空字符串不能转换为日期")
+			}
 			if err != nil {
 				if failToDefault {
 					f.SetTime(stdtime.Time{})

@@ -224,7 +224,7 @@ func (f *Field) GetTime() stdtime.Time {
 	if v.Year() >= 2262 { // 大于范围
 		return stdtime.Time{}
 	}
-	v = v.In(times.LOC)
+	v = v.In(times.Local)
 
 	return v
 }

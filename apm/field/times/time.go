@@ -8,37 +8,25 @@ import (
 )
 
 var (
-	CST *time.Location // UTC+8
-	LOC *time.Location // Local
-	UTC = time.UTC
+	CST   = time.FixedZone("CST", 8*3600) // UTC+8
+	UTC   = time.UTC                      // UTC+0
+	Local = time.Local                    // Local
+
 )
 
-func init() {
-	loc, err := time.LoadLocation("Asia/Shanghai")
-	if err != nil {
-		panic(err)
-	}
-	CST = loc
-	LOC = time.FixedZone(time.Now().Zone())
-}
-
-func ParseTimeZone(s string) (*time.Location, error) {
+func LoadLocation(s string) (*time.Location, error) {
 	if len(s) == 0 {
 		return time.Local, nil
 	}
 	switch strings.ToLower(s) {
+	case "cst", "asia/shanghai", "asia/urumqi", "asia/chongqing":
+		return CST, nil
 	case "utc":
 		return UTC, nil
 	case "local":
 		return time.Local, nil
-	case "cst", "asia/shanghai", "asia/urumqi", "asia/chongqing":
-		return CST, nil
 	default:
-		loc, err := time.LoadLocation(s)
-		if err != nil {
-			return nil, err
-		}
-		return loc, nil
+		return time.LoadLocation(s)
 	}
 }
 
@@ -46,9 +34,10 @@ var timeLayoutMap = map[string][]string{
 	"rfc3339":  {time.RFC3339Nano, time.RFC3339},
 	"rfc1123":  {time.RFC1123Z, time.RFC1123},
 	"gmt":      {time.RFC1123},
-	"datetime": {time.DateTime, "01/02/2006 15:04:05"},
-	"date":     {time.DateOnly, "01/02/2006"}, //MM/dd/yyyy
+	"datetime": {time.DateTime, "01/02/2006 15:04:05", "2006-02-01 15:04:05 -0700 MST"}, //
+	"date":     {time.DateOnly, "01/02/2006"},                                           //MM/dd/yyyy
 }
+
 var (
 	timeReg = regexp.MustCompile("[a-zA-Z]+")
 	fReg    = regexp.MustCompile("^[fF]+$")
@@ -132,54 +121,54 @@ func replaceToGoTimeTempl(l string) string {
 	return l
 }
 
-func ParseTimeLayouts(a []string) []string {
+func ParseLayout(a ...string) []string {
 	if len(a) == 0 {
 		return nil
 	}
 	var layouts []string
 	for _, l := range a {
-		if p := timeLayoutMap[strings.ToLower(l)]; len(p) > 0 {
+		if p, ok := timeLayoutMap[strings.ToLower(l)]; ok {
 			layouts = append(layouts, p...)
-		} else {
-			// 2006-01-02T15:04:05.999999999Z07:00
-			r := regexp.MustCompile("%?[a-zA-Z]+")
-			l = r.ReplaceAllStringFunc(l, func(s string) string {
-				if s[0] == '%' {
-					panic("todo")
-				}
-				switch s {
-				case "yyyy":
-					return "2006"
-				case "yy":
-					return "06"
-				case "MM":
-					return "01"
-				case "dd":
-					return "02"
-				case "hh":
-					return "15"
-				case "mm":
-					return "04"
-				case "ss":
-					return "05"
-				case "f":
-					return "999999999"
-				}
-				return s
-			})
-			layouts = append(layouts, l)
-			// todo 转义
-			// https://learn.microsoft.com/zh-cn/dotnet/standard/base-types/standard-date-and-time-format-strings
-			// https://docs.python.org/zh-cn/3/library/time.html
-			// https://www.elastic.co/guide/en/beats/filebeat/current/processor-timestamp.html
+			continue
 		}
+		// 2006-01-02T15:04:05.999999999Z07:00
+		r := regexp.MustCompile("%?[a-zA-Z]+")
+		l = r.ReplaceAllStringFunc(l, func(s string) string {
+			if s[0] == '%' {
+				s = s[1:]
+			}
+			switch s {
+			case "yyyy":
+				return "2006"
+			case "yy":
+				return "06"
+			case "MM":
+				return "01"
+			case "dd":
+				return "02"
+			case "hh":
+				return "15"
+			case "mm":
+				return "04"
+			case "ss":
+				return "05"
+			case "f":
+				return "999999999"
+			}
+			return "%" + s
+		})
+		layouts = append(layouts, l)
+		// todo 转义
+		// https://learn.microsoft.com/zh-cn/dotnet/standard/base-types/standard-date-and-time-format-strings
+		// https://docs.python.org/zh-cn/3/library/time.html
+		// https://www.elastic.co/guide/en/beats/filebeat/current/processor-timestamp.html
 	}
 	return layouts
 }
 
 func ParseTime(s string, layouts []string, loc *time.Location) (time.Time, error) {
 	if loc == nil {
-		loc = LOC
+		loc = Local
 	}
 
 	if len(layouts) == 0 {

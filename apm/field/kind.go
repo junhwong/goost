@@ -22,16 +22,18 @@ func ParseType(v any) Type {
 	var n int32
 	switch v := v.(type) {
 	case string:
-		v = strings.ToLower(v)
+		v = strings.ToUpper(v)
 		switch v {
-		case "timestamp", "time", "datetime", "date":
-			v = "timestamp"
-		case "long", "short":
-			v = "int"
-		case "number", "double":
-			v = "float"
+		case "TIME", "DATETIME", "DATE":
+			v = "TIMESTAMP"
+		case "LONG", "SHORT", "INTEGER":
+			v = "INT"
+		case "NUMBER", "DOUBLE":
+			v = "FLOAT"
+		case "STR":
+			v = "STRING"
 		}
-		n = int32(ParseType(Type_value[strings.ToUpper(v)]))
+		n = int32(ParseType(Type_value[v]))
 	case int:
 		n = int32(v)
 	case int32:
