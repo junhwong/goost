@@ -20,14 +20,19 @@ type StringExpr string
 type IndexExpr int
 type IterExpr [3]int
 type RangeExpr [2]int
-type FloatValue float64
 type Symbol string
 
 const (
 	RootSymbol     Symbol = "$"
 	CurrentSymbol  Symbol = "@"
 	WildcardSymbol Symbol = "*"
+	ParentSymbol   Symbol = "@@"
 )
+
+type CallExpr struct {
+	Func string
+	Args []Expr
+}
 
 // goyacc -l -o expr.y.go expr.y
 // type Segment interface {

@@ -1,33 +1,50 @@
 package field
 
-import "github.com/junhwong/goost/jsonpath"
+import (
+	"fmt"
 
-func Find(root *Field, nameOrPath string) ([]*Field, error) {
-	seg, err := jsonpath.Parse(nameOrPath)
+	"github.com/junhwong/goost/jsonpath"
+)
+
+func Find(p jsonpath.Expr, root *Field, opts ...func(*explorer)) ([]*Field, error) {
+	v := &explorer{readonly: true, root: root, current: []*Field{root}, parent: []*Field{}, getCall: getCall}
+	v.visit = func(e jsonpath.Expr) {
+		jsonpath.Visit(e, v, v.setError)
+	}
+	for _, opt := range opts {
+		opt(v)
+	}
+	v.visit(p)
+	return v.current, v.Error()
+}
+
+func ParseNamePathWith(nameOrPath string, getCall CallFuncGetter) (jsonpath.Expr, error) {
+	seg, parsed, err := jsonpath.Parse(nameOrPath)
 	if err != nil {
 		return nil, err
 	}
-	return FindWith(seg, root)
-}
-
-func FindWith(p jsonpath.Expr, root *Field) ([]*Field, error) {
-	v := &explorer{readonly: true, root: root, current: []*Field{root}, parent: []*Field{}}
-	v.visit = func(e jsonpath.Expr) {
-		jsonpath.Visit(e, v, v.setError)
+	funcs := parsed.GetCallFuncNames()
+	if len(funcs) != 0 && getCall == nil {
+		return nil, fmt.Errorf("funcs %v not found", funcs)
 	}
-	v.visit(p)
-	return v.current, v.Error()
-}
-
-func FindWithCurrent(p jsonpath.Expr, root *Field, current []*Field) ([]*Field, error) {
-	v := &explorer{readonly: true, root: root, current: current, parent: []*Field{}}
-	v.visit = func(e jsonpath.Expr) {
-		jsonpath.Visit(e, v, v.setError)
+	for _, fn := range funcs {
+		if _, err := getCall(fn); err != nil {
+			return nil, err
+		}
 	}
-	v.visit(p)
-	return v.current, v.Error()
+	return seg, nil
 }
-
 func ParseNamePath(nameOrPath string) (jsonpath.Expr, error) {
-	return jsonpath.Parse(nameOrPath)
+	return ParseNamePathWith(nameOrPath, nil)
+}
+
+func WithGetCallerFunc(getCall CallFuncGetter) func(exp *explorer) {
+	return func(exp *explorer) {
+		exp.getCall = getCall
+	}
+}
+func WithCurrent(current []*Field) func(exp *explorer) {
+	return func(exp *explorer) {
+		exp.current = current
+	}
 }

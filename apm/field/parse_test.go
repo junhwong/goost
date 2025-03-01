@@ -85,14 +85,14 @@ func TestXXX(t *testing.T) {
 
 	// fmt.Printf("f: %#v\n", f)
 
-	{
-		r, err := Find(root, "x.store.book[0].title")
-		if err != nil {
-			t.Fatal(err)
-		}
-		fmt.Printf("r: %#v\n", r[0])
-		return
-	}
+	// {
+	// 	r, err := Find(root, "x.store.book[0].title", nil)
+	// 	if err != nil {
+	// 		t.Fatal(err)
+	// 	}
+	// 	fmt.Printf("r: %#v\n", r[0])
+	// 	return
+	// }
 	// {
 	// 	expr, _ := jsonpath.Parse("x2.xxxxxxxx1")
 	// 	err := Apply(expr, root, func(f *Field) {
@@ -105,7 +105,7 @@ func TestXXX(t *testing.T) {
 	// }
 
 	{
-		expr, _ := jsonpath.Parse("x3.[]")
+		expr, _, _ := jsonpath.Parse("x3.[]")
 		err := Apply(expr, root, func(f *Field) {
 			f.SetString("hello")
 		})

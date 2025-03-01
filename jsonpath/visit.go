@@ -17,6 +17,8 @@ type Visitor interface {
 	VisitConstInt(e int)
 	VisitConstFloat(e float64)
 	VisitConstString(e string)
+	VisitConstBool(e bool)
+	VisitCallExpr(e *CallExpr)
 }
 
 func Visit(e Expr, v Visitor, setError func(err error)) {
@@ -46,12 +48,16 @@ func Visit(e Expr, v Visitor, setError func(err error)) {
 		v.VisitEmptyGroup(e)
 	case *FilterExpr:
 		v.VisitFilterExpr(e)
+	case *CallExpr:
+		v.VisitCallExpr(e)
 	case MatcherExpr:
 		v.VisitMatcherExpr(e)
 	case int:
 		v.VisitConstInt(e)
 	case float64:
 		v.VisitConstFloat(e)
+	case bool:
+		v.VisitConstBool(e)
 	default:
 		setError(fmt.Errorf("未定义的表达式类型, %T: %v", e, e))
 	}
@@ -95,3 +101,5 @@ func (v *Base) VisitConstFloat(e float64) {
 func (v *Base) VisitConstString(e string) {
 }
 func (v *Base) VisitEmptyGroup(e *EmptyGroup) {}
+func (v *Base) VisitCallExpr(e *CallExpr) {
+}

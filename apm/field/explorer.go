@@ -16,6 +16,7 @@ type explorer struct {
 	parent   []*Field
 	readonly bool
 	err      error
+	getCall  CallFuncGetter
 }
 
 func (v *explorer) Error() error {
@@ -30,7 +31,9 @@ func (v *explorer) setError(err error) {
 func (v *explorer) VisitBinaryExpr(e *jsonpath.BinaryExpr) {
 	v.visit(e.Left)
 	switch e.Op {
-	case jsonpath.OPEN_BRACKET: // 跳过符合
+	case jsonpath.NEXT_SELECT:
+		v.visit(e.Right)
+	case jsonpath.NEXT_CALL:
 		v.visit(e.Right)
 	case jsonpath.DOT:
 		// 父级是group
@@ -87,9 +90,17 @@ func readItems(f *Field) (r []*Field) {
 
 func (v *explorer) VisitSymbol(e jsonpath.Symbol) {
 	switch e {
+	case jsonpath.CurrentSymbol:
 	case jsonpath.RootSymbol:
 		v.current = []*Field{v.root}
-	case jsonpath.CurrentSymbol:
+	case jsonpath.ParentSymbol:
+		var tmp []*Field
+		for _, f := range v.current {
+			if f.Parent != nil {
+				tmp = append(tmp, f.Parent)
+			}
+		}
+		v.current = tmp
 	case jsonpath.WildcardSymbol:
 	default:
 		v.setError(fmt.Errorf("未定义的符合:%q", e))
@@ -277,3 +288,39 @@ func (v *explorer) VisitConstFloat(e float64) {
 func (v *explorer) VisitConstString(e string) {
 	panic("todo")
 }
+func (v *explorer) VisitConstBool(e bool) {
+	panic("todo")
+}
+func (v *explorer) VisitCallExpr(e *jsonpath.CallExpr) {
+	if !v.readonly {
+		v.setError(fmt.Errorf("写入模式: 不能执行函数"))
+		return
+	}
+	if v.getCall == nil {
+		v.setError(fmt.Errorf("未设置函数调用器"))
+		return
+	}
+	call, err := v.getCall(e.Func)
+	if err != nil {
+		v.setError(err)
+		return
+	}
+
+	host := v.current
+	var args []*Field
+	for _, arg := range e.Args {
+		v.visit(arg)
+		args = append(args, v.current...)
+	}
+	if v.Error() != nil {
+		return
+	}
+	v.current, err = call(host, args)
+	if err != nil {
+		v.setError(err)
+		return
+	}
+}
+
+type CallFunc func(host []*Field, args []*Field) ([]*Field, error)
+type CallFuncGetter func(name string) (CallFunc, error)

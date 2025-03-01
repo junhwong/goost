@@ -49,10 +49,12 @@ var tokens = map[string]int{
 }
 
 var idTokens = map[string]int{
-	"or":  OR2,
-	"and": AND2,
-	"in":  IN,
-	"nin": NIN,
+	"or":    OR2,
+	"and":   AND2,
+	"in":    IN,
+	"nin":   NIN,
+	"false": FALSE,
+	"true":  TRUE,
 }
 
 type lexer struct {
@@ -71,16 +73,29 @@ func (l *lexer) Lex(lval *yySymType) int {
 	case scanner.Int:
 		s := l.TokenText()
 		i, err := strconv.Atoi(s)
-		if err != nil {
-			panic(err)
-		}
 		lval.intVal = i
+		if err != nil {
+			l.Error(err.Error())
+		}
 		return INT
 	case scanner.Float:
 		s := l.TokenText()
-		lval.str = s
+		f, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			l.Error(err.Error())
+		}
+		lval.falVal = f
 		return FLOAT
-	case scanner.String, scanner.RawString:
+	case scanner.String:
+		// var err error
+		s := l.TokenText()
+		if !utf8.ValidString(s) {
+			l.Error("invalid UTF-8 rune")
+			return 0
+		}
+		lval.str = s
+		return STRING
+	case scanner.RawString:
 		// var err error
 		s := l.TokenText()
 		if !utf8.ValidString(s) {
@@ -91,11 +106,17 @@ func (l *lexer) Lex(lval *yySymType) int {
 		return STRING
 	case scanner.Ident:
 		tokenText := l.TokenText()
-
 		if tok, ok := idTokens[tokenText]; ok {
+			switch tok {
+			case TRUE:
+				lval.boolVal = true
+				return TRUE
+			case FALSE:
+				lval.boolVal = false
+				return FALSE
+			}
 			return tok
 		}
-
 		lval.str = tokenText
 		return IDENTIFIER
 	}

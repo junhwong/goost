@@ -2,6 +2,7 @@ package field
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/junhwong/goost/jsonpath"
@@ -68,16 +69,24 @@ func TestRxplorerRead(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "$.store.book.*.author[:].len()",
+			vadidate: func(t *testing.T, fs []*Field) {
+				if !assert.Equal(t, 1, len(fs)) {
+					return
+				}
+				fmt.Printf("fs[0]: %#v\n", fs[0])
+			},
+		},
 	}
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			exp, err := jsonpath.Parse(tC.desc)
-
+			exp, _, err := jsonpath.Parse(tC.desc)
 			if !assert.NoError(t, err) {
 				return
 			}
-			v := &explorer{readonly: true, root: root, current: []*Field{root}, parent: []*Field{}}
+			v := &explorer{readonly: true, root: root, current: []*Field{root}, parent: []*Field{}, getCall: getCall}
 			v.visit = func(e jsonpath.Expr) {
 				jsonpath.Visit(e, v, v.setError)
 			}

@@ -392,7 +392,7 @@ func (f *Field) Set(n *Field) {
 		panic(fmt.Errorf("n connat be nil"))
 	}
 	if !f.IsGroup() {
-		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.Type))
+		panic(fmt.Errorf("类型不匹配:必须是%v,%v %s", GroupKind, f.Type, f.Name))
 	}
 	f.SetNull(false)
 	n.Parent = f

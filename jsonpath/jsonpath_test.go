@@ -16,6 +16,22 @@ func TestParse(t *testing.T) {
 		ex   string
 	}{
 		{
+			desc: `@@.*`,
+		},
+		{
+			desc: `@.call(1,2.3,true,false)`,
+		},
+		{
+			desc: `@.call()`,
+		},
+		{
+			desc: `$.fool.call()`,
+		},
+		{
+			desc: `$.call()`,
+			err:  true,
+		},
+		{
 			desc: `$.*`,
 		},
 		{
@@ -102,7 +118,6 @@ func TestParse(t *testing.T) {
 		// },
 		{
 			desc: "$.foo[bar]",
-			err:  true,
 		},
 		{
 			desc: "$.foo.[]",
@@ -158,7 +173,7 @@ func TestParse(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			ex := tC.desc
-			r, err := Parse(ex)
+			r, _, err := Parse(ex)
 			if tC.err {
 				assert.NotNil(t, err)
 				return

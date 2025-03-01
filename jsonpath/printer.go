@@ -21,8 +21,10 @@ func (v *printer) Write(p []byte) {
 func (v *printer) VisitBinaryExpr(e *BinaryExpr) {
 	v.Visit(e.Left)
 	switch e.Op {
-	case OPEN_BRACKET: // 索引
+	case NEXT_SELECT: // 索引
 	case DOT:
+		v.Write([]byte{'.'})
+	case NEXT_CALL:
 		v.Write([]byte{'.'})
 	case DOTDOT:
 		v.Write([]byte{'.', '.'})
@@ -46,7 +48,7 @@ func (v *printer) VisitBinaryExpr(e *BinaryExpr) {
 
 func (v *printer) VisitSymbol(e Symbol) {
 	switch e {
-	case RootSymbol, CurrentSymbol, WildcardSymbol:
+	case RootSymbol, CurrentSymbol, WildcardSymbol, ParentSymbol:
 		v.Write([]byte(e))
 	default:
 		v.Err = fmt.Errorf("未定义的符合:%q", e)
@@ -113,4 +115,18 @@ func (v *printer) VisitConstFloat(e float64) {
 }
 func (v *printer) VisitConstString(e string) {
 	v.Write([]byte(e))
+}
+func (v *printer) VisitConstBool(e bool) {
+	v.Write([]byte(strconv.FormatBool(e)))
+}
+func (v *printer) VisitCallExpr(e *CallExpr) {
+	v.Write([]byte(e.Func))
+	v.Write([]byte{'('})
+	for i, arg := range e.Args {
+		if i > 0 {
+			v.Write([]byte{','})
+		}
+		v.Visit(arg)
+	}
+	v.Write([]byte{')'})
 }

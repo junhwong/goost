@@ -144,6 +144,11 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 		}
 	case TimeKind:
 		switch f.GetType() {
+		case TimeKind:
+			if loc != nil {
+				f.SetTime(f.GetTime().In(loc))
+			}
+			return nil
 		case StringKind: // 字符串转日期
 			s := f.GetString()
 			v, err := times.ParseTime(s, layouts, loc)
@@ -158,11 +163,6 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 			}
 			f.SetTime(v)
 			return err
-		case TimeKind:
-			if loc != nil {
-				f.SetTime(f.GetTime().In(loc))
-			}
-			return nil
 		case IntKind:
 			d := f.GetInt()
 			for _, l := range layouts {
@@ -182,6 +182,16 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 				}
 			}
 			f.SetTime(stdtime.Unix(0, d))
+		default:
+			err := fmt.Errorf("todo convert to %v from %#v", target, f)
+			if err != nil {
+				if failToDefault {
+					f.SetTime(stdtime.Time{})
+				}
+				return err
+			}
+			f.SetNull(true)
+			return nil
 		}
 	case DurationKind:
 		switch f.GetType() {

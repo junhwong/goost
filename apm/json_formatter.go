@@ -61,7 +61,11 @@ func NewJsonFormatter() *JsonFormatter {
 func (f *JsonFormatter) DoFormat(entry *field.Field, dest *bytes.Buffer, befor, after func()) (err error) {
 	var skip []*field.Field
 	for _, s := range f.SkipFields {
-		fs, err := field.Find(entry, s)
+		expr, err := field.ParseNamePath(s)
+		if err != nil {
+			return err
+		}
+		fs, err := field.Find(expr, entry)
 		if err != nil {
 			return err
 		}
