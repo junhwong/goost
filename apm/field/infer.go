@@ -128,7 +128,7 @@ func InferNumberValue(v any) (any, Type) {
 }
 
 // 推导基本类型的值
-func InferPrimitiveValue(v any) (any, Type) {
+func InferPrimitiveValueWithoutNumber(v any) (any, Type) {
 	if v == nil {
 		return nil, InvalidKind
 	}
@@ -171,8 +171,15 @@ func InferPrimitiveValue(v any) (any, Type) {
 	case reflect.Value:
 		return InferPrimitiveValueByReflect(v)
 	}
+	return v, InvalidKind
+}
 
+// 推导基本类型的值
+func InferPrimitiveValue(v any) (any, Type) {
 	v, k := InferNumberValue(v)
+	if k == InvalidKind {
+		v, k = InferPrimitiveValueWithoutNumber(v)
+	}
 	return v, k
 }
 
@@ -214,6 +221,7 @@ func InferPrimitiveValueByReflect(rv reflect.Value) (any, Type) {
 			n, _ := cast.ToTimeE(v)
 			return n, TimeKind
 		}
+		panic("TODO Struct")
 	}
 	return rrv, InvalidKind
 }

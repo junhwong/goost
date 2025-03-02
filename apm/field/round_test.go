@@ -41,6 +41,8 @@ func TestRound(t *testing.T) {
 		{1.455, 0, RoundHalfDown, 1.0},
 
 		// 四舍六入五取偶法 (RoundHalfEven)
+
+		{25.191, 2, RoundHalfEven, 25.19},
 		{1.45, 0, RoundHalfEven, 1.0},
 		{2.5, 0, RoundHalfEven, 2.0},
 		{3.5, 0, RoundHalfEven, 4.0},

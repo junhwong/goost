@@ -102,9 +102,9 @@ func SetPrimitiveValue(f *Field, v any, k Type) *Field {
 }
 
 func Any(name string, v any, allows ...Type) *Field {
-	f := Make(name)
+	dst := Make(name)
 	if v == nil {
-		return f
+		return dst
 	}
 
 	allow := func(iv any, k Type) bool { //
@@ -120,37 +120,54 @@ func Any(name string, v any, allows ...Type) *Field {
 		return false
 	}
 
-	iv, k := InferPrimitiveValue(v)
+	iv, k := InferNumberValue(v)
+	if k != InvalidKind {
+		if iv != nil && k == FloatKind && !hasDecimal(iv.(float64)) {
+			k = IntKind
+			iv = int64(iv.(float64))
+		}
+		if !allow(iv, k) {
+			return dst
+		}
+		return SetPrimitiveValue(dst, iv, k)
+	}
+
+	iv, k = InferPrimitiveValueWithoutNumber(v)
 	if k != InvalidKind {
 		if !allow(iv, k) {
-			return f
+			return dst
 		}
-		return SetPrimitiveValue(f, iv, k)
+		return SetPrimitiveValue(dst, iv, k)
 	}
 
 	var rv reflect.Value
 	switch v := v.(type) {
-	case reflect.Value:
-		rv = v
+	case []any:
+		var fs []*Field
+		for _, it := range v {
+			fs = append(fs, Any("", it))
+		}
+		return dst.SetArray(fs)
 	case map[string]any:
 		if !allow(iv, GroupKind) {
-			return f
+			return dst
 		}
-
 		fs := []*Field{}
 		for kk, vv := range v {
-
 			it := Any(kk, vv)
 			if it.Type == InvalidKind {
 				continue
 			}
 			fs = append(fs, it)
 		}
-		f.SetGroup(fs, false)
-		return f
+		dst.SetGroup(fs, false)
+		return dst
+	case reflect.Value:
+		rv = v
 	default:
 		rv = reflect.ValueOf(v)
 	}
+
 	rt := rv.Type()
 	prt := false
 	if rt.Kind() == reflect.Pointer {
@@ -159,7 +176,7 @@ func Any(name string, v any, allows ...Type) *Field {
 		prt = true
 	}
 	if rt.Kind() == reflect.Invalid {
-		return f
+		return dst
 	}
 
 	switch rv.Kind() {
@@ -167,7 +184,7 @@ func Any(name string, v any, allows ...Type) *Field {
 		fs := []*Field{}
 		var t Type
 		same := false
-		for i := 0; i < rv.Len(); i++ {
+		for i := range rv.Len() {
 			it := Any("", rv.Index(i).Interface())
 			fs = append(fs, it)
 			if len(fs) > 0 && t != it.Type {
@@ -175,11 +192,11 @@ func Any(name string, v any, allows ...Type) *Field {
 			}
 			t = it.Type
 		}
-		f.SetArray(fs, same)
-		return f
+		dst.SetArray(fs, same)
+		return dst
 	case reflect.Map:
 		if !allow(iv, GroupKind) {
-			return f
+			return dst
 		}
 		fs := []*Field{}
 		iter := rv.MapRange()
@@ -198,20 +215,20 @@ func Any(name string, v any, allows ...Type) *Field {
 			}
 			fs = append(fs, it)
 		}
-		f.SetGroup(fs, false)
-		return f
+		dst.SetGroup(fs, false)
+		return dst
 	case reflect.Struct:
 		panic("todo")
-		return f
+		return dst
 	case reflect.Func, reflect.Chan:
-		return f
+		return dst
 	default:
 		iv, k = InferPrimitiveValueByReflect(rv)
 		if k != InvalidKind {
 			if !allow(iv, k) {
-				return f
+				return dst
 			}
-			return SetPrimitiveValue(f, iv, k)
+			return SetPrimitiveValue(dst, iv, k)
 		}
 	}
 	if prt { // 创建默认值,
@@ -221,29 +238,11 @@ func Any(name string, v any, allows ...Type) *Field {
 		iv, k = InferPrimitiveValueByReflect(rv)
 	}
 
-	// if k == InvalidKind {
-	// 	if err, _ := v.(error); err != nil {
-	// 		iv = err.Error()
-	// 		k = StringKind
-	// 	}
-	// }
 	if !allow(iv, k) {
-		return f
+		return dst
 	}
-	return SetPrimitiveValue(f, iv, k)
+	return SetPrimitiveValue(dst, iv, k)
 }
-
-// func GetOrMakeBuilder(name string,kind Type){
-// 	k := makeOrGetKey(name, kind)
-// 	switch k.Kind(){
-// 		case StringKind:
-// 			return &ArrayBuilder{
-// 				Field: &Field{
-// 					Key: k,
-// 				},
-// 			}
-// 	}
-// }
 
 func String(name string) (Key, func(string, ...interface{}) *Field) {
 	k := makeOrGetKey(name, StringKind)
