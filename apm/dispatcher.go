@@ -2,6 +2,7 @@ package apm
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/junhwong/goost/apm/field"
 )
@@ -62,5 +63,6 @@ func Dispatch(e *field.Field) {
 }
 
 func Flush() {
+	time.Sleep(time.Nanosecond) // sync: WaitGroup is reused before previous Wait has returned
 	queuewg.Wait()
 }

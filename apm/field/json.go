@@ -213,8 +213,8 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 		m.writeBytes(strconv.AppendUint(nil, v, 10))
 	case FloatKind:
 		v := f.GetFloat()
-		b := strconv.AppendFloat(nil, v, 'f', -1, 64) // -1
-		if bytes.LastIndex(b, []byte{'.'}) == -1 {    // 保留数据类型
+		b := strconv.AppendFloat(nil, v, 'g', -1, 64)                                       // -1
+		if bytes.LastIndex(b, []byte{'.'}) == -1 && bytes.LastIndex(b, []byte{'e'}) == -1 { // 保留数据类型
 			b = append(b, '.', '0')
 		}
 		befor()
