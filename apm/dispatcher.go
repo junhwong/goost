@@ -63,6 +63,6 @@ func Dispatch(e *field.Field) {
 }
 
 func Flush() {
-	time.Sleep(time.Nanosecond) // sync: WaitGroup is reused before previous Wait has returned
+	time.Sleep(time.Microsecond) // sync: WaitGroup is reused before previous Wait has returned
 	queuewg.Wait()
 }
