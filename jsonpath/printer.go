@@ -22,7 +22,7 @@ func (v *printer) VisitBinaryExpr(e *BinaryExpr) {
 	v.Visit(e.Left)
 	switch e.Op {
 	case NEXT_SELECT: // 索引
-	case DOT:
+	case DOT, NEXT_DOT_NOP:
 		v.Write([]byte{'.'})
 	case NEXT_CALL:
 		v.Write([]byte{'.'})

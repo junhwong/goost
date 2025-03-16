@@ -37,6 +37,7 @@ CurrentSymbol           Symbol
 %type <CallExpr>     callExpr
 %type <Exprs>        callArgsExpr
 %type <Expr>         expr
+%type <Expr>         parentExpr
 %type <Expr>         segment
 %type <Expr>         member
 %type <Expr>         index
@@ -54,7 +55,7 @@ CurrentSymbol           Symbol
 %left <op>       AND OR OR2 AND2 IN NIN 
 %left <op>       OPEN_BRACE CLOSE_BRACE OPEN_PARENTHESIS CLOSE_PARENTHESIS OPEN_BRACKET CLOSE_BRACKET 
 %left <op>       DOT DOLLAR AT DOTDOT COMMA COLON SCOLON QUESTION
-%left <op>       NEXT_CALL NEXT_SELECT
+%left <op>       NEXT_CALL NEXT_SELECT,NEXT_DOT_NOP
 
 %%
 
@@ -71,13 +72,19 @@ expr:
   | AT index                            { $$ = &BinaryExpr{Left:CurrentSymbol, Right: $2, Op: NEXT_SELECT} }
   | AT DOT segment                      { $$ = &BinaryExpr{Left:CurrentSymbol, Right: $3, Op: DOT} }
   | AT DOTDOT segment                   { $$ = &BinaryExpr{Left:CurrentSymbol, Right: $3, Op: DOTDOT} }
-  | AT AT                               { $$ = ParentSymbol }
-  | AT AT index                         { $$ = &BinaryExpr{Left:ParentSymbol, Right: $3, Op: NEXT_SELECT} }
-  | AT AT DOT segment                   { $$ = &BinaryExpr{Left:ParentSymbol, Right: $4, Op: DOT} }
-  | AT AT DOTDOT segment                { $$ = &BinaryExpr{Left:ParentSymbol, Right: $4, Op: DOTDOT} }
+  | parentExpr                          { $$ = $1 }
   | index                               { $$ = $1 }
   | selector                            { $$ = $1 }
   | AT DOT callExpr                     { $$ = &BinaryExpr{Left:CurrentSymbol, Right: $3, Op: NEXT_CALL} }
+  ;
+
+parentExpr: 
+  AT AT                               { $$ = ParentSymbol }
+  | AT AT index                       { $$ = &BinaryExpr{Left:ParentSymbol, Right: $3, Op: NEXT_SELECT} }
+  | AT AT DOT segment                 { $$ = &BinaryExpr{Left:ParentSymbol, Right: $4, Op: DOT} }
+  | AT AT DOTDOT segment              { $$ = &BinaryExpr{Left:ParentSymbol, Right: $4, Op: DOTDOT} }
+  | AT AT DOT parentExpr              { $$ = &BinaryExpr{Left:ParentSymbol, Right: $4, Op: NEXT_DOT_NOP} }
+  | AT AT DOTDOT parentExpr           { $$ = &BinaryExpr{Left:ParentSymbol, Right: $4, Op: DOTDOT} }
   ;
 
 segment:

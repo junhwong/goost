@@ -16,6 +16,9 @@ func TestParse(t *testing.T) {
 		ex   string
 	}{
 		{
+			desc: `@@.@@`,
+		},
+		{
 			desc: `@@.*`,
 		},
 		{

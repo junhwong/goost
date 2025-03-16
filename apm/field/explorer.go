@@ -31,9 +31,7 @@ func (v *explorer) setError(err error) {
 func (v *explorer) VisitBinaryExpr(e *jsonpath.BinaryExpr) {
 	v.visit(e.Left)
 	switch e.Op {
-	case jsonpath.NEXT_SELECT:
-		v.visit(e.Right)
-	case jsonpath.NEXT_CALL:
+	case jsonpath.NEXT_SELECT, jsonpath.NEXT_DOT_NOP, jsonpath.NEXT_CALL:
 		v.visit(e.Right)
 	case jsonpath.DOT:
 		// 父级是group
