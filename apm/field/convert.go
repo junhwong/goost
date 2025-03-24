@@ -182,6 +182,7 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 				}
 			}
 			f.SetTime(stdtime.Unix(0, d))
+			return nil
 		default:
 			err := fmt.Errorf("todo convert to %v from %#v", target, f)
 			if err != nil {

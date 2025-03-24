@@ -132,7 +132,7 @@ func ParseLayout(a ...string) []string {
 			continue
 		}
 		// 2006-01-02T15:04:05.999999999Z07:00
-		r := regexp.MustCompile("%?[a-zA-Z]+")
+		r := regexp.MustCompile(`\%[a-zA-Z]+`)
 		l = r.ReplaceAllStringFunc(l, func(s string) string {
 			if s[0] == '%' {
 				s = s[1:]
