@@ -8,42 +8,43 @@ import (
 	"sync"
 	"time"
 
+	"slices"
+
 	"github.com/junhwong/goost/apm/field/loglevel"
 	"github.com/spf13/cast"
 )
 
 var fieldPool = &sync.Pool{
-	New: func() interface{} {
-		return &Field{Schema: &Schema{}, Value: &Value{}}
+	New: func() any {
+		return &Field{}
 	},
 }
 
 // 注意: 应该遵循谁构造(或接收)谁负责回收.
 func Make(name string) *Field {
 	f := fieldPool.Get().(*Field)
-	f.Name = name
-	f.NullValue = true
+	f.SetName(name)
 	return f
 }
 
 // Field 释放对象以备复用
 func Release(fs ...*Field) {
+	if len(fs) == 0 {
+		return
+	}
 	var ready []*Field
 	var add func(f *Field)
 	add = func(f *Field) {
 		if f == nil {
 			return
 		}
-
 		items := f.Items
 		f.Items = nil
 		for _, item := range items {
 			add(item)
 		}
-		for _, it := range ready {
-			if it == f {
-				return
-			}
+		if slices.Contains(ready, f) {
+			return
 		}
 		ready = append(ready, f)
 	}
@@ -53,8 +54,19 @@ func Release(fs ...*Field) {
 	}
 
 	for _, f := range ready {
-		f.Schema.Reset()
-		f.Value.Reset()
+		// releaseSchema(f.sch)
+		// releaseValue(f.val)
+
+		f.kind = 0
+		f.typFlag = 0
+
+		f.valFlag = 0
+		f.intVal = 0
+		f.uintVal = 0
+		f.floatVal = 0
+		f.strVal = ""
+		f.bytesVal = nil
+
 		f.Parent = nil
 		f.Index = 0
 		fieldPool.Put(f)
@@ -73,7 +85,7 @@ func SetPrimitiveValue(f *Field, v any, k Type) *Field {
 	if v == nil || k == InvalidKind {
 		f.resetValue()
 		f.SetNull(true)
-		f.Type = k
+		f.kind = k
 		return f
 	}
 	switch k {
@@ -155,7 +167,7 @@ func Any(name string, v any, allows ...Type) *Field {
 		fs := []*Field{}
 		for kk, vv := range v {
 			it := Any(kk, vv)
-			if it.Type == InvalidKind {
+			if it.GetType() == InvalidKind {
 				continue
 			}
 			fs = append(fs, it)
@@ -187,10 +199,10 @@ func Any(name string, v any, allows ...Type) *Field {
 		for i := range rv.Len() {
 			it := Any("", rv.Index(i).Interface())
 			fs = append(fs, it)
-			if len(fs) > 0 && t != it.Type {
+			if len(fs) > 0 && t != it.GetType() {
 				same = true
 			}
-			t = it.Type
+			t = it.GetType()
 		}
 		dst.SetArray(fs, same)
 		return dst
@@ -210,7 +222,7 @@ func Any(name string, v any, allows ...Type) *Field {
 			}
 
 			it := Any(cast.ToString(kk), iter.Value().Interface())
-			if it.Type == InvalidKind {
+			if it.GetType() == InvalidKind {
 				continue
 			}
 			fs = append(fs, it)
@@ -344,15 +356,15 @@ func BuildLevel(name string) (Key, func(interface{}) *Field) {
 	return k, func(v interface{}) *Field {
 		f := Any(name, v)
 		var i int
-		switch f.Type {
-		case Type_UINT:
-			i = int(f.GetUintValue())
-		case Type_INT:
-			i = int(f.GetIntValue())
+		switch f.GetType() {
+		case UintKind:
+			i = int(f.GetUint())
+		case IntKind:
+			i = int(f.GetInt())
 		case LevelKind:
 			return f
 		default:
-			f.Type = Type_UNKNOWN // panic
+			f.kind = InvalidKind // panic
 			return f
 		}
 		return f.SetLevel(loglevel.FromInt(i))

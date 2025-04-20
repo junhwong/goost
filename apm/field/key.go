@@ -34,7 +34,7 @@ func (k key) Kind() Type {
 	return k.kind
 }
 func (k key) String() string {
-	r := Type_name[int32(k.kind)]
+	r := Type_name[k.kind]
 	if len(r) == 0 {
 		r = "<invalid>"
 	}

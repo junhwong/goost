@@ -1,6 +1,7 @@
 package buffering
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -8,6 +9,13 @@ type Buffer struct {
 	buf   []byte
 	start int
 	end   int
+}
+
+func (b *Buffer) SetDirect(buf []byte) {
+	PutBytes(b.buf)
+	b.buf = buf
+	b.start = 0
+	b.end = len(buf)
 }
 
 func (b *Buffer) grow(n int) {
@@ -36,6 +44,9 @@ func (b *Buffer) WriteByte(c byte) error {
 	return nil
 }
 func (b *Buffer) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
 	b.grow(len(p))
 	n := copy(b.buf[b.end:], p)
 	b.end += n
@@ -47,11 +58,13 @@ func (b *Buffer) WriteString(s string) (int, error) {
 	b.end += n
 	return n, nil
 }
-func (b *Buffer) WriteTo(w io.Writer) (int, error) {
-	buf := b.buf[b.start:b.end]
-	n, err := w.Write(buf)
-	b.start += n
-	return n, err
+func (b *Buffer) WriteTo(w io.Writer) (int64, error) {
+	// buf := b.buf[b.start:b.end]
+	// n, err := w.Write(buf)
+	// b.start += n
+	// cnt := int64(n)
+	// return cnt, err
+	panic("not implemented")
 }
 func (b *Buffer) ReadFromN(r io.Reader, n int) (written int64, err error) {
 	var remaining int
@@ -85,8 +98,47 @@ func (b *Buffer) ReadFromN(r io.Reader, n int) (written int64, err error) {
 func (b *Buffer) empty() bool {
 	return b.end == b.start
 }
+func (b *Buffer) Offset() int {
+	return b.start
+}
 func (b *Buffer) Len() int {
 	return b.end - b.start
+}
+
+func (b *Buffer) Truncate(n int) {
+	if n < 0 {
+		panic("Buffer.Truncate: negative count")
+	}
+	if n > b.Len() {
+		panic("Buffer.Truncate: count > length")
+	}
+	b.end -= n
+}
+
+func (b *Buffer) Next(n int) []byte {
+	if n < 0 {
+		panic("Buffer.Next: negative count")
+	}
+	m := b.Len()
+	if n > m {
+		n = m
+	}
+	data := b.buf[b.start : b.start+n]
+	b.start += n
+	return data
+}
+func (b *Buffer) Prev(n int) []byte {
+	if n < 0 {
+		panic("Buffer.Prev: negative count")
+	}
+	if b.start-n < 0 {
+		fmt.Printf("b.start: %v\n", b.start)
+		fmt.Printf("n: %v\n", n)
+		panic("Buffer.Prev: negative count")
+	}
+	data := b.buf[b.start-n : b.start]
+	b.start -= n
+	return data
 }
 func (b *Buffer) Reset() {
 	b.start = 0

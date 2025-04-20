@@ -11,61 +11,61 @@ import (
 	"github.com/spf13/cast"
 )
 
-// 从值倒推类型(只能是基本类型)
-func InvertType(f *Field) *Field {
-	switch f.Type {
-	case IntKind:
-		if f.IntValue == nil {
-			f.Type = InvalidKind
-		}
-	case UintKind:
-		if f.UintValue == nil {
-			f.Type = InvalidKind
-		}
-	case FloatKind:
-		if f.FloatValue == nil {
-			f.Type = InvalidKind
-		}
-	case StringKind:
-		if f.StringValue == nil {
-			f.Type = InvalidKind
-		}
-	case BoolKind:
-		if f.IntValue == nil {
-			f.Type = InvalidKind
-		}
-	case BytesKind:
-		if f.BytesValue == nil {
-			f.Type = InvalidKind
-		}
-	case TimeKind:
-		if f.UintValue == nil {
-			f.Type = InvalidKind
-		}
-	case DurationKind:
-		if f.IntValue == nil {
-			f.Type = InvalidKind
-		}
-	default:
-		f.Type = InvalidKind
-	}
-	if f.Type != InvalidKind {
-		return f
-	}
-	switch {
-	case f.BytesValue != nil:
-		f.Type = BytesKind
-	case f.FloatValue != nil:
-		f.Type = FloatKind
-	case f.IntValue != nil:
-		f.Type = IntKind
-	case f.UintValue != nil:
-		f.Type = UintKind
-	case f.StringValue != nil:
-		f.Type = StringKind
-	}
-	return f
-}
+// // 从值倒推类型(只能是基本类型)
+// func InvertType(f *Field) *Field {
+// 	switch f.Type {
+// 	case IntKind:
+// 		if f.IntValue == nil {
+// 			f.Type = InvalidKind
+// 		}
+// 	case UintKind:
+// 		if f.UintValue == nil {
+// 			f.Type = InvalidKind
+// 		}
+// 	case FloatKind:
+// 		if f.FloatValue == nil {
+// 			f.Type = InvalidKind
+// 		}
+// 	case StringKind:
+// 		if f.StringValue == nil {
+// 			f.Type = InvalidKind
+// 		}
+// 	case BoolKind:
+// 		if f.IntValue == nil {
+// 			f.Type = InvalidKind
+// 		}
+// 	case BytesKind:
+// 		if f.BytesValue == nil {
+// 			f.Type = InvalidKind
+// 		}
+// 	case TimeKind:
+// 		if f.UintValue == nil {
+// 			f.Type = InvalidKind
+// 		}
+// 	case DurationKind:
+// 		if f.IntValue == nil {
+// 			f.Type = InvalidKind
+// 		}
+// 	default:
+// 		f.Type = InvalidKind
+// 	}
+// 	if f.Type != InvalidKind {
+// 		return f
+// 	}
+// 	switch {
+// 	case f.BytesValue != nil:
+// 		f.Type = BytesKind
+// 	case f.FloatValue != nil:
+// 		f.Type = FloatKind
+// 	case f.IntValue != nil:
+// 		f.Type = IntKind
+// 	case f.UintValue != nil:
+// 		f.Type = UintKind
+// 	case f.StringValue != nil:
+// 		f.Type = StringKind
+// 	}
+// 	return f
+// }
 
 // 转换类型. 转换失败将不会改变
 func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime stdtime.Time, failToDefault bool) error {
@@ -108,7 +108,7 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 		f.SetFloat(v)
 		return nil
 	case StringKind:
-		switch f.Type {
+		switch f.GetType() {
 		case StringKind:
 			return nil
 		default:
@@ -135,7 +135,7 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 		f.SetBool(v)
 		return nil
 	case BytesKind:
-		switch f.Type {
+		switch f.GetType() {
 		case StringKind:
 			f.SetBytes([]byte(f.GetString()))
 			return nil
@@ -321,18 +321,18 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 			copy(ItemsCopy, f.Items)
 			f.SetGroup(nil)
 			for i, it := range ItemsCopy {
-				if it.Name == "" {
-					it.Name = strconv.Itoa(i)
+				if it.GetName() == "" {
+					it.SetName(strconv.Itoa(i))
 				}
 				exists := false
 				for _, eit := range f.Items {
-					if eit.Name == it.Name {
+					if eit.GetName() == it.GetName() {
 						exists = true
 						break
 					}
 				}
 				if exists {
-					it.Name += "_" + strconv.Itoa(i)
+					it.name += "_" + strconv.Itoa(i)
 				}
 				f.Set(it)
 			}
@@ -369,7 +369,7 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 				ToRowTable(f, items)
 				return nil
 			case "":
-				f.Type = target
+				f.kind = target
 				// todo 设置名称
 				return nil
 			default:
@@ -381,7 +381,7 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 			return nil
 		}
 		// todo 处理 layouts
-		if f.IsNull() || (f.Type == StringKind && f.GetString() == "") {
+		if f.IsNull() || (f.GetType() == StringKind && f.GetString() == "") {
 			f.SetArray(nil)
 			return nil
 		}
@@ -403,10 +403,10 @@ func ToRowTable(dest *Field, cols []*Field) {
 	colcnt := len(cols)
 	rowcnt := len(cols[0].Items) // 行数
 	for i := 0; i < rowcnt; i++ {
-		row := Make(dest.Name).SetKind(GroupKind, false, false)
+		row := Make(dest.GetName()).SetKind(GroupKind, false, false)
 		for j := 0; j < colcnt; j++ {
 			f := cols[j].Items[i]
-			f.Name = cols[j].Name
+			f.SetName(cols[j].GetName())
 			row.Set(f)
 		}
 		rows = append(rows, row)

@@ -9,7 +9,7 @@ import (
 // 获取最后一个名称匹配的项
 func GetLast(fs []*Field, name string) *Field {
 	for i := len(fs) - 1; i >= 0; i-- {
-		if fs[i].Name == name {
+		if fs[i].GetName() == name {
 			return fs[i]
 		}
 	}
@@ -17,7 +17,7 @@ func GetLast(fs []*Field, name string) *Field {
 }
 func GetLastFold(fs []*Field, name string) *Field {
 	for i := len(fs) - 1; i >= 0; i-- {
-		if strings.EqualFold(fs[i].Name, name) {
+		if strings.EqualFold(fs[i].GetName(), name) {
 			return fs[i]
 		}
 	}
@@ -26,7 +26,7 @@ func GetLastFold(fs []*Field, name string) *Field {
 
 func Get(fs []*Field, name string) (r []*Field) {
 	for _, it := range fs {
-		if it.Name == name {
+		if it.GetName() == name {
 			r = append(r, it)
 		}
 	}
@@ -36,7 +36,7 @@ func Get(fs []*Field, name string) (r []*Field) {
 // 剔除与名称相符的项
 func RidOf(fs []*Field, name string) (others, taget []*Field) {
 	for _, it := range fs {
-		if it.Name == name {
+		if it.GetName() == name {
 			taget = append(taget, it)
 		} else {
 			others = append(others, it)

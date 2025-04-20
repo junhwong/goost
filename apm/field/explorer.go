@@ -109,7 +109,7 @@ func (v *explorer) VisitMemberExpr(e jsonpath.MemberExpr) {
 	k := string(e)
 	var tmp []*Field
 	for _, f := range v.current {
-		if f.Name == k {
+		if f.GetName() == k {
 			tmp = append(tmp, f)
 		}
 	}
@@ -125,7 +125,7 @@ func (v *explorer) VisitMemberExpr(e jsonpath.MemberExpr) {
 	}
 
 	for _, g := range p {
-		if g.Type == InvalidKind { // 新创建
+		if g.GetType() == InvalidKind { // 新创建
 			g.SetKind(GroupKind, false, false)
 		}
 		n := Make(k)
@@ -177,10 +177,10 @@ func (v *explorer) VisitIndexExpr(e jsonpath.IndexExpr) {
 			// 刚好在数组尾部，则新增
 			f := Make("")
 			if !it.IsNull() {
-				f.Type = it.Items[0].Type
+				f.kind = it.Items[0].GetType()
 			}
 			it.Append(f)
-			f.Type = InvalidKind
+			f.kind = InvalidKind
 			tmp = append(tmp, f)
 		}
 	}
@@ -211,10 +211,10 @@ func (v *explorer) VisitEmptyGroup(e *jsonpath.EmptyGroup) {
 		}
 		f := Make("")
 		if !it.IsNull() { // 临时处理 hack column类型验证
-			f.Type = it.Items[0].Type
+			f.kind = it.Items[0].GetType()
 		}
 		it.Append(f)
-		f.Type = InvalidKind
+		f.kind = InvalidKind
 		tmp = append(tmp, f)
 	}
 	v.current = tmp

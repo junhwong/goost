@@ -26,7 +26,7 @@ enum Type {
 }
 
 message Value {
-  bool nullValue = 10;
+  int32 flagValue = 10;             // 标志. column,-inf,+inf,nan,null,
   optional int64 intValue = 11;     // 基值. 整数
   optional uint64 uintValue = 12;   // 基值. 无符号整数
   optional double floatValue = 13;  // 基值. 浮点数

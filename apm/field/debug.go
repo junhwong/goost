@@ -35,11 +35,11 @@ func toString(f *Field, ident int) string {
 		}
 		v += "\n"
 		v += is + "}"
-	case f.Type == BytesKind:
+	case f.GetType() == BytesKind:
 		v = is + "<bytes>"
 	default:
 		v = fmt.Sprintf("%v", GetValue(f))
 	}
 
-	return fmt.Sprintf("%vField(Name:%v type: %v %v value: %v)", is, f.Name, f.Type, num, v)
+	return fmt.Sprintf("%vField(Name:%v type: %v %v value: %v)", is, f.GetName(), f.GetType(), num, v)
 }

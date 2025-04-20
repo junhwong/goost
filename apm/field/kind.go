@@ -1,25 +1,30 @@
 package field
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
+
+type Type byte
 
 const (
-	InvalidKind  = Type_UNKNOWN
-	StringKind   = Type_STRING
-	IntKind      = Type_INT
-	UintKind     = Type_UINT
-	FloatKind    = Type_FLOAT
-	BoolKind     = Type_BOOL
-	TimeKind     = Type_TIMESTAMP
-	DurationKind = Type_DURATION
-	BytesKind    = Type_BYTES
-	IPKind       = Type_IP
-	LevelKind    = Type_LOGLEVEL
-	GroupKind    = Type_GROUP
-	ArrayKind    = Type_ARRAY
+	InvalidKind Type = iota
+	GroupKind
+	ArrayKind
+	StringKind
+	IntKind
+	UintKind
+	FloatKind
+	BoolKind
+	TimeKind
+	DurationKind
+	BytesKind
+	IPKind
+	LevelKind
 )
 
 func ParseType(v any) Type {
-	var n int32
+	var n Type
 	switch v := v.(type) {
 	case string:
 		v = strings.ToUpper(v)
@@ -33,14 +38,58 @@ func ParseType(v any) Type {
 		case "STR":
 			v = "STRING"
 		}
-		n = int32(ParseType(Type_value[v]))
+		n = Type_value[v]
 	case int:
-		n = int32(v)
+		n = Type(v)
 	case int32:
-		n = v
+		n = Type(v)
+	default:
+		n = 0
 	}
 	if _, ok := Type_name[n]; ok {
 		return Type(n)
 	}
 	return InvalidKind
+}
+
+// Enum value maps for Type.
+var (
+	Type_name = map[Type]string{
+		0:            "UNKNOWN",
+		GroupKind:    "GROUP",
+		ArrayKind:    "ARRAY",
+		StringKind:   "STRING",
+		BoolKind:     "BOOL",
+		IntKind:      "INT",
+		UintKind:     "UINT",
+		FloatKind:    "FLOAT",
+		TimeKind:     "TIMESTAMP",
+		DurationKind: "DURATION",
+		BytesKind:    "BYTES",
+		LevelKind:    "LOGLEVEL",
+		IPKind:       "IP",
+	}
+	Type_value = map[string]Type{
+		"UNKNOWN":   0,
+		"GROUP":     GroupKind,
+		"ARRAY":     ArrayKind,
+		"STRING":    StringKind,
+		"BOOL":      BoolKind,
+		"INT":       IntKind,
+		"UINT":      UintKind,
+		"FLOAT":     FloatKind,
+		"TIMESTAMP": TimeKind,
+		"DURATION":  DurationKind,
+		"BYTES":     BytesKind,
+		"LOGLEVEL":  LevelKind,
+		"IP":        IPKind,
+	}
+)
+
+func (x Type) String() string {
+	s, ok := Type_name[x]
+	if !ok {
+		return "Type(" + strconv.FormatInt(int64(x), 10) + ")"
+	}
+	return s
 }

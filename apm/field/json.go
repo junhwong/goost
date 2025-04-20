@@ -88,7 +88,7 @@ func (m *JsonMarshaler) writeGroup(fs []*Field) {
 	m.ident += 2
 
 	for _, it := range items {
-		if it.Type == InvalidKind {
+		if it.GetType() == InvalidKind {
 			continue
 		}
 		name := it.GetName()
@@ -136,7 +136,7 @@ func (m *JsonMarshaler) writeArray(fs []*Field) {
 	}
 	m.ident += 2
 	for _, it := range fs {
-		if it.Type == InvalidKind {
+		if it.GetType() == InvalidKind {
 			continue
 		}
 
@@ -166,7 +166,7 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 		return
 	}
 
-	if f.Type == InvalidKind {
+	if f.GetType() == InvalidKind {
 		return
 	}
 
@@ -202,7 +202,7 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 		return
 	}
 
-	switch f.Type {
+	switch f.GetType() {
 	case IntKind:
 		v := f.GetInt()
 		befor()
@@ -288,15 +288,15 @@ func (m *JsonMarshaler) write(f *Field, befor func()) {
 		m.err = benc.Close()
 		m.writeBytes([]byte(`"`))
 	default:
-		panic("todo:" + f.Type.String())
+		panic("todo:" + f.GetType().String())
 	}
 }
 
 func NameLess(a, b *Field) int {
-	if a.Name == b.Name {
+	if a.GetName() == b.GetName() {
 		return 0
 	}
-	if a.Name < b.Name {
+	if a.GetName() < b.GetName() {
 		return -1
 	}
 	return 1
