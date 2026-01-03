@@ -127,6 +127,9 @@ func ParseLayout(a ...string) []string {
 	}
 	var layouts []string
 	for _, l := range a {
+		if l == "" {
+			continue
+		}
 		if p, ok := timeLayoutMap[strings.ToLower(l)]; ok {
 			layouts = append(layouts, p...)
 			continue
