@@ -284,9 +284,9 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 			f.SetIP(ip)
 			return nil
 		}
-	case GroupKind:
+	case DictKind:
 		switch {
-		case f.IsGroup():
+		case f.IsDict():
 			if len(layouts) == 0 {
 				return nil
 			}
@@ -295,10 +295,10 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 				group := false
 				array := false
 				for _, it := range f.Items {
-					if it.IsArray() {
+					if it.IsList() {
 						array = true
 					}
-					if it.IsGroup() {
+					if it.IsDict() {
 						group = true
 					}
 				}
@@ -315,11 +315,11 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 				ToRowTable(f, items)
 				return nil
 			}
-		case f.IsArray():
+		case f.IsList():
 			// todo 目前只是单纯的转换
 			ItemsCopy := make([]*Field, len(f.Items))
 			copy(ItemsCopy, f.Items)
-			f.SetGroup(nil)
+			f.SetDict(nil)
 			for i, it := range ItemsCopy {
 				if it.GetName() == "" {
 					it.SetName(strconv.Itoa(i))
@@ -337,9 +337,12 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 				f.Set(it)
 			}
 			return nil
+		case f.IsNull():
+			f.SetDict(nil)
+			return nil
 		}
-	case ArrayKind:
-		if f.IsGroup() {
+	case ListKind:
+		if f.IsDict() {
 			var l string
 			if len(layouts) != 0 { // todo 多好个layout
 				l = layouts[0]
@@ -349,10 +352,10 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 				group := false
 				array := false
 				for _, it := range f.Items {
-					if it.IsArray() {
+					if it.IsList() {
 						array = true
 					}
-					if it.IsGroup() {
+					if it.IsDict() {
 						group = true
 					}
 				}
@@ -376,17 +379,17 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 				return fmt.Errorf("field:转换为RowTable失败: %v", "不支持的field类型")
 			}
 		}
-		if f.IsArray() {
+		if f.IsList() {
 			// todo 处理 layouts
 			return nil
 		}
 		// todo 处理 layouts
 		if f.IsNull() || (f.GetType() == StringKind && f.GetString() == "") {
-			f.SetArray(nil)
+			f.SetList(nil)
 			return nil
 		}
 		c := Clone(f)
-		f.SetArray([]*Field{c})
+		f.SetList([]*Field{c})
 		return nil
 	}
 
@@ -396,14 +399,14 @@ func As(f *Field, target Type, layouts []string, loc *stdtime.Location, baseTime
 func ToRowTable(dest *Field, cols []*Field) {
 	if len(cols) == 0 {
 		log.Error("ToRowTable: empty cols")
-		dest.SetArray(nil, false)
+		dest.SetList(nil, false)
 		return
 	}
 	rows := []*Field{}
 	colcnt := len(cols)
 	rowcnt := len(cols[0].Items) // 行数
 	for i := 0; i < rowcnt; i++ {
-		row := Make(dest.GetName()).SetKind(GroupKind, false, false)
+		row := Make(dest.GetName()).SetKind(DictKind, false, false)
 		for j := 0; j < colcnt; j++ {
 			f := cols[j].Items[i]
 			f.SetName(cols[j].GetName())
@@ -411,5 +414,5 @@ func ToRowTable(dest *Field, cols []*Field) {
 		}
 		rows = append(rows, row)
 	}
-	dest.SetArray(rows, false)
+	dest.SetList(rows, false)
 }

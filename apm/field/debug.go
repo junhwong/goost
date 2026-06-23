@@ -14,7 +14,7 @@ func toString(f *Field, ident int) string {
 	}()
 
 	switch {
-	case f.IsArray():
+	case f.IsList():
 		num = fmt.Sprintf(" len: %v", len(f.Items))
 		v = "[\n"
 		for i, f2 := range f.Items {
@@ -25,7 +25,7 @@ func toString(f *Field, ident int) string {
 		}
 		v += "\n"
 		v += is + "]"
-	case f.IsGroup():
+	case f.IsDict():
 		v = "{\n"
 		for i, f2 := range f.Items {
 			if i != 0 {

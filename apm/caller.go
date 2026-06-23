@@ -92,7 +92,7 @@ func WithCaller(depth int) funcSpanOption {
 		ci := CallerInfo{}
 		doCaller(depth+1, &ci)
 		span.source = field.Make("source")
-		span.source.SetKind(field.GroupKind, false, false)
+		span.source.SetKind(field.DictKind, false, false)
 		span.source.Set(field.Make("file").SetString(ci.File))
 		span.source.Set(field.Make("line").SetInt(int64(ci.Line)))
 		span.source.Set(field.Make("func").SetString(ci.Method))

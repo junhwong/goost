@@ -36,7 +36,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 
 	// 测试用例：包含所有支持类型的Field
 	field := &Field{
-		kind:    GroupKind,
+		kind:    DictKind,
 		typFlag: 0,
 		Items: []*Field{
 			{kind: StringKind, name: "str", strVal: "hello"},
@@ -50,7 +50,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 			{kind: IPKind, name: "ip", bytesVal: []byte{127, 0, 0, 1}},
 			{kind: LevelKind, name: "level", intVal: 2},
 			{
-				kind: ArrayKind,
+				kind: ListKind,
 				Items: []*Field{
 					{kind: IntKind, intVal: 1},
 					{kind: IntKind, intVal: 2},

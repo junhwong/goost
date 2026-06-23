@@ -16,13 +16,13 @@ func TestMarshalJson(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(t, `"world"`, b.String())
-	f.SetArray([]*Field{Make("hello2").SetString("world1"), Make("hello2").SetString("world2")})
+	f.SetList([]*Field{Make("hello2").SetString("world1"), Make("hello2").SetString("world2")})
 	b.Reset()
 	if _, err := m.Marshal(f, b); err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, `["world1","world2"]`, b.String())
-	f.SetGroup([]*Field{Make("hello1").SetString("world1"), Make("hello2").SetString("world2")})
+	f.SetDict([]*Field{Make("hello1").SetString("world1"), Make("hello2").SetString("world2")})
 	b.Reset()
 	if _, err := m.Marshal(f, b); err != nil {
 		t.Fatal(err)

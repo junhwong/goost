@@ -8,6 +8,7 @@ import (
 
 	"github.com/junhwong/goost/apm/field/loglevel"
 	"github.com/junhwong/goost/apm/field/times"
+	"github.com/spf13/cast"
 )
 
 type Field struct {
@@ -38,7 +39,7 @@ const (
 
 func (f *Field) SetName(n string) {
 	f.name = n
-	if f.IsArray() {
+	if f.IsList() {
 		for _, it := range f.Items {
 			it.SetName(n)
 		}
@@ -90,23 +91,23 @@ func (f *Field) SetNull(b bool) *Field {
 
 // 是否是集合(array或group)
 func (f *Field) IsCollection() bool {
-	return f.IsArray() || f.IsGroup()
+	return f.IsList() || f.IsDict()
 }
 
 // 是否是字典类型.
-func (f *Field) IsGroup() bool {
+func (f *Field) IsDict() bool {
 	if f == nil {
 		return false
 	}
-	return f.kind == GroupKind
+	return f.kind == DictKind
 }
 
 // 是否是数组(array或column)
-func (f *Field) IsArray() bool {
+func (f *Field) IsList() bool {
 	if f == nil {
 		return false
 	}
-	return f.kind == ArrayKind
+	return f.kind == ListKind
 }
 
 // 是否是列(统一类型的数组).
@@ -329,15 +330,15 @@ func (f *Field) isKind(t Type) bool {
 }
 
 func (f *Field) GetItem(k string) *Field {
-	if !f.IsGroup() {
-		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.kind))
+	if !f.IsDict() {
+		panic(fmt.Errorf("类型不匹配:必须是%v,%v", DictKind, f.kind))
 	}
 	return GetLast(f.Items, k)
 }
 
 func (f *Field) RemoveItem(k string) (dst *Field) {
-	if !f.IsGroup() {
-		panic(fmt.Errorf("类型不匹配:必须是%v,%v", GroupKind, f.kind))
+	if !f.IsDict() {
+		panic(fmt.Errorf("类型不匹配:必须是%v,%v", DictKind, f.kind))
 	}
 	for _, it := range Get(f.Items, k) {
 		dst = it.Remove()
@@ -345,13 +346,13 @@ func (f *Field) RemoveItem(k string) (dst *Field) {
 	return
 }
 
-func (f *Field) SetArray(v []*Field, isColumn ...bool) *Field {
+func (f *Field) SetList(v []*Field, isColumn ...bool) *Field {
 	f.resetValue()
 	b := false
 	if len(isColumn) > 0 {
 		b = isColumn[len(isColumn)-1]
 	}
-	f.SetKind(ArrayKind, b, false)
+	f.SetKind(ListKind, b, false)
 	f.SetNull(v == nil)
 	if f.IsNull() {
 		return f
@@ -365,7 +366,7 @@ func (f *Field) SetArray(v []*Field, isColumn ...bool) *Field {
 
 // 将元素添加到数组末尾
 func (f *Field) Append(n *Field) {
-	if !f.IsArray() {
+	if !f.IsList() {
 		panic(fmt.Errorf("元素的类型不是数组: %v", f.kind))
 	}
 
@@ -379,13 +380,13 @@ func (f *Field) Append(n *Field) {
 	f.Items = append(f.Items, n)
 }
 
-func (f *Field) SetGroup(v []*Field, isTable ...bool) *Field {
+func (f *Field) SetDict(v []*Field, isTable ...bool) *Field {
 	b := false
 	if len(isTable) > 0 {
 		b = isTable[len(isTable)-1]
 	}
 	f.resetValue()
-	f.SetKind(GroupKind, false, b)
+	f.SetKind(DictKind, false, b)
 	f.SetNull(v == nil) //len(v) == 0
 	if f.IsNull() {
 		return f
@@ -398,8 +399,8 @@ func (f *Field) SetGroup(v []*Field, isTable ...bool) *Field {
 }
 
 func (f *Field) Set(n *Field) {
-	if !f.IsGroup() {
-		panic(fmt.Errorf("元素的类型不是Group: %v", f.kind))
+	if !f.IsDict() {
+		panic(fmt.Errorf("元素的类型不是Dict: %v", f.kind))
 	}
 	f.SetNull(false)
 	n.Parent = f
@@ -453,6 +454,42 @@ func (f *Field) Sort(less func(a, b *Field) int) {
 	}
 }
 
+func LessWithName(san bool) func(a, b *Field) int {
+	return func(a, b *Field) int {
+		as := a.GetName()
+		bs := b.GetName()
+		cms := func() int {
+			if as < bs {
+				return -1
+			}
+			if as > bs {
+				return 1
+			}
+
+			return 0
+		}
+		if !san {
+			return cms()
+		}
+		an, err := cast.ToFloat64E(as)
+		if err != nil {
+			return cms()
+		}
+		bn, err := cast.ToFloat64E(bs)
+		if err != nil {
+			return cms()
+		}
+		if an < bn {
+			return -1
+		}
+		if an > bn {
+			return 1
+		}
+
+		return 0
+	}
+}
+
 func RemoveAt[T any](i int, tmp []T) ([]T, T, bool) {
 	// slices.DeleteFunc(tmp, func(t T) bool {
 	// 	return true
@@ -477,7 +514,7 @@ func GetValue(f *Field) any {
 	if f.IsNull() {
 		return nil
 	}
-	if f.IsArray() { // todo 构造具体类型,如 []string
+	if f.IsList() { // todo 构造具体类型,如 []string
 		var objs []any
 		for _, it := range f.Items {
 			if it.kind == InvalidKind {
@@ -488,7 +525,7 @@ func GetValue(f *Field) any {
 		return objs
 	}
 
-	if f.IsGroup() {
+	if f.IsDict() {
 		obj := map[string]any{}
 		for _, it := range f.Items {
 			if it.kind == InvalidKind {
@@ -533,7 +570,7 @@ func GetPrimitiveValue(f *Field) any {
 		return f.GetIP()
 	case LevelKind:
 		return f.GetLevel()
-	case GroupKind:
+	case DictKind:
 		return nil
 	default:
 		panic(fmt.Sprintf("未定义:%#v", f))

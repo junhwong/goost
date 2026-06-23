@@ -152,7 +152,7 @@ func (l *factoryEntry) Log(level loglevel.Level, args []interface{}) {
 
 func MakeSource(file string, line int, fn string) *field.Field {
 	f := field.Make("source")
-	f.SetKind(field.GroupKind, false, false)
+	f.SetKind(field.DictKind, false, false)
 	f.Set(field.Make("file").SetString(file))
 	f.Set(field.Make("line").SetInt(int64(line)))
 	f.Set(field.Make("func").SetString(fn))
@@ -161,11 +161,11 @@ func MakeSource(file string, line int, fn string) *field.Field {
 
 func do(level loglevel.Level, entry *field.Field, calldepth int, ctxs []context.Context, args []interface{}, befor func()) {
 	info := entry.GetItem("source")
-	if info == nil || !info.IsGroup() {
+	if info == nil || !info.IsDict() {
 		ci := CallerInfo{}
 		doCaller(calldepth, &ci)
 		info := field.Make("source")
-		info.SetKind(field.GroupKind, false, false)
+		info.SetKind(field.DictKind, false, false)
 		info.Set(field.Make("file").SetString(ci.File))
 		info.Set(field.Make("line").SetInt(int64(ci.Line)))
 		info.Set(field.Make("func").SetString(ci.Method))

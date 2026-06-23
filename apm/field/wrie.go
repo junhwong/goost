@@ -64,10 +64,10 @@ func Marshal(f *Field, buf *buffering.Buffer, keepName bool) (err error) {
 		}
 
 		switch f.kind {
-		case ArrayKind, GroupKind:
+		case ListKind, DictKind:
 			write(AppendVarint(nil, uint64(len(f.Items))))
 			for _, v := range f.Items {
-				writeType(v, f.kind == GroupKind)
+				writeType(v, f.kind == DictKind)
 			}
 		case StringKind, IntKind, UintKind, FloatKind, BoolKind, TimeKind, DurationKind, BytesKind, IPKind, LevelKind:
 		default:
@@ -119,7 +119,7 @@ func Marshal(f *Field, buf *buffering.Buffer, keepName bool) (err error) {
 			write(ip)
 		case LevelKind:
 			write(AppendVarint(nil, uint64(f.GetLevel())))
-		case ArrayKind, GroupKind:
+		case ListKind, DictKind:
 			write(AppendVarint(nil, uint64(len(f.Items))))
 			for _, v := range f.Items {
 				writeVal(v)
@@ -192,7 +192,7 @@ func Unmarshal(buf *buffering.Buffer, f *Field) (err error) {
 
 		// 处理子类型
 		switch parent.kind {
-		case ArrayKind, GroupKind:
+		case ListKind, DictKind:
 			n := readLen()
 			if n < 0 {
 				return
@@ -286,7 +286,7 @@ func Unmarshal(buf *buffering.Buffer, f *Field) (err error) {
 				err = e
 				return
 			}
-		case ArrayKind, GroupKind:
+		case ListKind, DictKind:
 			count := readLen()
 			if count < 0 {
 				return

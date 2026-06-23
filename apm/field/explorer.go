@@ -126,7 +126,7 @@ func (v *explorer) VisitMemberExpr(e jsonpath.MemberExpr) {
 
 	for _, g := range p {
 		if g.GetType() == InvalidKind { // 新创建
-			g.SetKind(GroupKind, false, false)
+			g.SetKind(DictKind, false, false)
 		}
 		n := Make(k)
 		g.Set(n)
@@ -147,14 +147,14 @@ func (v *explorer) VisitStringExpr(e jsonpath.StringExpr) {
 
 // 改变类型为数组
 func (v *explorer) changeToArray(it *Field) bool {
-	if it.IsArray() {
+	if it.IsList() {
 		return true
 	}
 	if v.readonly {
 		return false
 	}
 
-	it.SetArray(nil) // todo 强制设置为数组,搞个开关
+	it.SetList(nil) // todo 强制设置为数组,搞个开关
 	return true
 }
 
@@ -204,8 +204,8 @@ func (v *explorer) VisitEmptyGroup(e *jsonpath.EmptyGroup) {
 	panic("not implemented")
 	var tmp []*Field
 	for _, it := range v.current {
-		if !it.IsArray() {
-			it.SetArray(nil) // todo 强制设置为数组,搞个开关
+		if !it.IsList() {
+			it.SetList(nil) // todo 强制设置为数组,搞个开关
 			// tmp = append(tmp, it)
 			// continue
 		}

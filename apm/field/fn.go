@@ -75,7 +75,7 @@ func Release(fs ...*Field) {
 
 func MakeRoot() *Field {
 	f := Make("")
-	f.SetKind(GroupKind, false, false)
+	f.SetKind(DictKind, false, false)
 	f.SetNull(false)
 	return f
 }
@@ -159,9 +159,9 @@ func Any(name string, v any, allows ...Type) *Field {
 		for _, it := range v {
 			fs = append(fs, Any("", it))
 		}
-		return dst.SetArray(fs)
+		return dst.SetList(fs)
 	case map[string]any:
-		if !allow(iv, GroupKind) {
+		if !allow(iv, DictKind) {
 			return dst
 		}
 		fs := []*Field{}
@@ -172,7 +172,7 @@ func Any(name string, v any, allows ...Type) *Field {
 			}
 			fs = append(fs, it)
 		}
-		dst.SetGroup(fs, false)
+		dst.SetDict(fs, false)
 		return dst
 	case reflect.Value:
 		rv = v
@@ -204,10 +204,10 @@ func Any(name string, v any, allows ...Type) *Field {
 			}
 			t = it.GetType()
 		}
-		dst.SetArray(fs, same)
+		dst.SetList(fs, same)
 		return dst
 	case reflect.Map:
-		if !allow(iv, GroupKind) {
+		if !allow(iv, DictKind) {
 			return dst
 		}
 		fs := []*Field{}
@@ -227,7 +227,7 @@ func Any(name string, v any, allows ...Type) *Field {
 			}
 			fs = append(fs, it)
 		}
-		dst.SetGroup(fs, false)
+		dst.SetDict(fs, false)
 		return dst
 	case reflect.Struct:
 		panic("todo")

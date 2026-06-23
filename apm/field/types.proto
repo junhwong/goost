@@ -7,8 +7,8 @@ option go_package = "apm/field";
 // 必须是通用且最具需要规范定义的类型
 enum Type {
   UNKNOWN = 0;   // 未知
-  GROUP = 1;     // 字典
-  ARRAY = 2;     // 任意类型. 只适合 list使用
+  DICT = 1;     // 字典
+  LIST = 2;     // 任意类型. 只适合 list使用
   STRING = 3;    // 字符串
   BOOL = 4;      // 布尔值 int64 0, ~0
   INT = 5;       // 整数 int64

@@ -120,7 +120,7 @@ func (tf *TextFormatter) Format(entry *field.Field, dest *bytes.Buffer) (err err
 		writeByte(' ')
 	}
 
-	if f := entry.GetItem("source"); f != nil && f.IsGroup() {
+	if f := entry.GetItem("source"); f != nil && f.IsDict() {
 		if ff := f.GetItem("file"); ff != nil {
 			fprintf(tf.getFileName(ff.GetString()))
 			if fl := f.GetItem("line"); fl != nil {

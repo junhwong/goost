@@ -9,8 +9,8 @@ type Type byte
 
 const (
 	InvalidKind Type = iota
-	GroupKind
-	ArrayKind
+	DictKind
+	ListKind
 	StringKind
 	IntKind
 	UintKind
@@ -56,8 +56,8 @@ func ParseType(v any) Type {
 var (
 	Type_name = map[Type]string{
 		0:            "UNKNOWN",
-		GroupKind:    "GROUP",
-		ArrayKind:    "ARRAY",
+		DictKind:     "DICT",
+		ListKind:     "LIST",
 		StringKind:   "STRING",
 		BoolKind:     "BOOL",
 		IntKind:      "INT",
@@ -71,8 +71,11 @@ var (
 	}
 	Type_value = map[string]Type{
 		"UNKNOWN":   0,
-		"GROUP":     GroupKind,
-		"ARRAY":     ArrayKind,
+		"MAP":       DictKind,
+		"GROUP":     DictKind,
+		"ARRAY":     ListKind,
+		"DICT":      DictKind,
+		"LIST":      ListKind,
 		"STRING":    StringKind,
 		"BOOL":      BoolKind,
 		"INT":       IntKind,

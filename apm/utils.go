@@ -15,13 +15,15 @@ func PanicIf(err error) {
 }
 
 type closeLogger interface {
-	Error(...interface{})
-	Debug(...interface{})
+	Error(...any)
+	Debug(...any)
 }
+
+var closebuf = make([]byte, 5)
 
 // 安全关闭资源。如果有返回错误则记录, 如果fn返回错误将记录并返回 true, 否则返回false
 // todo: 记录调用方行号
-func Close(closer interface{}, log ...closeLogger) (b bool) {
+func Close(closer any, log ...closeLogger) (b bool) {
 	if closer == nil {
 		return false
 	}
@@ -32,7 +34,9 @@ func Close(closer interface{}, log ...closeLogger) (b bool) {
 			logErr(fmt.Errorf("recovered: %s", debug.Stack()), log, false)
 		}
 	}()
-
+	if r, _ := closer.(io.Reader); r != nil {
+		_, _ = io.ReadAtLeast(r, closebuf, 1)
+	}
 	if c, _ := closer.(io.Closer); c != nil {
 		return logErr(c.Close(), log, false)
 
